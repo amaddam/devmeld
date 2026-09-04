@@ -2,10 +2,12 @@
 
 **Input**: Design documents in `specs/001-foundation-context/`  
 **Created**: 2026-09-02  
-**Status**: Ready for implementation review; no task has been executed
+**Status**: Proposed tool/dependency-guidance Product change pending Maintainer
+review; no task has been executed
 
 **Prerequisites**: [Spec](spec.md), [Plan](plan.md), [Domain Model](data-model.md),
 [Research](research.md), [Context Semantics](context-semantics.md), and
+[Tool/Dependency Guidance](tool-use-semantics.md), and
 [Acceptance Guide](quickstart.md). Gate 1 and Gate 2 are accepted in
 [ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md) and
 [ADR-0002](../../docs/adr/0002-initial-python-runtime.md). The
@@ -75,8 +77,8 @@ relationship to the implementation about to begin.
 lifecycle, negative constraint, and design-only/implemented classification
 without running an adapter or inspecting a future workflow.
 
-- [ ] T006 [P] [US1] Cross-check the existing ownership, lifecycle, and invariant inventory in `specs/001-foundation-context/data-model.md` against the Spec and record the reviewed document revisions in `specs/001-foundation-context/quickstart.md`; preserve both supporting-domain designs without creating implementation work for them.
-- [ ] T007 [P] [US1] Verify the accepted ADR links, scoped Gate 3, demand-created layers, deferred protocols, and the FR-018 extension rule against `specs/001-foundation-context/plan.md`, and record the implementation-start review in `specs/001-foundation-context/checklists/requirements.md`; do not mark unbuilt behavior as accepted.
+- [ ] T006 [P] [US1] Cross-check the existing ownership, lifecycle, and invariant inventory in `specs/001-foundation-context/data-model.md`, including the proposed tool/dependency guidance in `specs/001-foundation-context/tool-use-semantics.md`, against the Spec and accepted Product rules; record the reviewed document revisions in `specs/001-foundation-context/quickstart.md` while preserving both supporting domains without creating implementation work for them or treating the proposal as accepted.
+- [ ] T007 [P] [US1] Verify the accepted ADR links, scoped Gate 3, pending Maintainer status and separate selection/change authority of the tool/dependency-guidance proposal, demand-created layers, deferred protocols, and the FR-018 extension rule against `specs/001-foundation-context/plan.md`, and record the implementation-start review in `specs/001-foundation-context/checklists/requirements.md`; do not mark proposed Product behavior as accepted or supporting-domain behavior as implemented.
 
 **Checkpoint**: US1's design review is traceable. No speculative schema,
 Capability concept, application API, or supporting-domain task has been added.
@@ -133,7 +135,7 @@ Architecture probes operate only on isolated test fixtures.
 - [ ] T025 [P] [US3] Add focused adversarial regressions in `tests/unit/test_core_safety.py` for invalid-selection no-fallback, reordered candidates, changed observations/revisions, portable/local separation, and conflicting provenance dimensions; verify that query-derived facts never replace source truth or mutate stored domain facts.
 - [ ] T026 [US3] Add Import Linter to `pyproject.toml` only after Phase 4 and configure the minimum accepted dependency contracts: core-to-adapter/entrypoint, application-to-concrete-adapter where an application package exists, and cross-domain-internal imports; make optional-package absence valid without weakening constraints or creating placeholder production layers.
 - [ ] T027 [US3] Implement `tests/architecture/test_dependency_contracts.py` after T026, exercising the actual configured contract rules against temporary fixture graphs with each forbidden import and legitimate inward/public-fact use; assert the expected violated contract, not just a nonzero exit caused by malformed configuration, and keep seeded modules outside production source.
-- [ ] T028 [P] [US3] Implement `tests/architecture/test_scope_boundaries.py` to detect out-of-scope supporting packages, Capability-selection placeholders, public protocol artifacts, and empty optional application layers within production source and this Feature's artifacts; exclude Spec Kit/tool templates from the scan and do not add line-count, complexity, or pattern-count rules as substitutes for semantic review.
+- [ ] T028 [P] [US3] Implement `tests/architecture/test_scope_boundaries.py` to detect out-of-scope supporting packages, Capability-selection or tool-guidance placeholders, public protocol artifacts, and empty optional application layers within production source and this Feature's artifacts; exclude Spec Kit/tool templates and the design-only `specs/001-foundation-context/tool-use-semantics.md` artifact from production-code findings, and do not add line-count, complexity, or pattern-count rules as substitutes for semantic review.
 - [ ] T029 [US3] Review invariant ownership and every actual application/port component against `specs/001-foundation-context/data-model.md` and record findings in `specs/001-foundation-context/quickstart.md`; verify coordination is real, no service merely forwards domain calls, and no conditional port/contract task remains unfinished before claiming US3 complete.
 
 **Checkpoint**: Safety tests pass, every seeded forbidden dependency is detected
@@ -143,7 +145,7 @@ absent unless justified. A passing scan over an empty graph is not evidence.
 ## Phase 6: Verification and Handoff
 
 - [ ] T030 Run the Engineering Guide's Ruff format/check, mypy, pytest, and now-active `lint-imports` sequence, plus each core domain's unit suite independently, and record commands, results, interpreter/tool versions, and tested/unverified platforms in `specs/001-foundation-context/quickstart.md`; do not claim cross-platform or production integration coverage that was not run.
-- [ ] T031 Reconcile implemented filenames, shared-kernel admissions, and actual conditional-layer/port decisions in `specs/001-foundation-context/plan.md`; remove stale claims of mandatory scaffolding and confirm the implementation has not expanded the Spec or either supporting domain.
+- [ ] T031 Reconcile implemented filenames, shared-kernel admissions, and actual conditional-layer/port decisions in `specs/001-foundation-context/plan.md`; remove stale claims of mandatory scaffolding and confirm the implementation has not expanded the Spec, either supporting domain, or design-only tool/dependency guidance.
 - [ ] T032 Prepare the final evidence-backed review submission in `specs/001-foundation-context/quickstart.md`, referencing all Spec success criteria and ADR revisions; distinguish completed implementation checks from the Maintainer's final ACCEPT/REVISE decision, and leave that approval for the Maintainer rather than self-ratifying it.
 
 ## Dependencies and Execution Order
@@ -190,7 +192,7 @@ Setup: T001 -> T002
 
 | Scope | Evidence tasks |
 | --- | --- |
-| FR-001–004, FR-009, FR-018; SC-001–002 | T006–T007, T031: existing domain map, lifecycles, ownership and extension review |
+| FR-001–004, FR-009, FR-018, FR-022; SC-001–002, SC-011 | T006–T007, T031: existing domain map, lifecycles, ownership, extension review, and design-only tool/dependency guidance |
 | FR-005–006, FR-019–021; SC-003, SC-009 | T007, T009, T016, T023, T028–T029, T032: scoped implementation, gates and demand-created layers |
 | FR-007–008, FR-017; SC-008 | T003–T005, T023–T024, T027: stable boundaries, actual-need inventory and substitution evidence |
 | FR-010–011; SC-005 | T008–T009, T015–T017, T025: portability/authority; generated/rebuildability design reviewed in T006 without building storage or writes |

@@ -4,9 +4,10 @@
 
 **Created**: 2026-09-01
 
-**Last Updated**: 2026-09-02
+**Last Updated**: 2026-09-04
 
-**Status**: Design reviewed — architecture/runtime accepted; implementation not started
+**Status**: Proposed tool/dependency-guidance Product change prepared for
+Maintainer review; architecture/runtime accepted; implementation not started
 
 **Decision Record**: The project decision-maker accepted the two architecture
 and runtime proposals on 2026-09-02. Their owning ADRs and the still-deferred
@@ -50,6 +51,11 @@ forbidden ownership, and critical invariants.
 4. **Given** a supporting domain with no approved implementation need, **When**
    the foundation scope is reviewed, **Then** its design remains documented but
    no package, port, persistence abstraction, or test double is required.
+5. **Given** explicit and implicit tool-selection cases, **When** Capability
+   Integration is reviewed, **Then** project declarations, scoped local
+   observations, task requirements, selection authority, change authority, and
+   execution responsibility have distinct owners without requiring
+   supporting-domain code.
 
 ---
 
@@ -151,6 +157,16 @@ gate detects dependency reversal.
   though this feature does not implement that domain.
 - A future requirement does not fit an existing domain without weakening its
   invariants.
+- A user requires a particular tool that is unavailable, incompatible, or not
+  authorized for installation; the design must not substitute another option or
+  treat the requirement as installation permission.
+- A tool exists elsewhere on the machine or in another project's environment
+  but has not been verified in the current project and task scope.
+- No tool is selected and an existing project script or declared dependency can
+  satisfy the need, while an Agent proposes a duplicate dependency or parallel
+  environment.
+- A tool or dependency observation becomes stale, disappears, or disagrees with
+  the project's authoritative declarations.
 
 ## Requirements *(mandatory)*
 
@@ -223,13 +239,23 @@ gate detects dependency reversal.
   implemented scenario needs actual cross-object/domain coordination outside
   domain objects. Empty layers or pass-through services MUST NOT be created to
   mirror an architecture diagram; domain invariants MUST remain domain-owned.
+- **FR-022**: The Capability Integration design MUST prepare evidence-backed tool
+  and dependency guidance for Maintainer review. The proposal MUST honor
+  applicable explicit selections, otherwise prefer eligible options already
+  managed in the relevant project/task scope, distinguish project declarations
+  from local observations and verified availability, and keep selection
+  authority separate from change authority. A request to use an option MUST NOT
+  by itself authorize installation, dependency changes, environment creation,
+  or system modification. Any such change MUST remain an explained proposal
+  until separately authorized. The design MUST preserve project-owned sources
+  of truth and MUST NOT claim to execute or enforce the resulting choice.
 
 ### Scope Boundaries
 
 **Design scope** includes the complete five-domain map, ubiquitous language,
 ownership, invariants, state lifecycles, dependency direction, negative model
-constraints, and non-binding semantic sketches for future context and managed
-write behavior.
+constraints, and non-binding semantic sketches for future context, managed
+write behavior, and a proposed tool/dependency-guidance Product change.
 
 **Implementation scope** includes only the minimum pure domain foundation for
 Project Catalog, Local Context Resolution, and Context Knowledge; application
@@ -245,8 +271,10 @@ support. This delivery boundary does not narrow the full Product definition.
 
 It excludes production Git, Vault, filesystem, database, Codex, CLI, Desktop,
 and hosted-service adapters; Managed Materialization and Capability Integration
-code; capability-selection implementation; public machine contracts; complete
-search/read/relation workflows; generated Agent artifacts; and benchmark claims.
+code; capability-selection or tool-guidance implementation; environment or tool
+discovery; dependency installation or enforcement; public machine contracts;
+complete search/read/relation workflows; generated Agent artifacts; and
+benchmark claims.
 
 ### Key Concepts
 
@@ -263,8 +291,11 @@ search/read/relation workflows; generated Agent artifacts; and benchmark claims.
   preview, ownership, preconditions, manifest, conflict, verification, and
   reversal semantics.
 - **Capability Integration**: A design-only supporting domain boundary for
-  Capability Provider and Agent Client registration/compatibility. Any separate
-  `Capability` concept remains provisional until accepted in `docs/product.md`.
+  Capability Provider and Agent Client registration/compatibility plus a
+  proposed evidence-backed tool/dependency-guidance model. It does not own
+  project dependency declarations, installation, or execution. Neither the
+  guidance proposal nor any separate `Capability` concept becomes cross-feature
+  Product semantics before Maintainer approval.
 - **Task Context Validation**: Validation that distinguishes malformed or
   contradictory explicit selections from valid inputs that can be resolved.
 - **Active Checkout Resolution**: Resolved, Ambiguous, or Unavailable outcome
@@ -307,6 +338,13 @@ search/read/relation workflows; generated Agent artifacts; and benchmark claims.
 - **SC-010**: The implemented core foundation can be inspected and verified
   without a real Git Checkout, Vault, database, Agent Client, generated target,
   hosted service, or desktop application.
+- **SC-011**: A design review of at least four tool-selection cases—an available
+  explicit selection, an unavailable explicit selection, reuse without an
+  explicit selection, and a proposed new dependency—identifies the authoritative
+  inputs, project/task scope, selection authority, separate change authority,
+  and outcome basis without silent substitution, implicit installation
+  permission, duplicate environment creation, or supporting-domain
+  implementation.
 
 ## Assumptions
 
@@ -326,3 +364,10 @@ search/read/relation workflows; generated Agent artifacts; and benchmark claims.
   foundation; such work also needs an approved Feature scope.
 - Supporting-domain code and user-visible features will be planned separately
   when real requirements provide acceptance evidence.
+- Reuse means reuse within the relevant project and task environment, not
+  assuming that a machine-wide installation or another project's environment is
+  eligible.
+- A request to use a tool authorizes selection of that tool, not installation,
+  dependency changes, environment creation, or system modification. A required
+  change needs its own applicable authorization even when it is project- or
+  task-scoped.

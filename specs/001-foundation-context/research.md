@@ -2,8 +2,9 @@
 
 **Feature**: [Domain Foundation](spec.md)  
 **Date**: 2026-09-01  
-**Last Updated**: 2026-09-02  
-**Status**: Architecture/runtime accepted; Capability Product meaning remains deferred
+**Last Updated**: 2026-09-04
+**Status**: Architecture/runtime accepted; tool/dependency-guidance Product
+change proposed for Maintainer review; Capability Product meaning remains deferred
 
 This document records foundation reasoning. Accepted architecture/runtime
 decisions are owned by ADR-0001 and ADR-0002; detailed quality rules are owned by
@@ -303,6 +304,49 @@ machinery as demonstration code.
 - include a thin end-to-end workflow that bypasses unfinished domain rules;
 - create adapter-shaped fixtures unrelated to an implemented core invariant.
 
+## Decision 13: Model Tool and Dependency Guidance Without Implementing It
+
+**Status**: Proposed cross-feature Product behavior and supporting-domain detail
+prepared for Maintainer review; not accepted or recorded in `docs/product.md`.
+
+**Decision**: Extend the Capability Integration design with evidence-backed
+tool/dependency guidance. Preserve explicit applicable selections; otherwise
+prefer an eligible option already managed within the relevant project/task
+scope. Keep project declarations, local discovery, verified availability,
+compatibility, selection authority, and change authority as separate facts. A
+request to use an option controls selection but does not authorize installing
+it or changing a dependency, environment, or system. Treat any such change as a
+separate proposal rather than an existing option.
+
+Project manifests, lockfiles, maintained scripts, and configuration remain the
+sources of truth for project declarations. Local observations retain scope,
+source and freshness. DevMeld supplies the decision and evidence as context;
+Agent Clients remain responsible for invocation, installation, and enforcement.
+
+**Rationale**: The same access need may be satisfied by a command, an existing
+declared dependency, a maintained script, a runtime-provided solution, or a
+future provider. Choosing without project and environment evidence encourages
+duplicate dependencies and parallel environments. Treating guidance as context
+preserves DevMeld's boundary while still making the Agent's choice explainable.
+
+**Alternatives rejected**:
+
+- maintain a DevMeld-owned duplicate of every project's dependency inventory;
+- treat every executable, library, or script as a Capability Provider;
+- apply one universal command/library preference order across all projects;
+- treat machine-wide discovery as proof that an option is usable in the current
+  project or Checkout;
+- treat an explicit tool selection as authority for any installation,
+  dependency, environment, or system change, even a narrowly scoped one;
+- claim prompt guidance alone can enforce an Agent Client's execution behavior;
+- implement discovery adapters, installers, ports, or placeholder supporting
+  packages in the three-domain foundation.
+
+The non-binding design is recorded in
+[`tool-use-semantics.md`](tool-use-semantics.md). This decision does not resolve
+the standalone Product meaning of `Capability`, choose supported package
+ecosystems, or expand the implementation scope.
+
 ## Protected Decision Gates
 
 Gate 1 and Gate 2 were accepted on 2026-09-02 and are recorded in
@@ -322,6 +366,11 @@ Integration Feature. It does not block unrelated core task generation or
 acceptance. This foundation excludes Capability-dependent implementation and
 placeholders; approving Gate 3 alone does not expand its scope.
 
+The proposed tool/dependency-guidance rules do not resolve Gate 3. They describe
+how evidence and separate selection/change authority constrain a future tool
+choice without requiring a universal `Capability` entity or capability-selection
+implementation.
+
 The rationale is dependency-based governance: architecture and runtime affect
 the first code directly, whereas Capability-independent rules do not need a
 future Capability definition. The decision remains protected without forcing
@@ -332,6 +381,8 @@ does not accept Gate 3 or ratify the Constitution.
 
 Parser choice, CLI or desktop framework, physical storage schema, concrete Vault
 layout, context operations, paging, ranking, error catalogs, public protocol
-versioning, materialization operations, Codex rendering, benchmarks, and
-supporting-domain ports are intentionally deferred to the Features that need
-them. They are not unresolved requirements for this foundation.
+versioning, materialization operations, Codex rendering, benchmarks, supported
+dependency ecosystems, safe observation adapters, execution-client enforcement,
+tool-change authorization contracts, and supporting-domain ports are
+intentionally deferred to the Features that need them. They are not unresolved
+requirements for this foundation.

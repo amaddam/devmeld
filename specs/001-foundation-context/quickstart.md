@@ -1,8 +1,9 @@
 # Foundation Acceptance Guide
 
 **Feature**: [Domain Foundation](spec.md)  
-**Last Updated**: 2026-09-02  
-**Status**: Architecture/runtime accepted; verification becomes runnable after implementation  
+**Last Updated**: 2026-09-04
+**Status**: Proposed tool/dependency-guidance Product change prepared for
+Maintainer review; verification becomes runnable after implementation
 **Audience**: Maintainers and contributors reviewing the first code foundation
 
 ## What This Guide Proves
@@ -74,6 +75,32 @@ The Context Profile model retains its full Product design, but this foundation
 implements only identity, naming, Repository/Resource selections, and portable
 rules independent of Capability semantics. Do not introduce Capability-related
 placeholder fields, default-empty lists, no-op behavior, or test fixtures.
+
+### Review Tool and Dependency Guidance
+
+Review the proposed Product behavior in the
+[semantic sketch](tool-use-semantics.md) and its representation in the
+[Domain Model](data-model.md#tool-and-dependency-guidance) using at least these
+cases:
+
+1. an explicitly selected option is verified and eligible in the current scope;
+2. an explicitly selected option is unavailable or conflicts with a project
+   constraint;
+3. no option is selected and a maintained script or declared, verified
+   dependency already satisfies the need;
+4. no adequate existing option exists and a bounded dependency/environment
+   change is proposed;
+5. the only observation is global, from another project, or stale.
+
+For every case, identify the authoritative project declaration, local
+observation and freshness, project/task scope, selection authority, separate
+change authority, and execution owner. Reject silent substitution, duplicate
+dependency registries, implicit installation permission, and claims that
+DevMeld itself executed or enforced the choice.
+
+This is a design review only. Do not discover tools, inspect unrelated machine
+locations, create a Capability Integration package, or introduce a placeholder
+provider/port/fixture to perform it.
 
 ## 3. Review Task Context Semantics
 
@@ -218,6 +245,9 @@ The first code foundation passes only when:
   the shared kernel;
 - no `materialization/`, `capabilities/`, production `adapters/`, or
   `entrypoints/` package exists as empty architecture;
+- no tool/environment discovery, dependency installation, command execution,
+  enforcement integration, duplicate dependency registry, or tool-guidance
+  placeholder is implemented;
 - no public machine contract or real Git, Vault, filesystem, database, Codex,
   CLI, Desktop, or network behavior is claimed;
 - no benchmark improvement or user-visible workflow is claimed;
@@ -235,6 +265,8 @@ Architecture ADR revision (required):
 Runtime ADR revision (required):
 Context Profile acceptance scope: Capability-independent subset only
 Capability-dependent implementation: excluded; Gate 3 not required for this acceptance
+Tool/dependency-guidance Product proposal: accept / revise
+Tool/dependency-guidance implementation: excluded
 Verification command:
 Passing tests:
 Seeded dependency violations detected:
@@ -245,5 +277,5 @@ Notes:
 
 An ACCEPT decision means the three-domain code foundation is ready to support a
 later adapter-backed Feature. It does not approve either supporting-domain
-implementation, capability-selection behavior, the Capability Product meaning,
-or any future application protocol.
+implementation, capability-selection or tool-guidance behavior, the Capability
+Product meaning, or any future application protocol.

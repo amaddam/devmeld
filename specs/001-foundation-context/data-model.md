@@ -1,10 +1,10 @@
 # Conceptual Domain Model: DevMeld Foundation
 
 **Feature**: [Domain Foundation](spec.md)  
-**Status**: Reviewed foundation design; architecture/runtime accepted; five domains designed, three core domains selected for first implementation  
+**Status**: Reviewed foundation design; proposed tool/dependency-guidance Product change prepared for Maintainer review; architecture/runtime accepted; five domains designed, three core domains selected for first implementation
 **Date**: 2026-09-01
 
-**Last Updated**: 2026-09-02
+**Last Updated**: 2026-09-04
 
 ## Purpose
 
@@ -26,13 +26,15 @@ boundary; pure domain policies need no application wrapper.
 ## Context Map
 
 ```text
-Capability Integration ── capability registration facts ──┐
+Capability Integration ── capability/tool-guidance facts ─┐
                                                           │
 Project Catalog ── catalog selections and stable IDs ─────┼──> Context Knowledge
       │                                                   │
+      ├── project/resource facts ──> Capability Integration
       └── repository facts ──> Local Context Resolution ──┘
                                       │
-                                      └── resolution facts ──> Context Knowledge
+                                      ├── resolution facts ──> Context Knowledge
+                                      └── task/Checkout scope ──> Capability Integration
 
 Project Catalog ── profile/resource selections ───────────┐
 Context Knowledge ── context/resource snapshots ──────────┼──> Managed Materialization
@@ -50,7 +52,9 @@ module's storage adapter as an integration API.
 | Project Catalog | Context Profile selection | Context Knowledge | Selection is copied as an immutable request snapshot |
 | Local Context Resolution | Checkout resolution result | Context Knowledge | Result includes status, basis, candidates and observed revision |
 | Context Knowledge | Context/resource snapshot | Managed Materialization | Snapshot is input evidence, not mutable knowledge state |
-| Capability Integration | Provider, provisional capability-declaration, and Agent Client compatibility facts | Project Catalog / Managed Materialization | Design only; the standalone Product meaning of `Capability` requires Maintainer approval |
+| Project Catalog | Project/Resource identities and declared-source references | Capability Integration | Guidance scopes facts to their owner without redefining project dependency declarations |
+| Local Context Resolution | Task and resolved-Checkout scope | Capability Integration | Scope bounds local observations; it does not turn Checkout resolution into an environment manager |
+| Capability Integration | Provider, provisional capability-declaration, Agent Client compatibility, and tool-guidance facts | Context Knowledge / Managed Materialization | Design only; guidance does not grant execution or write authority, and the standalone Product meaning of `Capability` remains deferred |
 
 ## Shared Kernel Admission Rule
 
@@ -396,8 +400,78 @@ Resolving it does not add this supporting domain to the current Feature scope.
 ### Responsibility
 
 Own stable registration and compatibility facts for the external capabilities
-DevMeld may expose or consume. It does not own provider runtime objects, client
-execution, authentication, or generated surfaces.
+DevMeld may expose or consume, plus proposed evidence-backed decisions about
+which tool or dependency option is applicable in a project/task scope and
+whether using it requires separately established change authority. It does not
+own project dependency
+declarations, provider runtime objects, installation, client execution,
+authentication, or generated surfaces.
+
+### Tool and Dependency Guidance
+
+The proposed cross-feature behavior and non-binding domain detail are in
+[`tool-use-semantics.md`](tool-use-semantics.md). They require Maintainer review
+before stable Product terms, boundaries, or semantics are recorded in
+[`docs/product.md`](../../docs/product.md). This responsibility is design only
+in the current foundation and does not depend on accepting a standalone
+`Capability` Product concept.
+
+#### Selection Requirement Fact
+
+A selection requirement identifies its source, scope, and selection-authority
+basis. It may come from an explicit task instruction, an accepted project rule,
+a future selection source, or the absence of an explicit choice. The fact
+records what was required; it does not imply that the option is already
+installed or grant authority to change any project, task, environment, or
+system surface.
+
+#### Change Authority Fact
+
+A change-authority fact identifies the authority source, exact authorized
+surface, permitted change, conditions, and relevant task/project scope. It is
+separate from the selection requirement. An instruction to use an option is not
+an instruction to install it, add a dependency, create an environment, or
+modify a system.
+
+#### Project Declaration Reference
+
+A declaration reference identifies the authoritative manifest, lockfile,
+maintained script, or project configuration and the inspected revision. The
+declaration remains owned by its project source. Capability Integration does
+not copy it into a second mutable dependency catalog.
+
+#### Immutable Tool Availability Observation
+
+| Member | Meaning |
+| --- | --- |
+| candidate identity and kind | A particular command, declared dependency, maintained script, runtime-provided solution, or provider option |
+| compatibility facts | Version or other constraints relevant to the requested use |
+| scope | Project, Repository, Checkout, runtime, environment, or machine boundary actually inspected |
+| availability level | Declared, discovered, or verified usable; these are not interchangeable |
+| observed at / observer | Freshness and source of the evidence |
+| explanation | Human-inspectable basis, including missing or conflicting prerequisites |
+
+An observation contains no credential value and performs no installation or
+environment mutation. A later inspection creates a new observation; missing or
+stale evidence remains unknown.
+
+#### Tool Guidance Decision
+
+A guidance decision retains requirements, considered candidates, evidence,
+scope, and basis. It distinguishes:
+
+- an existing eligible option that is ready under an explicit selection or
+  evidenced reuse;
+- a bounded dependency, installation, or environment change that is proposed
+  and awaits its own applicable change authority;
+- a required option that is unavailable or conflicts with an applicable
+  project constraint;
+- insufficient or stale evidence that leaves the decision undetermined.
+
+These are semantic outcome categories, not public enum names. An explicit
+applicable selection is not replaced silently. Without one, an existing
+eligible project-managed option is preferred; machine-wide presence, another
+project's environment, or Agent familiarity does not establish eligibility.
 
 ### Aggregate: Capability Provider Registration
 
@@ -429,6 +503,20 @@ language.
 3. Registration does not grant execution, authentication, or write authority.
 4. No provisional capability declaration becomes cross-feature Product
    language until a Maintainer accepts its meaning in `docs/product.md`.
+5. An applicable explicit tool selection is never silently substituted; an
+   unavailable or conflicting selection remains explainable.
+6. Selection authority never implies authority to install, change a dependency,
+   create an environment, or modify a system.
+7. Project manifests, lockfiles, maintained scripts, and configuration remain
+   authoritative for project declarations.
+8. Declared, discovered, verified, compatible, and authorized remain distinct
+   facts with explicit scope and evidence.
+9. A new dependency, installation, or environment is never presented as an
+   existing usable option before its own authorization and fresh evidence.
+10. Guidance does not execute a tool, install a dependency, expose credentials,
+   or claim that an Agent Client enforced the decision.
+11. An executable, library, or script does not become a Capability Provider
+    merely because it is one candidate implementation option.
 
 ## State Lifecycle Matrix
 
@@ -437,6 +525,8 @@ language.
 | Workspace, Repository, Context Profile, Resource registration | Portable | Versioned project/Vault metadata | Read directly; migrate explicitly by schema version |
 | Developer/Machine identity, Local Binding, local client location | Local | Human-inspectable local registry | Re-enter or rediscover without changing portable state |
 | Checkout Observation | Local observed fact | External Checkout plus observation receipt | Re-observe; never synthesize as portable truth |
+| Tool availability observation | Local observed fact | Project declarations plus the scoped runtime/environment inspected | Re-observe for the selected project/task scope; stale or missing evidence becomes unknown |
+| Tool guidance decision | Query-derived | Selection requirements, project declarations, local observations and current authorization facts | Recompute when any input, scope or authority changes |
 | Search index, extracted relation candidate, rank | Derived | Declared portable/local sources | Delete and rebuild; no unique authoritative fact allowed |
 | Materialized client artifact | Generated | Preview inputs plus manifest | Verify, regenerate, or bounded revert |
 | Evidence in source-owned content | Portable/external source-owned | Declared source | Preserve locator/revision; do not copy authority into index |
@@ -497,6 +587,9 @@ boundaries or become a default integration mechanism.
   known enough to deserve an explicit value or boundary.
 - A domain map is not a required package inventory. Application coordination and
   ports exist only for demonstrated needs, never for layer symmetry.
+- Tool guidance is not a second dependency registry, package manager, installer,
+  generic command runner, or permission grant. A globally installed option or
+  another project's environment is not silently reusable in the current scope.
 
 ## Maintainer Review Questions
 
@@ -524,3 +617,6 @@ Before task generation, Maintainers should answer yes to all of the following:
     remains explicitly excluded?
 11. Does every application coordination component serve a real need outside
     domain objects, with no empty package or pass-through service?
+12. Does tool/dependency guidance preserve explicit selections, project-owned
+    declarations, scoped availability and authorization boundaries without
+    introducing Capability Integration code or execution behavior?

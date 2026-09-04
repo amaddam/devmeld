@@ -54,6 +54,15 @@
 - Application coordination is demand-created just like ports: FR-021 and its
   acceptance scenario reject empty layers and pass-through services. The task
   plan does not require an application package for every core domain.
+- FR-022 and SC-011 define a design-only tool/dependency-guidance Product
+  proposal: applicable explicit selection, scoped reuse, authoritative project
+  declarations, evidence freshness, separate selection/change authority, and
+  execution ownership are all testable without creating Capability Integration
+  code or prematurely changing the Product baseline.
+- The tool-use semantic sketch distinguishes declared, discovered, verified,
+  compatible, and authorized facts; it does not duplicate manifests/lockfiles,
+  treat every tool as a Capability Provider, or claim that DevMeld enforces an
+  Agent Client.
 - Real-source queries, materialization, provider integration, and benchmarks are
   explicitly deferred to later Feature Specs; they are not hidden completion
   criteria here.
@@ -61,3 +70,7 @@
   demand-created application-layer clarification on 2026-09-02. Capability
   Product meaning remains deferred; no Product or Constitution amendment was
   inferred from the two accepted decisions.
+- Specification quality was revalidated for the 2026-09-04 tool/dependency-
+  guidance revision. The supporting-domain detail and proposed cross-feature
+  Product behavior await Maintainer review and do not expand the three-domain
+  implementation scope.

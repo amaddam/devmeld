@@ -2,8 +2,9 @@
 
 **Branch**: `001-foundation-context` (feature identifier; no Git branch created)  
 **Date**: 2026-09-01  
-**Last Updated**: 2026-09-02  
-**Status**: Architecture/runtime accepted; task baseline prepared; implementation not started  
+**Last Updated**: 2026-09-04
+**Status**: Proposed tool/dependency-guidance Product change prepared for
+Maintainer review; architecture/runtime accepted; implementation not started
 **Spec**: [Domain Foundation specification](spec.md)
 
 **Input**: Revised Feature Specification from
@@ -17,6 +18,14 @@ Managed Materialization and Capability Integration remain documented supporting
 boundaries with responsibilities, invariants, and negative constraints, but no
 code, ports, test doubles, or stable machine protocols are created for them in
 this feature.
+
+Capability Integration design now includes a proposed evidence-backed
+tool/dependency-guidance model: explicit applicable selections are preserved;
+otherwise existing eligible project-managed options are preferred. Selection
+authority is separate from change authority, so any dependency, installation,
+environment, or system change remains a separately authorized proposal. Project
+declarations remain authoritative, and Agent Clients retain execution
+responsibility.
 
 Context Profile code covers only identity, naming, Repository/Resource
 selections, and Capability-independent portable rules. Capability selections
@@ -79,6 +88,9 @@ adapters or user data.
   metadata map, or shared utilities package replaces domain language;
 - no public application protocol, supporting-domain port, or speculative test
   double is created in this feature;
+- tool/dependency guidance is design only: no environment discovery, dependency
+  installation, generic command runner, enforcement integration, or duplicate
+  dependency registry is implemented;
 - no initial hard gate on complexity, branch count, argument count, return
   count, statement count, function length, or file length.
 
@@ -94,7 +106,7 @@ supporting-domain or production-adapter package
 | Local Context Resolution | Core | Local Bindings, Checkout observations, Task Context validation, Active Checkout resolution | Domain rules/tests; coordination and ports only when actually needed |
 | Context Knowledge | Core | Relations, Evidence, Scope, independent provenance dimensions, Scope Match and context-result semantics | Domain rules/tests; coordination and ports only when actually needed |
 | Managed Materialization | Supporting | Preview, ownership, preconditions, manifest, conflict, verification and reversal semantics | Design only; no package, port, fixture or protocol |
-| Capability Integration | Supporting | Capability Provider and Agent Client registration/compatibility; provisional capability-declaration semantics | Design only; no package, port, fixture or protocol |
+| Capability Integration | Supporting | Capability Provider and Agent Client registration/compatibility; evidence-backed tool/dependency guidance; provisional capability-declaration semantics | Design only; no package, discovery adapter, installer, port, fixture or protocol |
 
 The Verification Harness is test support, not a production domain or source of
 Product truth.
@@ -145,6 +157,11 @@ block task generation or acceptance for this Capability-independent foundation.
 `capabilities` in Context Profile, but does not define a standalone Capability
 concept.
 
+The proposed tool/dependency-guidance behavior is documented in
+`tool-use-semantics.md` without making each tool a Capability Provider. It is
+pending Maintainer Product review and does not resolve this Gate: the standalone
+`Capability` meaning and capability selection remain deferred.
+
 **Proposal**: define Capability as a named context function selectable by a
 Context Profile and supplied by one or more Capability Providers, independent of
 provider implementation.
@@ -165,11 +182,11 @@ Constitution ratification.*
 
 | Principle | Plan evidence | Result |
 | --- | --- | --- |
-| Context, Not Workflow or Execution | Core semantics describe project context only; no scheduling or code execution | PASS |
-| Grounded and Explainable Context | Evidence, Scope, source identity, resolution basis and ambiguity are explicit | PASS |
-| Local-First, Portable, and Rebuildable | State lifecycle classes retain distinct authorities; no hosted service or production store is required | PASS |
-| Explicit and Reversible Writes | Managed-write invariants remain visible in the design while implementation waits for a real Feature | PASS |
-| Human-Inspectable by Default | Domain models, semantic sketches, validation results and decision gates are readable documents | PASS |
+| Context, Not Workflow or Execution | Core semantics and tool guidance describe context and decisions only; Agent Clients retain invocation, installation and enforcement | PASS |
+| Grounded and Explainable Context | Evidence, Scope, source identity, resolution basis, ambiguity, tool availability and decision basis are explicit | PASS |
+| Local-First, Portable, and Rebuildable | State lifecycle classes retain distinct authorities; local tool observations are scoped and rebuildable; no hosted service or production store is required | PASS |
+| Explicit and Reversible Writes | Managed-write invariants remain visible; a dependency/environment change is only a proposal until separately authorized | PASS |
+| Human-Inspectable by Default | Domain models, semantic sketches, validation results, tool decisions and decision gates are readable documents | PASS |
 | Deliver Value in Vertical Slices | Supporting-domain code and public protocols are deferred; the non-user-visible core foundation does not claim product value | PASS |
 
 ### Post-Design Recheck
@@ -187,6 +204,11 @@ Constitution ratification.*
   justify them.
 - Application packages require real coordination outside domain objects, not
   merely a matching box in the architecture diagram.
+- Proposed tool guidance preserves user/project selections, authoritative
+  dependency sources, scoped observations, and separate selection/change
+  authority without claiming that DevMeld executes or enforces the choice.
+- Tool/dependency guidance does not make every executable, library or script a
+  Capability Provider and does not resolve the standalone Capability meaning.
 - No Constitution exception or complexity waiver is required.
 
 ## Project Structure
@@ -201,6 +223,7 @@ specs/001-foundation-context/
 ├── data-model.md
 ├── context-semantics.md
 ├── materialization-semantics.md
+├── tool-use-semantics.md
 ├── quickstart.md
 ├── tasks.md
 └── checklists/
@@ -211,8 +234,9 @@ There is no `contracts/` directory because this feature accepts no public
 machine contract. The two accepted decisions are now recorded in `docs/adr/`.
 
 [Tasks](tasks.md) decomposes the reviewed scope after Gate 1/Gate 2 approval and
-ADR/Engineering updates. Gate 3 remains open; no Capability-dependent work or
-placeholder implementation belongs in these tasks.
+ADR/Engineering updates. Gate 3 remains open; no Capability-dependent or
+tool-guidance implementation and no placeholder supporting-domain code belongs
+in these tasks.
 
 ### Source Code (planned, not yet implemented)
 
@@ -280,6 +304,10 @@ Passing values between tests is not evidence that a production port is needed.
    this foundation adds no event bus or event sourcing.
 9. A requirement that does not fit triggers a boundary review rather than an
    `extra`, `metadata`, type switch, or cross-domain mutation.
+10. Proposed tool/dependency guidance references project-owned declarations and
+    scoped observations. It does not own manifests or lockfiles, treat global
+    presence as project eligibility, derive change authority from selection
+    authority, or execute the selected option.
 
 ## First Code Foundation
 
@@ -300,13 +328,15 @@ With Gate 1 and Gate 2 accepted and recorded, this foundation may provide only:
    violations proving the gate works.
 
 It will not implement Managed Materialization, Capability Integration,
-capability selection, real storage/source/client adapters, public query
-operations, materialization operations, a production CLI, or benchmark claims.
+capability selection, tool/environment discovery, dependency installation or
+enforcement, real storage/source/client adapters, public query operations,
+materialization operations, a production CLI, or benchmark claims.
 
 ## Delivery Sequence
 
-1. Confirm the accepted Gate 1/Gate 2 ADRs and Engineering guidance. Keep the
-   task scope Capability-independent; Gate 3 remains deferred.
+1. Confirm the accepted Gate 1/Gate 2 ADRs, Engineering guidance, and the
+   design-only tool/dependency-guidance boundary. Keep the task scope
+   Capability-independent; Gate 3 remains deferred.
 2. Create the minimal project/tooling baseline and shared-kernel primitives.
 3. Implement Project Catalog language and invariants with pure tests, limiting
    Context Profile to its declared Capability-independent subset.
@@ -331,6 +361,7 @@ future Feature may need them.
 - [Conceptual domain model](data-model.md)
 - [Context semantic sketch](context-semantics.md)
 - [Materialization semantic sketch](materialization-semantics.md)
+- [Tool and dependency guidance semantic sketch](tool-use-semantics.md)
 - [Foundation acceptance guide](quickstart.md)
 
 ## Complexity Tracking
