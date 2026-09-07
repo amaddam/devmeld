@@ -291,6 +291,41 @@ pub fn run(root: &Path) -> Result<()> {
     ] {
         h.graph(name, |p| edge(p, owner, table, declaration), "ARCH_EDGE")?;
     }
+    for (name, declaration) in [
+        (
+            "additional-target-kernel",
+            "devmeld-shared-kernel = { path = \"../shared-kernel\" }",
+        ),
+        (
+            "additional-optional-target-kernel",
+            "devmeld-shared-kernel = { path = \"../shared-kernel\", optional = true }",
+        ),
+    ] {
+        h.graph(
+            name,
+            |p| {
+                edge(
+                    p,
+                    "catalog",
+                    "target.'cfg(target_os = \"none\")'.dependencies",
+                    declaration,
+                )
+            },
+            "ARCH_EDGE",
+        )?;
+    }
+    h.graph(
+        "renamed-kernel",
+        |p| {
+            replace(
+                p,
+                "crates/catalog/Cargo.toml",
+                "devmeld-shared-kernel = { path = \"../shared-kernel\" }",
+                "hidden = { package = \"devmeld-shared-kernel\", path = \"../shared-kernel\" }",
+            )
+        },
+        "ARCH_EDGE",
+    )?;
     for role in ["adapter", "entrypoint"] {
         h.graph(&format!("core-to-{role}"), |p| {
             replace(p, "Cargo.toml", "[workspace]", &format!("[workspace]\nexclude = [\"fixtures/{role}\"]"))?;

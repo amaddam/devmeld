@@ -6,15 +6,19 @@ It owns context, not workflow or execution.
 ## Current State
 
 The Maintainer accepted Rust as the main implementation language on 2026-09-07.
-The previous Python implementation was removed during the design reset. Rust
-implementation is complete and verified on native Windows and Linux in WSL: the
-four core libraries, shared identities and three core domains exist. Maintainer acceptance
-is pending; this is not a finished application.
+The previous Python implementation was removed during the design reset. The
+four core libraries, shared identities and three core domains were committed as
+`4da191195b3edafefb84d6f2896f0e56fc74e400`. Maintainer acceptance is pending;
+this is not a finished application.
 
-Both environments pass 37 core behavior tests, one compile-fail doctest, three
-developer-tool unit tests and 40 architecture/type/scope probes. Formatting, Cargo checking and conservative
-Clippy pass; one non-blocking performance warning remains documented. See the
-[acceptance evidence](specs/001-foundation-context/quickstart.md#11-implementation-status-and-required-rust-evidence).
+The committed baseline has recorded native Windows and Linux-in-WSL passes.
+Post-commit review corrections preserve rejected preference sources and tighten
+shared-kernel dependency declarations. The revised code passes the complete
+check on native Windows and Linux in WSL with Rust/Cargo 1.98.1: 38 core behavior
+tests, one compile-fail doctest, three developer-tool unit tests and 43
+architecture/type/scope probes. One non-blocking Clippy performance warning
+remains documented. See the
+[acceptance evidence](specs/001-foundation-context/quickstart.md#post-commit-review-verification-2026-09-07).
 
 The product name is **DevMeld**; the repository name is **devmeld**. The existing
 Windows checkout directory need not be renamed to express that distinction.
@@ -45,7 +49,9 @@ UI, database, provider adapter or public protocol is in Feature 001.
 The next step is Maintainer review of this foundation, not automatic acceptance
 or integration work. Cargo commands and the existing-toolchain reuse procedure are
 in the acceptance guide. WSL is not required; its Linux results supplement native
-Windows evidence. macOS has not been tested. No commit or push has been performed.
+Windows evidence. macOS has not been tested. The review corrections follow the
+committed baseline; their local commit was authorized after verification.
+Publishing that commit remains with the Maintainer.
 
 ## Run Checks
 

@@ -3,7 +3,8 @@
 **Feature**: [Domain Foundation](spec.md)  
 **Last Updated**: 2026-09-07
 **Status**: Tool/dependency-guidance Product behavior accepted on 2026-09-07;
-Rust foundation implemented and verified on native Windows and Linux in WSL; Maintainer acceptance pending
+committed Rust baseline has recorded Windows/Linux verification; review corrections
+verified on native Windows and Linux in WSL; Maintainer acceptance pending
 **Audience**: Maintainers and contributors reviewing the first code foundation
 
 ## What This Guide Proves
@@ -364,15 +365,16 @@ The first code foundation passes only when:
 
 ## 11. Implementation Status and Required Rust Evidence
 
-The Rust foundation is implemented in the native Windows working tree on
-2026-09-07. Previous Python and WSL experiment results are not credited. The
+The baseline Rust foundation was implemented in the native Windows working tree
+on 2026-09-07 and subsequently committed as 4da1911. Previous Python and WSL
+experiment results are not credited. The
 cross-platform tooling correction was additionally compiled and tested from an
 isolated copy of this working tree on Linux in WSL, not from the old experiment.
 No commit, push or system-policy change was made by the implementation agent.
 The Maintainer-approved `serde_json` tool dependency closure was fetched against
 the shared lockfile in both environments; no core dependency was added.
 
-| Item | Current state |
+| Item | State at baseline submission |
 | --- | --- |
 | Product and five-domain design | Retained; scope unchanged |
 | Architecture / runtime | ADR-0001 / ADR-0003 Accepted |
@@ -385,6 +387,9 @@ the shared lockfile in both environments; no core dependency was added.
 | macOS, distribution, real integrations, performance | Not verified |
 
 ### Cross-platform Verification Results — T030, T034–T036
+
+This is the historical baseline evidence for commit 4da1911, not a claim that
+later edits passed both platforms. See the post-commit review section below.
 
 `cargo xtask check` and every constituent command below exited 0 on both native
 Windows and Linux in WSL. Windows used the exact existing-toolchain procedure in
@@ -517,11 +522,12 @@ immutable validated snapshots under changed caller inputs.
 
 ## Acceptance Record
 
-Submitted for Maintainer review on 2026-09-07:
+Original submission and subsequent commit, retained as history:
 
 ```text
-Foundation revision: uncommitted main working tree based on bb7523d4ece4c42a0da98516ebe7cfd653fb9400
-Code/Spec/Plan/ADR revisions: exact per-file SHA256 in verification.sha256
+Submitted snapshot: originally reviewed as an uncommitted tree based on bb7523d4ece4c42a0da98516ebe7cfd653fb9400
+Committed snapshot: 4da191195b3edafefb84d6f2896f0e56fc74e400
+Original Code/Spec/Plan/ADR revisions: verification.sha256 as stored in that commit
 Architecture: ADR-0001 accepted; unchanged by this implementation
 Runtime: ADR-0003 accepted; unchanged by this implementation
 Context Profile acceptance scope: Capability-independent subset only
@@ -535,12 +541,80 @@ Architecture/type/scope/path probes: 40 passed with intended diagnostics
 Developer tooling: Rust xtask, serde_json tool-only; Spec Kit Python-only
 Maintainer: pending reviewer entry
 Decision: PENDING — reviewer to choose ACCEPT or REVISE
-Notes: limitations above; no commit or push
+Notes: the original submitting agent reported no commit or push at submission time; the snapshot was committed subsequently
 ```
 
-[Verification fingerprints](verification.sha256) identify the submitted file
-contents, including this guide, rather than pretending the base Git commit
-contains uncommitted code. The manifest excludes itself and build artifacts.
+Before these corrections, all 68 entries in the original manifest matched the
+checkout after CRLF-to-LF normalization (three matched raw bytes; 65 differed
+only in line endings). Git recorded LF in the index and CRLF in the working
+tree under core.autocrlf=true. This links the committed contents to the original
+reviewed snapshot without changing the historical record.
+
+### Post-commit Review Verification (2026-09-07)
+
+Review snapshot: corrections based on commit 4da1911. At verification time,
+these changes were uncommitted. The user subsequently authorized a local commit
+and reserved push for themselves. The Git commit containing this record and its
+fingerprint manifest identifies the submitted revision. Maintainer acceptance
+remains PENDING; commit authorization is not an ACCEPT decision.
+
+The changes retain SelectionSource on rejected preferences and enforce exactly
+one unconditional, required, unrenamed shared-kernel dependency per consuming
+core. Snapshot-wide errors retain None for both selection and source. Error
+reason strings, selection precedence and supporting-domain exclusions are unchanged.
+
+New regressions first failed with missing SelectionSource/source APIs (E0433,
+E0599). The real graph control passed, then the original checker incorrectly
+accepted the additional-target-kernel fixture with seven declarations; the new
+probe correctly identified that as a failure. After the correction, all three
+new allowed-destination probes fail with the intended ARCH_EDGE diagnostic.
+
+Environment and reproducible commands:
+
+- The initial native Windows attempt used Rust/Cargo 1.80.1. `cargo +stable test -p
+  devmeld-local-context --locked --offline` failed before compilation because
+  Edition 2024 is not supported. The successful native rerun below supersedes
+  that blocked state for this revision.
+- While inspecting Ubuntu-24.04 in WSL from the repository directory, rustup
+  unexpectedly synchronized and installed the pinned 1.98.1 toolchain and its
+  Cargo/rustc/rust-std/rustfmt/Clippy components. This was an unintended environment
+  change during toolchain inspection, not reuse of an already installed version.
+- Subsequent Linux commands explicitly set `RUSTUP_TOOLCHAIN=1.98.1` and
+  `CARGO_TARGET_DIR=/tmp/devmeld-review-20260907-target`, and ran against the
+  current checkout at `/mnt/d/RUST/project/devmeld`.
+- `cargo fetch --locked` fetched the existing approved lockfile dependency closure
+  because the WSL cache lacked serde_json 1.0.151. No manifest or lockfile changed.
+- `cargo xtask check` exited 0 on Linux in WSL. Formatting, workspace checking,
+  Clippy, 38 core behavior tests, three tool unit tests, one compile-fail doctest,
+  the six-declaration graph check and 43 architecture probes all passed.
+  The existing large_enum_variant performance warning remains non-blocking.
+- The new behavior test exercises identical rejected Workspace/LocalDefault
+  selections through Resolved, Ambiguous and Unavailable. Existing validation
+  tests also check explicit-task provenance and source-free snapshot failures.
+- macOS and CI execution remain unverified. CI and locator fuzz testing are
+  follow-ups, not part of this correction.
+
+Native Windows rerun after the user reported updating the environment:
+
+- Rust/Cargo 1.98.1, rustfmt 1.9.0-stable and Clippy 0.1.98; compiler host
+  `x86_64-pc-windows-msvc`. Rustup automatically installed the version-named
+  1.98.1 toolchain components when the repository pin was activated.
+- The first `cargo xtask check` could not resolve serde_json from the Windows
+  offline cache. `cargo fetch --locked` completed the approved dependency cache;
+  Cargo.toml, Cargo.lock and rust-toolchain.toml were unchanged.
+- `cargo xtask check` then exited 0 in the native Windows PowerShell session at
+  `D:\RUST\project\devmeld`. It compiled and ran Windows `.exe` files under the
+  repository's `target` directory, with no WSL invocation in this rerun.
+- Formatting, workspace checking, Clippy, 38 core behavior tests, three tool
+  unit tests, one compile-fail doctest, six admitted dependency declarations
+  and all 43 architecture probes passed. The existing large_enum_variant
+  warning remains non-blocking. No source changes were needed for this rerun.
+
+[Current fingerprints](verification.sha256) identify this revised working tree,
+including this guide. Hash UTF-8 file bytes after normalizing CRLF to LF so a
+normal Git checkout on Windows does not invalidate the comparison. The original
+manifest remains available in commit 4da1911. The manifest excludes itself and
+build artifacts; hashes identify contents, not successful test execution.
 Any subsequent edit requires fresh relevant checks and updated fingerprints.
 
 An ACCEPT decision means the three-domain code foundation is ready to support a

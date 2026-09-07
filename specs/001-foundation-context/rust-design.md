@@ -1,6 +1,8 @@
 # Rust Design: Domain Foundation
 
-**Status**: Implemented mapping; native Windows verification complete, Maintainer acceptance pending
+**Status**: Implemented mapping with post-commit provenance correction;
+native Windows and Linux-in-WSL verification complete;
+Maintainer acceptance pending (see quickstart.md)
 **Date**: 2026-09-07
 
 **Authority**: [Product](../../docs/product.md), [Spec](spec.md), [Domain Model](data-model.md), [ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md), [ADR-0003](../../docs/adr/0003-rust-runtime.md)
@@ -75,7 +77,7 @@ do not silently invent a general-purpose URI parser or accept unsafe input.
 | --- | --- |
 | bindings.rs | Machine/developer identity, known Repository IDs, local paths/binding identity, explicit workspace/default selection, registry revision and checked local transitions |
 | observations.rs | Observation ID, RepositoryId, local path, optional branch/ref and commit, working-tree state/details, observed time, observer revision, availability/freshness with reasons |
-| task_context.rs | Raw selections and optional working area; normalization; rejected selection/reason; ValidatedTaskContext owning the checked snapshot |
+| task_context.rs | Raw selections and optional working area; normalization; rejected selection/source/reason; ValidatedTaskContext owning the checked snapshot |
 | resolution.rs | Exactly Resolved/Ambiguous/Unavailable, RepositoryId, selected/considered candidates and basis/reason |
 
 Removing a binding changes only the registry, never the external Checkout.
@@ -102,6 +104,15 @@ not resolution variants. Identical duplicate selections may normalize; conflicti
 selections, unknown observations, wrong Repository and ineligible explicit
 choices fail before fallback. Contradictory snapshots such as duplicate observation
 IDs are rejected instead of being overwritten during map construction.
+
+Each rejected selection retains a SelectionSource: ExplicitTask,
+WorkspaceSelection or LocalDefault. Merging ignored weak preferences preserves
+their individual sources, even when selection and reason are identical. These
+sources remain visible in Resolved, Ambiguous and Unavailable results.
+RejectedSelection also represents snapshot-wide validation failures; those have
+neither a selection nor a selection source (both None). Do not attribute a
+duplicate observation or catalog identity to an explicit task preference.
+Reasons remain explanatory strings; this does not introduce a public protocol.
 
 The validated value owns the exact known-catalog IDs, normalized task selections
 and immutable observations checked together. No public mutable getters or

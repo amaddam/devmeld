@@ -53,8 +53,12 @@ working area for one request. Validation yields either:
   conflicts with another explicit selection, or names an unknown or ineligible
   observation.
 
-Validation failures retain the rejected selection and an explainable reason.
-They are request facts, not portable Workspace state.
+Validation failures retain the rejected selection, its source (explicit task,
+current workspace or local default), and an explainable reason. Snapshot-wide
+validation failures have no selection source. Ignored workspace and default
+preferences retain distinct sources through every resolution outcome, even
+when their selections and rejection reasons are identical. They are request
+facts, not portable Workspace state.
 
 ## Active Checkout Resolution
 

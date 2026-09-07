@@ -6,7 +6,9 @@
 
 **Last Updated**: 2026-09-07
 
-**Status**: Rust foundation implemented and verified on native Windows and Linux in WSL; Maintainer acceptance pending
+**Status**: Committed Rust foundation has recorded Windows/Linux verification;
+post-commit corrections verified on native Windows and Linux in WSL;
+Maintainer acceptance pending (see quickstart.md)
 **Spec**: [Domain Foundation](spec.md)
 
 ## Summary
@@ -229,6 +231,15 @@ errors remain with their owners. No generic validation/utilities framework.
 | devmeld-knowledge | devmeld-shared-kernel | devmeld-catalog and devmeld-local-context, only for core_fact_boundaries tests |
 | xtask (developer tool, not a domain) | serde_json (registry; tool-only) | None |
 
+Foundation dependency-shape decision (post-commit review): each of Catalog,
+Local Context and Knowledge declares exactly one normal shared-kernel dependency.
+It must be unconditional, non-optional and unrenamed. Additional target-specific
+or optional declarations to that same allowed destination are rejected; renaming
+the required declaration is also rejected. The shared kernel has no dependencies.
+Three real-manifest probes cover the allowed destination with an extra target
+declaration, an extra optional target declaration and a renamed declaration.
+Existing Knowledge test-only domain edges retain their current policy.
+
 No core may depend on xtask. It has no dependency on core libraries; it inspects
 their metadata and builds isolated test consumers. All subprocesses use Rust
 Command with separate arguments, not shell command strings. Paths use native
@@ -306,8 +317,10 @@ facade or layer is introduced. Future needs must name their rule and exact tasks
    dependency violations; no production IO or speculative integration.
 5. T029–T032: semantic review, native checks and honest acceptance submission.
 
-The reset task list has been implemented and verified on native Windows;
-tasks.md and quickstart.md record the submission, with Maintainer acceptance pending.
+The reset task list was implemented and its baseline verification recorded for
+native Windows and Linux in WSL. Post-commit corrections and their separate
+verification limits are recorded in tasks.md and quickstart.md; Maintainer
+acceptance remains pending.
 A document checkpoint or empty workspace is not a product MVP or foundation acceptance.
 
 ## Design Artifacts

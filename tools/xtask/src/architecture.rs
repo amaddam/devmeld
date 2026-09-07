@@ -258,6 +258,12 @@ pub fn validate(root: &Path, metadata: &Value) -> Result<usize> {
                         format!("ARCH_EDGE: forbidden {name} --{kind}--> {destination}").into(),
                     );
                 }
+                if kind == "normal" && (optional || !target.is_null() || !rename.is_null()) {
+                    return Err(
+                        "ARCH_EDGE: identity dependency must be unconditional, required and unrenamed"
+                            .into(),
+                    );
+                }
                 let destination_package = by_name
                     .get(destination)
                     .ok_or("ARCH_EDGE: unknown destination")?;
@@ -267,7 +273,7 @@ pub fn validate(root: &Path, metadata: &Value) -> Result<usize> {
                 {
                     return Err("ARCH_PATH: redirected dependency".into());
                 }
-                if kind == "normal" && !optional && target.is_null() {
+                if kind == "normal" {
                     normal_kernel += 1;
                 }
             }

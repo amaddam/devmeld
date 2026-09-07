@@ -11,7 +11,8 @@ pub use observations::{
 };
 pub use resolution::{Resolution, ResolutionBasis, ResolvedCheckout, UnresolvedCheckout};
 pub use task_context::{
-    CheckoutSelection, InvalidTaskContext, RejectedSelection, TaskContext, ValidatedTaskContext,
+    CheckoutSelection, InvalidTaskContext, RejectedSelection, SelectionSource, TaskContext,
+    ValidatedTaskContext,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

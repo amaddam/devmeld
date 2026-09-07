@@ -34,10 +34,21 @@ pub struct TaskContext {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RejectedSelection {
+    source: Option<SelectionSource>,
     selection: Option<CheckoutSelection>,
     reason: String,
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SelectionSource {
+    ExplicitTask,
+    WorkspaceSelection,
+    LocalDefault,
+}
 impl RejectedSelection {
+    /// Snapshot validation failures have no selection or selection source.
+    pub fn source(&self) -> Option<SelectionSource> {
+        self.source
+    }
     pub fn selection(&self) -> Option<&CheckoutSelection> {
         self.selection.as_ref()
     }
@@ -89,6 +100,7 @@ impl TaskContext {
         let known_set: BTreeSet<_> = known.iter().cloned().collect();
         if known_set.len() != known.len() {
             errors.push(RejectedSelection {
+                source: None,
                 selection: None,
                 reason: "duplicate catalog Repository identity".into(),
             });
@@ -97,6 +109,7 @@ impl TaskContext {
         for observation in observations {
             if !known_set.contains(observation.repository()) {
                 errors.push(RejectedSelection {
+                    source: None,
                     selection: None,
                     reason: "observation Repository absent from catalog snapshot".into(),
                 });
@@ -104,15 +117,31 @@ impl TaskContext {
             let id = observation.id().to_owned();
             if observed.insert(id.clone(), observation).is_some() {
                 errors.push(RejectedSelection {
+                    source: None,
                     selection: None,
                     reason: format!("duplicate observation identity: {id}"),
                 });
             }
         }
-        let (selections, rejected) = normalize(&self.selections, &known_set, &observed);
+        let (selections, rejected) = normalize(
+            &self.selections,
+            SelectionSource::ExplicitTask,
+            &known_set,
+            &observed,
+        );
         errors.extend(rejected);
-        let (workspace, mut ignored) = normalize(&workspace, &known_set, &observed);
-        let (defaults, rejected) = normalize(&defaults, &known_set, &observed);
+        let (workspace, mut ignored) = normalize(
+            &workspace,
+            SelectionSource::WorkspaceSelection,
+            &known_set,
+            &observed,
+        );
+        let (defaults, rejected) = normalize(
+            &defaults,
+            SelectionSource::LocalDefault,
+            &known_set,
+            &observed,
+        );
         ignored.extend(rejected);
         if !errors.is_empty() {
             return Err(InvalidTaskContext { rejections: errors });
@@ -132,6 +161,7 @@ impl TaskContext {
 // A conflicting preference is removed as a whole, never first/last-wins.
 fn normalize(
     input: &[CheckoutSelection],
+    source: SelectionSource,
     known: &BTreeSet<RepositoryId>,
     observations: &BTreeMap<String, CheckoutObservation>,
 ) -> (
@@ -165,6 +195,7 @@ fn normalize(
             conflicted.insert(selection.repository().clone());
             accepted.remove(selection.repository());
             rejected.push(RejectedSelection {
+                source: Some(source),
                 selection: Some(selection.clone()),
                 reason: reason.into(),
             });

@@ -135,3 +135,53 @@ fn stale_explicit_selection_cannot_fall_back_but_stale_weak_preference_can() {
     assert_eq!(result.basis(), ResolutionBasis::SoleCandidate);
     assert!(!result.ignored_preferences().is_empty());
 }
+
+#[test]
+fn ignored_sources_survive_every_resolution_outcome() {
+    for fresh_count in 0..=2 {
+        let mut observations = vec![obs("stale", Freshness::Stale("old".into()))];
+        observations.extend(
+            ["fresh-a", "fresh-b"]
+                .into_iter()
+                .take(fresh_count)
+                .map(|id| obs(id, Freshness::Fresh)),
+        );
+        let context = TaskContext::default()
+            .validate(
+                vec![repo()],
+                observations,
+                vec![selection("stale")],
+                vec![selection("stale")],
+            )
+            .unwrap();
+        let outcome = context.resolve(&repo()).unwrap();
+        let ignored = match &outcome {
+            Resolution::Resolved(result) => {
+                assert_eq!(fresh_count, 1);
+                assert_eq!(result.selected().id(), "fresh-a");
+                assert_eq!(result.basis(), ResolutionBasis::SoleCandidate);
+                result.ignored_preferences()
+            }
+            Resolution::Ambiguous(result) => {
+                assert_eq!(fresh_count, 2);
+                result.ignored_preferences()
+            }
+            Resolution::Unavailable(result) => {
+                assert_eq!(fresh_count, 0);
+                result.ignored_preferences()
+            }
+        };
+        assert_eq!(ignored, context.ignored_preferences());
+        assert_eq!(ignored.len(), 2);
+        assert_eq!(
+            ignored[0].source(),
+            Some(SelectionSource::WorkspaceSelection)
+        );
+        assert_eq!(ignored[1].source(), Some(SelectionSource::LocalDefault));
+        assert_eq!(ignored[0].selection(), Some(&selection("stale")));
+        assert_eq!(ignored[0].selection(), ignored[1].selection());
+        assert_eq!(ignored[0].reason(), ignored[1].reason());
+        assert!(!ignored[0].reason().is_empty());
+        assert_ne!(ignored[0], ignored[1]);
+    }
+}

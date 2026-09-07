@@ -85,6 +85,10 @@ fn invalid_explicit_selections_keep_reason_and_never_resolve() {
             error.rejections()[0].selection().unwrap().observation_id(),
             selected
         );
+        assert_eq!(
+            error.rejections()[0].source(),
+            Some(SelectionSource::ExplicitTask)
+        );
         assert!(!error.to_string().is_empty());
     }
     let conflict = TaskContext {
@@ -104,11 +108,12 @@ fn invalid_explicit_selections_keep_reason_and_never_resolve() {
 #[test]
 fn duplicate_snapshots_are_rejected_and_working_area_is_preserved() {
     let obs = observation("o1", repo());
-    assert!(
-        TaskContext::default()
-            .validate(vec![repo()], vec![obs.clone(), obs.clone()], vec![], vec![])
-            .is_err()
-    );
+    let error = TaskContext::default()
+        .validate(vec![repo()], vec![obs.clone(), obs.clone()], vec![], vec![])
+        .unwrap_err();
+    assert_eq!(error.rejections().len(), 1);
+    assert_eq!(error.rejections()[0].selection(), None);
+    assert_eq!(error.rejections()[0].source(), None);
     let area = LocalPath::new("/work", PathDialect::Posix).unwrap();
     let raw = TaskContext {
         selections: vec![],

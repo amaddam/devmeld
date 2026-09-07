@@ -6,7 +6,9 @@
 
 **Reset**: 2026-09-07
 
-**Status**: T001–T036 complete with native Windows and Linux-in-WSL evidence. The cross-platform tooling correction preserves the core implementation; Maintainer acceptance remains pending.
+**Status**: T001–T036 completed for the committed baseline with recorded Windows/Linux evidence.
+Post-commit review corrections below pass native Windows and Linux-in-WSL checks.
+Maintainer acceptance remains pending.
 
 **Prerequisites**: [Spec](spec.md), [Plan](plan.md), [Domain Model](data-model.md),
 [Rust Design](rust-design.md), [Research](research.md), [Context Semantics](context-semantics.md),
@@ -170,17 +172,39 @@ Spec Kit PowerShell scripts. This does not change domain behavior or Gate 3.
 
 ## Completion Boundary
 
-36 total tasks: Setup 2; Foundational 3; US1 2; US2 17; US3 4; Polish 4;
+Committed baseline: 36 total tasks: Setup 2; Foundational 3; US1 2; US2 17; US3 4; Polish 4;
 cross-platform correction 4. 36 checked, 0 open.
 The earlier native Code Integrity interruption was resolved
-by the user; the full suite and all independent package suites now pass without
-an execution workaround. The current complete quality sequence passes on native
+by the user; the full suite and all independent package suites were recorded as passing without
+an execution workaround. The baseline complete quality sequence passed on native
 Windows and Linux in WSL: 37 core behavior tests, three tool unit tests, one
 compile-fail doctest and 40 controlled architecture/type/scope/path probes.
 macOS remains unverified. Core implementation and deferred domain scope are unchanged.
 T032 is the review submission in quickstart.md with verification.sha256, not an
-automatic Maintainer ACCEPT. No commit or push was performed.
+automatic Maintainer ACCEPT. The original implementation agent reported no commit
+or push during submission; that snapshot was subsequently committed as
+4da191195b3edafefb84d6f2896f0e56fc74e400.
 US1 is the first independently reviewable design checkpoint, not a product MVP.
 Foundation completion requires all three stories and evidence, not just design
 or an executable demo. Real integrations and user-visible vertical slices are
 planned by later Features.
+
+## Post-commit Review Corrections (2026-09-07)
+
+- Implemented SelectionSource on RejectedSelection in local-context, with
+  regressions for explicit-task errors, source-free snapshot errors and identical
+  rejected Workspace/LocalDefault selections through all three resolution outcomes.
+- Adopted the Plan's exact shared-kernel declaration rule and added three real
+  manifest probes for an allowed destination with target/optional/rename variants.
+- Preserved the original submission history, identified commit 4da1911, and
+  refreshed LF-normalized fingerprints for the revised working tree.
+
+The complete `cargo xtask check` passes on native Windows and Linux in WSL:
+38 core behavior tests, three tool unit tests, one compile-fail doctest and
+43 architecture probes. After the user updated the Windows environment,
+the native rerun with Rust/Cargo 1.98.1 exited 0 and superseded the earlier
+Cargo 1.80.1 manifest-parsing failure. These are fresh checks of the review
+corrections. Quickstart records environment changes and commands.
+CI and locator fuzz testing remain follow-ups. Verification did not include an
+ACCEPT decision, commit or push. The user subsequently authorized the local
+commit and reserved push for themselves; Maintainer acceptance remains pending.

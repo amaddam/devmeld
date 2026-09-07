@@ -1,13 +1,15 @@
 # Feature Specification: Domain Foundation
 
-**Feature Branch**: Not created; implementation is in the local main working tree
+**Feature Branch**: main; foundation committed as 4da1911, followed by review corrections on the same branch
 
 **Created**: 2026-09-01
 
 **Last Updated**: 2026-09-07
 
 **Status**: Tool/dependency-guidance Product behavior accepted on 2026-09-07;
-architecture/runtime accepted; implementation reset on 2026-09-07; Rust foundation implemented and verified on native Windows, Maintainer acceptance pending
+architecture/runtime accepted; committed foundation has recorded Windows/Linux verification;
+review corrections verified on native Windows and Linux in WSL;
+Maintainer acceptance pending (see quickstart.md)
 
 **Decision Record**: Architecture was accepted on 2026-09-02. The replacement
 runtime and documentation-only implementation reset were accepted on 2026-09-07
