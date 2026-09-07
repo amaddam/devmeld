@@ -134,9 +134,12 @@ includes doctests; if selecting `--all-targets`, run doctests separately.
 Offline assumes required dependencies and toolchains already exist; Cargo
 offline does not stop rustup from trying to acquire a missing toolchain.
 
-Spec Kit's separate workflow helpers use only `.specify/scripts/python` and an
+Spec Kit's selected workflow helpers use `.specify/scripts/python` and an
 existing Python 3 interpreter. Both integration settings select `script: py`.
-Do not restore a parallel PowerShell script tree when refreshing Spec Kit.
+Official integration refreshes may install PowerShell auxiliary scripts under
+`.specify/scripts/powershell`; keep them as upstream-managed infrastructure.
+Their presence does not change the selected Python workflow or introduce a
+PowerShell dependency into Rust builds and checks.
 Python may display shell-specific environment-variable hints, but does not
 execute a shell or depend on a PowerShell script to perform its work.
 

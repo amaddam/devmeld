@@ -86,9 +86,24 @@ When the preset is not registered, install it from the project-owned source:
 specify preset add --dev .specify/templates/overrides
 ```
 
-After editing an already registered preset, first review and preserve the
-complete source directory, including `preset.yml`. In Spec Kit 1.0.1, refresh
-using these separate official commands, stopping if either fails:
+After editing the existing registered command overrides, regenerate Codex skills
+through the official integration command:
+
+```text
+specify integration use codex
+```
+
+In Spec Kit 1.0.1 this resolves the registered commands through the override
+stack, including `.specify/templates/overrides/`. It also refreshes shared
+infrastructure and may install PowerShell auxiliary scripts even with `script: py`.
+These upstream-managed files are accepted; they do not switch workflow execution
+from Python. Review the complete diff, including installer manifest changes.
+
+This command does not reinstall the preset or synchronize its installed copy.
+The `--dev` option copies files; it does not create a live link or watch edits.
+When changing preset registration, version or manifest mappings, or refreshing
+the installed copy, preserve the complete source directory and run these separate
+commands, stopping if either fails:
 
 ```text
 specify preset remove devmeld-workflow
@@ -98,8 +113,7 @@ specify preset add --dev .specify/templates/overrides
 Removal deletes the installed copy, not the override source directory. Never
 use `.specify/presets/devmeld-workflow` as the reinstall source. Do not run
 workflow skills between removal and successful reinstallation; if installation
-fails, repair the source and rerun `preset add` before continuing. The `--dev`
-option copies files; it does not create a live link or watch source edits.
+fails, repair the source and rerun `preset add` before continuing.
 
 After refresh, inspect the generated skill diff and confirm the required rule
 body is preserved, run `specify preset list` and `specify preset resolve
@@ -107,17 +121,17 @@ tasks-template`, and run `git diff --check`. The official generator may change
 frontmatter formatting, provenance and the skill title; those are not behavior
 changes. Reinstallation also updates the registry's installation timestamp.
 
-Do not use `specify integration use codex` as a narrow preset-refresh shortcut:
-the tested 1.0.1 command also restores the removed PowerShell helper tree and
-updates the shared infrastructure manifest, even with `script: py`. Likewise,
-do not run integration upgrade, init or `--force` merely to regenerate skills.
-Review shared-infrastructure changes separately during an approved upgrade.
+Do not run integration upgrade, init or `--force` merely to regenerate skills.
+The normal refresh preserves customized shared infrastructure; do not override
+that protection just to silence customization warnings. Review version upgrades
+separately.
 Keep `.specify/integrations/*.manifest.json` as the installer-recorded baseline;
 do not rewrite its hashes to disguise customized output as untouched upstream.
 
-The migration was verified in isolated repository copies: official install,
-remove/reinstall, edited-source propagation and repeated rendering preserved
-both command bodies and unrelated files, with no PowerShell tree restored.
+The migration and refresh paths were verified in isolated repository copies:
+official install, remove/reinstall and integration use preserved both command
+bodies. Integration use propagated edited overrides and was repeatable; its
+additional changes were the official PowerShell helpers and shared manifest.
 The project no longer maintains a separate skill synchronization script.
 
 See upstream [upgrade guidance](https://github.com/github/spec-kit/blob/main/docs/upgrade.md)

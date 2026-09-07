@@ -70,8 +70,10 @@ on each OS; no PowerShell, Bash or Python is required for project checks.
 Its only direct third-party dependency is `serde_json`; the four core libraries
 still have no third-party dependencies. See [Engineering](docs/engineering.md#cross-platform-check-entry-point).
 
-Spec Kit uses only `.specify/scripts/python/` as workflow infrastructure; the
-redundant PowerShell scripts have been removed. Use an existing Python interpreter
-when invoking Spec Kit, not when building or checking the Rust project.
+Spec Kit selects `.specify/scripts/python/` for workflow execution (`script: py`).
+Official integration refreshes may also install PowerShell auxiliary scripts;
+their presence does not switch the selected workflow or make PowerShell required.
+Use an existing Python interpreter when invoking Spec Kit, not when building or
+checking the Rust project.
 These scripts do not make Python a DevMeld runtime dependency. The old runtime decision
 is retained as [superseded ADR-0002](docs/adr/0002-initial-python-runtime.md).
