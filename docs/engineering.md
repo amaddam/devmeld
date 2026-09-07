@@ -198,9 +198,12 @@ Within each behavioral task:
 1. Select one observable rule or case from the accepted behavior.
 2. Add the smallest test that demonstrates the missing behavior.
 3. Run it and confirm failure for the intended reason. Environment failures
-   are not a behavioral RED. If compilation initially fails because a new API
-   is missing, establish the API shape and observe the behavioral failure too.
+   are not a behavioral RED. A compile failure caused specifically by an
+   intentionally missing, already-accepted API may serve as the initial RED.
 4. Implement the minimum coherent behavior needed to pass that test.
+   Once the API compiles, ensure the test actually asserts the required behavior
+   and passes before treating the behavior as GREEN. Do not add a knowingly
+   incorrect stub solely to manufacture a runtime RED.
 5. Run the focused test and affected suite. Make necessary small refactors,
    keeping the suite green, then continue with the next case.
 

@@ -105,11 +105,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
-   - Check if the following command succeeds to determine if the repository is a git repo (create/verify .gitignore if so):
-
-     ```sh
-     git rev-parse --git-dir 2>/dev/null
-     ```
+   - Run `git rev-parse --git-dir` directly and inspect its exit status to determine whether this is a Git repository (create/verify .gitignore if it succeeds). Do not rely on shell-specific redirection.
 
    - Check if Dockerfile* exists or Docker in plan.md → create/verify .dockerignore
    - Check if .eslintrc* exists → create/verify .eslintignore
@@ -161,7 +157,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Existing task lists**: Preserve completed history. If unfinished tasks still separate a batch of tests from implementations, pair each behavior's test and implementation into a vertical execution cycle while retaining IDs and true dependencies. If this conflicts with the approved plan, resolve that conflict rather than silently rewriting it.
 
 7. Implementation execution rules:
-   - **New/changed behavior**: Select one accepted rule/case, write and run the smallest failing behavior test, confirm the intended failure, implement the minimum coherent solution, run the focused test and affected suite, then perform necessary small refactors and rerun. Repeat for the next case, not five behaviors at once. Missing tooling is not RED; an initial missing-API compile error alone does not prove a behavioral assertion detects the defect.
+   - **New/changed behavior**: Select one accepted rule/case, write and run the smallest failing behavior test, confirm the intended failure, implement the minimum coherent solution, run the focused test and affected suite, then perform necessary small refactors and rerun. Repeat for the next case, not five behaviors at once. Missing tooling is not RED.
+   - **Missing accepted API**: A compile failure caused specifically by an intentionally missing, already-accepted API may serve as the initial RED. Once the API compiles, ensure the test actually asserts the required behavior and passes before treating the behavior as GREEN. Do not add a knowingly incorrect stub solely to manufacture a runtime RED.
    - **Bug fix**: Reproduce the defect with a failing regression test, fix the accepted behavior and verify the affected suite.
    - **Existing behavior refactor/rename**: Establish a green baseline, add characterization coverage where needed, refactor and keep green. Do not delete working implementation to manufacture RED.
    - **Compile-time boundary**: Run a valid control and a compile-fail probe; confirm the intended diagnostic as specified by Engineering.
@@ -230,6 +227,6 @@ Report final status with summary of completed work.
 ## Done When
 
 - [ ] All tasks in tasks.md completed and marked `[X]`
-- [ ] Implementation validated against specification, plan, and test coverage
+- [ ] Implementation validated against specification, plan, and required verification evidence
 - [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
 - [ ] Completion reported to user with summary of completed work
