@@ -1,7 +1,7 @@
 # Rust Design: Domain Foundation
 
-**Status**: Implemented mapping with post-commit provenance correction;
-native Windows and Linux-in-WSL verification complete;
+**Status**: Implemented mapping with owner-local type refinements;
+current revision verified on native Windows; earlier review verified on Windows/Linux;
 Maintainer acceptance pending (see quickstart.md)
 **Date**: 2026-09-07
 
@@ -27,14 +27,20 @@ mixing identity kinds is a real risk, not a blanket trait/type framework. Names
 and aliases remain separate from identity. Text rules belong to the owning
 concept; two crates using strings do not justify a generic shared utility crate.
 
+Finite business states use enums; identities that must not interchange use
+private-field newtypes; fixed rule values use named constants. Open names,
+aliases, branch/revision spellings and human explanations remain text. The
+Resource type label currently has no closed supported-kind inventory, so this
+refinement does not invent a ResourceType enum or narrow accepted labels.
+
 ## Domain 1: Project Catalog
 
 | Planned module | Values and rules to preserve |
 | --- | --- |
 | references.rs | Required primary Vault reference, optional source references, portable source identity/locator validation |
 | registrations.rs | Repository identity, Workspace association, canonical key, display name, aliases, optional declared source locator; Resource identity/source/type/locator/eligibility |
-| profiles.rs | Profile identity, name, Workspace association, Repository/Resource selections; no Capability field or behavior |
-| workspace.rs | Supported schema version, exactly one primary Vault, distinct sources, registration uniqueness, same-Workspace eligible references and checked updates/removals |
+| profiles.rs | Validated ProfileId, name, Workspace association, Repository/Resource selections; no Capability field or behavior |
+| workspace.rs | SUPPORTED_SCHEMA_VERSION (currently 1), exactly one primary Vault, distinct sources, registration uniqueness, same-Workspace eligible references and checked updates/removals |
 
 Validated fields are private. Update operations build and validate a candidate
 snapshot before publishing it; failed updates leave the original unchanged.
@@ -42,6 +48,12 @@ Renaming does not change stable identity. Alias/canonical-key collisions are
 checked across registrations, not merely inside one object. Referenced objects
 cannot be silently cascade-deleted. No local path, machine/developer selection,
 Active Checkout, credentials or derived-index location is portable Catalog state.
+
+ProfileId is owned by Catalog, with exact-spelling equality and validated
+construction using the existing identity text policy. ContextProfile constructors,
+Workspace profile map keys and profile removal take ProfileId rather than arbitrary
+strings. Names remain editable independently of identity. The named schema constant
+does not change supported versions or define a public persistence contract.
 
 ### Lexical Input Boundaries
 
@@ -76,7 +88,7 @@ do not silently invent a general-purpose URI parser or accept unsafe input.
 | Planned module | Values and rules to preserve |
 | --- | --- |
 | bindings.rs | Machine/developer identity, known Repository IDs, local paths/binding identity, explicit workspace/default selection, registry revision and checked local transitions |
-| observations.rs | Observation ID, RepositoryId, local path, optional branch/ref and commit, working-tree state/details, observed time, observer revision, availability/freshness with reasons |
+| observations.rs | Validated ObservationId, RepositoryId, local path, optional branch/ref and commit, working-tree state/details, observed time, observer revision, availability/freshness with reasons |
 | task_context.rs | Raw selections and optional working area; normalization; rejected selection/source/reason; ValidatedTaskContext owning the checked snapshot |
 | resolution.rs | Exactly Resolved/Ambiguous/Unavailable, RepositoryId, selected/considered candidates and basis/reason |
 
@@ -105,6 +117,14 @@ selections, unknown observations, wrong Repository and ineligible explicit
 choices fail before fallback. Contradictory snapshots such as duplicate observation
 IDs are rejected instead of being overwritten during map construction.
 
+ObservationId is owned by Local Context and used in observation inputs, selections,
+snapshots and snapshot map keys. Its constructor validates the existing text policy.
+CheckoutSelection::new takes RepositoryId and ObservationId and is infallible;
+cross-field eligibility still belongs to TaskContext::validate. Constructing a
+typed selection does not certify that its observation exists or belongs to the
+Repository. Knowledge receives the explicitly mapped opaque ID spelling, without
+depending on the Local Context type or expanding the shared kernel.
+
 Each rejected selection retains a SelectionSource: ExplicitTask,
 WorkspaceSelection or LocalDefault. Merging ignored weak preferences preserves
 their individual sources, even when selection and reason are identical. These
@@ -112,7 +132,12 @@ sources remain visible in Resolved, Ambiguous and Unavailable results.
 RejectedSelection also represents snapshot-wide validation failures; those have
 neither a selection nor a selection source (both None). Do not attribute a
 duplicate observation or catalog identity to an explicit task preference.
-Reasons remain explanatory strings; this does not introduce a public protocol.
+Reasons use the owner-local RejectionReason enum, covering unknown Repository,
+unknown observation, wrong Repository, ineligible observation, conflicting
+selection, duplicate Repository identity, observation Repository absent from
+the catalog and duplicate observation identity. The last variant carries its
+ObservationId. Display renders the previous explanations; consumers can match
+variants without parsing text. These are internal Rust types, not public error codes.
 
 The validated value owns the exact known-catalog IDs, normalized task selections
 and immutable observations checked together. No public mutable getters or
@@ -167,6 +192,13 @@ introduce a normal dependency on the Local Context crate. A Repository-only quer
 does not fabricate a Checkout requirement. When the query claims a Checkout or
 revision, check compatible Repository/revision and retain the observation and
 resolution basis. Both Resource and Relation results use this rule.
+
+CheckoutFactInput and CheckoutFacts use Knowledge-owned WorkingTreeState:
+Clean, Dirty(String) or Unknown(String). Dirty/Unknown explanations must satisfy
+the existing nonblank, no-boundary-whitespace, no-control text policy when facts
+are constructed. Cross-domain mapping preserves all three variants and their
+explanations; it must not flatten them into formatted strings. Resource and
+Relation results retain this typed state without implying freshness or review.
 
 ## Verification Design
 

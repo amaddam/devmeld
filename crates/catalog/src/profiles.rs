@@ -2,10 +2,23 @@ use crate::{CatalogError, WorkspaceId, text};
 use devmeld_shared_kernel::{RepositoryId, ResourceId};
 use std::collections::BTreeSet;
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ProfileId(String);
+impl ProfileId {
+    pub fn new(value: impl Into<String>) -> Result<Self, CatalogError> {
+        let value = value.into();
+        text(&value, "Profile identity")?;
+        Ok(Self(value))
+    }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContextProfile {
     workspace: WorkspaceId,
-    id: String,
+    id: ProfileId,
     name: String,
     repositories: BTreeSet<RepositoryId>,
     resources: BTreeSet<ResourceId>,
@@ -13,14 +26,12 @@ pub struct ContextProfile {
 impl ContextProfile {
     pub fn new(
         workspace: WorkspaceId,
-        id: impl Into<String>,
+        id: ProfileId,
         name: impl Into<String>,
         repositories: Vec<RepositoryId>,
         resources: Vec<ResourceId>,
     ) -> Result<Self, CatalogError> {
-        let id = id.into();
         let name = name.into();
-        text(&id, "Profile identity")?;
         text(&name, "Profile name")?;
         let repo_set: BTreeSet<_> = repositories.iter().cloned().collect();
         let resource_set: BTreeSet<_> = resources.iter().cloned().collect();
@@ -35,7 +46,7 @@ impl ContextProfile {
             resources: resource_set,
         })
     }
-    pub fn id(&self) -> &str {
+    pub fn id(&self) -> &ProfileId {
         &self.id
     }
     pub fn name(&self) -> &str {

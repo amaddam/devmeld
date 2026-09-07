@@ -1,44 +1,67 @@
 use devmeld_catalog::{
-    PortableLocator, RepositoryRegistration, SourceReference, Workspace, WorkspaceId,
+    PortableLocator, RepositoryRegistration, SUPPORTED_SCHEMA_VERSION, SourceReference, Workspace,
+    WorkspaceId,
 };
 use devmeld_knowledge::{
     CheckoutBasis, CheckoutFactInput, CheckoutFacts, ResourceFact, ReviewStatus, Scope, ScopeInput,
-    SourceFact, SourceType, ValidityStatus,
+    SourceFact, SourceType, ValidityStatus, WorkingTreeState,
 };
 use devmeld_local_context::{
-    Availability, CheckoutObservation, Freshness, LocalPath, ObservationInput, PathDialect,
-    Resolution, TaskContext, WorkingTree,
+    Availability, CheckoutObservation, Freshness, LocalPath, ObservationId, ObservationInput,
+    PathDialect, Resolution, TaskContext, WorkingTree,
 };
 use devmeld_shared_kernel::{RepositoryId, ResourceId};
 use std::time::UNIX_EPOCH;
 
 #[test]
 fn independently_supplied_facts_produce_identical_knowledge_results() {
+    for (observed, expected) in [
+        (WorkingTree::Clean, WorkingTreeState::Clean),
+        (
+            WorkingTree::Dirty("changed src/main.rs".into()),
+            WorkingTreeState::Dirty("changed src/main.rs".into()),
+        ),
+        (
+            WorkingTree::Unknown("not inspected".into()),
+            WorkingTreeState::Unknown("not inspected".into()),
+        ),
+    ] {
+        check_fact_boundaries(observed, expected);
+    }
+}
+
+fn check_fact_boundaries(working_tree: WorkingTree, expected: WorkingTreeState) {
     let repository = RepositoryId::new("repo").unwrap();
     let ws_id = WorkspaceId::new("ws").unwrap();
     let source = SourceReference::new("vault", PortableLocator::new("vault").unwrap()).unwrap();
-    let catalog = Workspace::new(ws_id.clone(), "Project", 1, source, vec![])
-        .unwrap()
-        .with_repository(
-            RepositoryRegistration::new(
-                ws_id,
-                repository.clone(),
-                "repo",
-                "Repository",
-                vec![],
-                None,
-            )
-            .unwrap(),
+    let catalog = Workspace::new(
+        ws_id.clone(),
+        "Project",
+        SUPPORTED_SCHEMA_VERSION,
+        source,
+        vec![],
+    )
+    .unwrap()
+    .with_repository(
+        RepositoryRegistration::new(
+            ws_id,
+            repository.clone(),
+            "repo",
+            "Repository",
+            vec![],
+            None,
         )
-        .unwrap();
+        .unwrap(),
+    )
+    .unwrap();
     let original_catalog = catalog.clone();
     let observation = CheckoutObservation::new(ObservationInput {
-        id: "o1".into(),
+        id: ObservationId::new("o1").unwrap(),
         repository: repository.clone(),
         local_path: LocalPath::new("/repo", PathDialect::Posix).unwrap(),
         branch: Some("main".into()),
         commit: Some("abc".into()),
-        working_tree: WorkingTree::Clean,
+        working_tree,
         observed_at: UNIX_EPOCH,
         observer_revision: "fixture/1".into(),
         availability: Availability::Available,
@@ -60,13 +83,13 @@ fn independently_supplied_facts_produce_identical_knowledge_results() {
     // Consumer mapping is explicit. It is not a dependency of production Knowledge.
     let mapped = CheckoutFacts::new(CheckoutFactInput {
         repository: resolved.repository().clone(),
-        observation: selected.id().into(),
+        observation: selected.id().as_str().into(),
         branch: selected.branch().map(str::to_owned),
         revision: selected.commit().map(str::to_owned),
         working_tree: match selected.working_tree() {
-            WorkingTree::Clean => "clean".into(),
-            WorkingTree::Dirty(reason) => format!("dirty: {reason}"),
-            WorkingTree::Unknown(reason) => format!("unknown: {reason}"),
+            WorkingTree::Clean => WorkingTreeState::Clean,
+            WorkingTree::Dirty(reason) => WorkingTreeState::Dirty(reason.clone()),
+            WorkingTree::Unknown(reason) => WorkingTreeState::Unknown(reason.clone()),
         },
         observed_at: selected.observed_at(),
         observer_revision: selected.observer_revision().into(),
@@ -86,7 +109,7 @@ fn independently_supplied_facts_produce_identical_knowledge_results() {
         observation: "o1".into(),
         branch: Some("main".into()),
         revision: Some("abc".into()),
-        working_tree: "clean".into(),
+        working_tree: expected,
         observed_at: UNIX_EPOCH,
         observer_revision: "fixture/1".into(),
         basis: CheckoutBasis::SoleCandidate,

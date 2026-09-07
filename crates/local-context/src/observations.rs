@@ -2,6 +2,19 @@ use crate::{LocalContextError, LocalPath, text};
 use devmeld_shared_kernel::RepositoryId;
 use std::time::SystemTime;
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ObservationId(String);
+impl ObservationId {
+    pub fn new(value: impl Into<String>) -> Result<Self, LocalContextError> {
+        let value = value.into();
+        text(&value, "observation identity")?;
+        Ok(Self(value))
+    }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Availability {
     Available,
@@ -24,7 +37,7 @@ pub enum WorkingTree {
 /// Untrusted construction input. The validated observation owns its snapshot.
 #[derive(Clone, Debug)]
 pub struct ObservationInput {
-    pub id: String,
+    pub id: ObservationId,
     pub repository: RepositoryId,
     pub local_path: LocalPath,
     pub branch: Option<String>,
@@ -37,7 +50,7 @@ pub struct ObservationInput {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CheckoutObservation {
-    id: String,
+    id: ObservationId,
     repository: RepositoryId,
     local_path: LocalPath,
     branch: Option<String>,
@@ -50,7 +63,6 @@ pub struct CheckoutObservation {
 }
 impl CheckoutObservation {
     pub fn new(input: ObservationInput) -> Result<Self, LocalContextError> {
-        text(&input.id, "observation identity")?;
         text(&input.observer_revision, "observer revision")?;
         for value in [&input.branch, &input.commit].into_iter().flatten() {
             text(value, "observed revision")?;
@@ -89,7 +101,7 @@ impl CheckoutObservation {
     pub fn eligible(&self) -> bool {
         self.availability == Availability::Available && self.freshness == Freshness::Fresh
     }
-    pub fn id(&self) -> &str {
+    pub fn id(&self) -> &ObservationId {
         &self.id
     }
     pub fn repository(&self) -> &RepositoryId {

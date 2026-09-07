@@ -1,28 +1,23 @@
-use crate::{CheckoutObservation, LocalContextError, LocalPath, text};
+use crate::{CheckoutObservation, LocalPath, ObservationId};
 use devmeld_shared_kernel::RepositoryId;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CheckoutSelection {
     repository: RepositoryId,
-    observation_id: String,
+    observation_id: ObservationId,
 }
 impl CheckoutSelection {
-    pub fn new(
-        repository: RepositoryId,
-        observation_id: impl Into<String>,
-    ) -> Result<Self, LocalContextError> {
-        let observation_id = observation_id.into();
-        text(&observation_id, "selected observation identity")?;
-        Ok(Self {
+    pub fn new(repository: RepositoryId, observation_id: ObservationId) -> Self {
+        Self {
             repository,
             observation_id,
-        })
+        }
     }
     pub fn repository(&self) -> &RepositoryId {
         &self.repository
     }
-    pub fn observation_id(&self) -> &str {
+    pub fn observation_id(&self) -> &ObservationId {
         &self.observation_id
     }
 }
@@ -36,7 +31,39 @@ pub struct TaskContext {
 pub struct RejectedSelection {
     source: Option<SelectionSource>,
     selection: Option<CheckoutSelection>,
-    reason: String,
+    reason: RejectionReason,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RejectionReason {
+    UnknownRepository,
+    UnknownObservation,
+    WrongRepository,
+    IneligibleObservation,
+    ConflictingSelection,
+    DuplicateRepositoryIdentity,
+    ObservationRepositoryAbsent,
+    DuplicateObservationIdentity(ObservationId),
+}
+impl std::fmt::Display for RejectionReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = match self {
+            Self::UnknownRepository => "selected Repository is unknown",
+            Self::UnknownObservation => "selected observation is unknown",
+            Self::WrongRepository => "selected observation belongs to another Repository",
+            Self::IneligibleObservation => {
+                "selected observation is unavailable, stale or unverified"
+            }
+            Self::ConflictingSelection => "conflicting selections for Repository",
+            Self::DuplicateRepositoryIdentity => "duplicate catalog Repository identity",
+            Self::ObservationRepositoryAbsent => {
+                "observation Repository absent from catalog snapshot"
+            }
+            Self::DuplicateObservationIdentity(id) => {
+                return write!(f, "duplicate observation identity: {}", id.as_str());
+            }
+        };
+        f.write_str(message)
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SelectionSource {
@@ -52,7 +79,7 @@ impl RejectedSelection {
     pub fn selection(&self) -> Option<&CheckoutSelection> {
         self.selection.as_ref()
     }
-    pub fn reason(&self) -> &str {
+    pub fn reason(&self) -> &RejectionReason {
         &self.reason
     }
 }
@@ -71,7 +98,7 @@ impl std::fmt::Display for InvalidTaskContext {
             if i > 0 {
                 f.write_str("; ")?;
             }
-            f.write_str(rejection.reason())?;
+            write!(f, "{}", rejection.reason())?;
         }
         Ok(())
     }
@@ -81,7 +108,7 @@ impl std::error::Error for InvalidTaskContext {}
 #[derive(Clone, Debug)]
 pub struct ValidatedTaskContext {
     known: BTreeSet<RepositoryId>,
-    observations: BTreeMap<String, CheckoutObservation>,
+    observations: BTreeMap<ObservationId, CheckoutObservation>,
     selections: BTreeMap<RepositoryId, CheckoutSelection>,
     workspace: BTreeMap<RepositoryId, CheckoutSelection>,
     defaults: BTreeMap<RepositoryId, CheckoutSelection>,
@@ -102,7 +129,7 @@ impl TaskContext {
             errors.push(RejectedSelection {
                 source: None,
                 selection: None,
-                reason: "duplicate catalog Repository identity".into(),
+                reason: RejectionReason::DuplicateRepositoryIdentity,
             });
         }
         let mut observed = BTreeMap::new();
@@ -111,7 +138,7 @@ impl TaskContext {
                 errors.push(RejectedSelection {
                     source: None,
                     selection: None,
-                    reason: "observation Repository absent from catalog snapshot".into(),
+                    reason: RejectionReason::ObservationRepositoryAbsent,
                 });
             }
             let id = observation.id().to_owned();
@@ -119,7 +146,7 @@ impl TaskContext {
                 errors.push(RejectedSelection {
                     source: None,
                     selection: None,
-                    reason: format!("duplicate observation identity: {id}"),
+                    reason: RejectionReason::DuplicateObservationIdentity(id),
                 });
             }
         }
@@ -163,7 +190,7 @@ fn normalize(
     input: &[CheckoutSelection],
     source: SelectionSource,
     known: &BTreeSet<RepositoryId>,
-    observations: &BTreeMap<String, CheckoutObservation>,
+    observations: &BTreeMap<ObservationId, CheckoutObservation>,
 ) -> (
     BTreeMap<RepositoryId, CheckoutSelection>,
     Vec<RejectedSelection>,
@@ -173,23 +200,23 @@ fn normalize(
     let mut rejected = Vec::new();
     for selection in input {
         let reason = if !known.contains(selection.repository()) {
-            Some("selected Repository is unknown")
+            Some(RejectionReason::UnknownRepository)
         } else if let Some(observation) = observations.get(selection.observation_id()) {
             if observation.repository() != selection.repository() {
-                Some("selected observation belongs to another Repository")
+                Some(RejectionReason::WrongRepository)
             } else if !observation.eligible() {
-                Some("selected observation is unavailable, stale or unverified")
+                Some(RejectionReason::IneligibleObservation)
             } else if conflicted.contains(selection.repository())
                 || accepted
                     .get(selection.repository())
                     .is_some_and(|old| old != selection)
             {
-                Some("conflicting selections for Repository")
+                Some(RejectionReason::ConflictingSelection)
             } else {
                 None
             }
         } else {
-            Some("selected observation is unknown")
+            Some(RejectionReason::UnknownObservation)
         };
         if let Some(reason) = reason {
             conflicted.insert(selection.repository().clone());
@@ -197,7 +224,7 @@ fn normalize(
             rejected.push(RejectedSelection {
                 source: Some(source),
                 selection: Some(selection.clone()),
-                reason: reason.into(),
+                reason,
             });
         } else {
             accepted.insert(selection.repository().clone(), selection.clone());
@@ -210,7 +237,7 @@ impl ValidatedTaskContext {
     pub fn working_area(&self) -> Option<&LocalPath> {
         self.working_area.as_ref()
     }
-    pub fn observations(&self) -> &BTreeMap<String, CheckoutObservation> {
+    pub fn observations(&self) -> &BTreeMap<ObservationId, CheckoutObservation> {
         &self.observations
     }
     pub fn ignored_preferences(&self) -> &[RejectedSelection] {

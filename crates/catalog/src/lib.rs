@@ -5,10 +5,10 @@ mod references;
 mod registrations;
 mod workspace;
 
-pub use profiles::ContextProfile;
+pub use profiles::{ContextProfile, ProfileId};
 pub use references::{PortableLocator, SourceReference};
 pub use registrations::{RepositoryRegistration, ResourceRegistration};
-pub use workspace::{Workspace, WorkspaceId};
+pub use workspace::{SUPPORTED_SCHEMA_VERSION, Workspace, WorkspaceId};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CatalogError {

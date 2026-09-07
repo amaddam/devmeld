@@ -7,7 +7,8 @@
 **Last Updated**: 2026-09-07
 
 **Status**: Committed Rust foundation has recorded Windows/Linux verification;
-post-commit corrections verified on native Windows and Linux in WSL;
+review correction commit verified on Windows/Linux; subsequent type refinements
+verified on native Windows only;
 Maintainer acceptance pending (see quickstart.md)
 **Spec**: [Domain Foundation](spec.md)
 
@@ -211,6 +212,12 @@ lib.rs selectively re-exports the domain's intended API.
 Four library members are justified by three actual ownership boundaries and a
 shared identity need, not a rule that every future noun/layer needs a crate.
 The detailed layout is a revisable Plan choice, not a public SDK contract.
+
+The subsequent type refinement stays within these existing modules: ProfileId
+and SUPPORTED_SCHEMA_VERSION belong to Catalog; ObservationId and RejectionReason
+belong to Local Context; WorkingTreeState belongs to Knowledge. Existing tests
+and the compiler-consumer harness cover the changed signatures. No new crate,
+dependency, shared-kernel value, adapter or public protocol is introduced.
 
 ## Dependency and Modeling Rules
 

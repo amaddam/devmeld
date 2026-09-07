@@ -1,6 +1,6 @@
 use devmeld_catalog::{
-    ContextProfile, PortableLocator, RepositoryRegistration, ResourceRegistration, SourceReference,
-    Workspace, WorkspaceId,
+    ContextProfile, PortableLocator, ProfileId, RepositoryRegistration, ResourceRegistration,
+    SUPPORTED_SCHEMA_VERSION, SourceReference, Workspace, WorkspaceId,
 };
 use devmeld_shared_kernel::{RepositoryId, ResourceId};
 
@@ -11,7 +11,7 @@ fn workspace() -> Workspace {
     Workspace::new(
         WorkspaceId::new("ws").unwrap(),
         "Project",
-        1,
+        SUPPORTED_SCHEMA_VERSION,
         source(),
         vec![],
     )
@@ -45,7 +45,7 @@ fn workspace_requires_supported_schema_and_distinct_sources() {
         Workspace::new(
             WorkspaceId::new("ws").unwrap(),
             "Project",
-            1,
+            SUPPORTED_SCHEMA_VERSION,
             source(),
             vec![source()]
         )
@@ -85,7 +85,7 @@ fn profile_checks_known_eligible_members_and_blocks_referenced_removal() {
     let res_id = ResourceId::new("note").unwrap();
     let profile = ContextProfile::new(
         WorkspaceId::new("ws").unwrap(),
-        "profile",
+        ProfileId::new("profile").unwrap(),
         "Coding",
         vec![repo_id.clone()],
         vec![res_id.clone()],
@@ -110,7 +110,9 @@ fn profile_checks_known_eligible_members_and_blocks_referenced_removal() {
         .unwrap();
     assert!(ready.without_repository(&repo_id).is_err());
     assert!(ready.without_resource(&res_id).is_err());
-    let revised = ready.without_profile("profile").unwrap();
+    let revised = ready
+        .without_profile(&ProfileId::new("profile").unwrap())
+        .unwrap();
     assert!(revised.without_repository(&repo_id).is_ok());
     assert!(revised.without_resource(&res_id).is_ok());
     assert_eq!(ready.profiles().len(), 1);
@@ -129,8 +131,14 @@ fn resource_source_and_eligibility_cannot_bypass_workspace_validation() {
     )
     .unwrap();
     let state = workspace().with_resource(resource).unwrap();
-    let profile =
-        ContextProfile::new(WorkspaceId::new("ws").unwrap(), "p", "P", vec![], vec![id]).unwrap();
+    let profile = ContextProfile::new(
+        WorkspaceId::new("ws").unwrap(),
+        ProfileId::new("p").unwrap(),
+        "P",
+        vec![],
+        vec![id],
+    )
+    .unwrap();
     assert!(state.with_profile(profile).is_err());
     let foreign_source =
         SourceReference::new("unknown", PortableLocator::new("elsewhere").unwrap()).unwrap();
@@ -162,7 +170,7 @@ fn replacing_referenced_resource_cannot_invalidate_profile_or_source_ownership()
     };
     let profile = ContextProfile::new(
         WorkspaceId::new("ws").unwrap(),
-        "p",
+        ProfileId::new("p").unwrap(),
         "P",
         vec![],
         vec![id.clone()],
@@ -179,7 +187,7 @@ fn replacing_referenced_resource_cannot_invalidate_profile_or_source_ownership()
     assert!(original.with_resource(make(redirected, true)).is_err());
     let foreign = ContextProfile::new(
         WorkspaceId::new("foreign").unwrap(),
-        "p",
+        ProfileId::new("p").unwrap(),
         "P",
         vec![],
         vec![],
@@ -188,4 +196,31 @@ fn replacing_referenced_resource_cannot_invalidate_profile_or_source_ownership()
     assert!(original.with_profile(foreign).is_err());
     assert!(original.resources().get(&id).unwrap().eligible());
     assert_eq!(original.profiles().len(), 1);
+}
+
+#[test]
+fn profile_identity_is_validated_and_survives_renaming() {
+    for invalid in ["", " ", " p", "p ", "p\nq", "p\0"] {
+        assert!(ProfileId::new(invalid).is_err());
+    }
+    let spelling = "\u{9879}\u{76ee}/profile";
+    let id = ProfileId::new(spelling).unwrap();
+    assert_eq!(id.as_str(), spelling);
+    let make = |name| {
+        ContextProfile::new(
+            WorkspaceId::new("ws").unwrap(),
+            id.clone(),
+            name,
+            vec![],
+            vec![],
+        )
+        .unwrap()
+    };
+    let original = workspace().with_profile(make("Before")).unwrap();
+    let renamed = original.with_profile(make("After")).unwrap();
+    assert_eq!(renamed.profiles().len(), 1);
+    assert_eq!(renamed.profiles()[&id].id(), &id);
+    assert_eq!(renamed.profiles()[&id].name(), "After");
+    assert_eq!(original.profiles()[&id].name(), "Before");
+    assert!(renamed.without_profile(&id).unwrap().profiles().is_empty());
 }

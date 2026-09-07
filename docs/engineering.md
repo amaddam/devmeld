@@ -184,6 +184,58 @@ When a change accepts a durable decision, update the artifact that owns it:
 Create an ADR only when there is an accepted architecture decision to record; do
 not create placeholder decision files or empty directories.
 
+## Behavioral Development
+
+For new or changed domain/application behavior, use vertical TDD by default.
+Start from an accepted behavior and its owning Spec, Plan and ADRs, following
+this guide. Test through a public or intentionally exposed domain boundary.
+Do not add a facade, application layer or public API merely to enable a test.
+Do not ask the Maintainer to reconfirm an already accepted boundary; clarify
+only unresolved scope, conflicting decisions or undecided boundary choices.
+
+Within each behavioral task:
+
+1. Select one observable rule or case from the accepted behavior.
+2. Add the smallest test that demonstrates the missing behavior.
+3. Run it and confirm failure for the intended reason. Environment failures
+   are not a behavioral RED. If compilation initially fails because a new API
+   is missing, establish the API shape and observe the behavioral failure too.
+4. Implement the minimum coherent behavior needed to pass that test.
+5. Run the focused test and affected suite. Make necessary small refactors,
+   keeping the suite green, then continue with the next case.
+
+One task owns a bounded behavior slice and may contain several small cycles.
+Do not batch all tests for a feature or story before implementing any behavior,
+or turn RED, GREEN and refactor into separate checklist tasks. Do not use a
+cycle as permission to implement future behavior or speculative abstractions.
+Expected values must come from accepted rules or independently worked examples,
+not repeat the implementation's calculation. Avoid tests coupled to private
+structure when observable behavior is the subject under test.
+
+Choose verification by task type:
+
+| Task | Execution and evidence |
+| --- | --- |
+| New or changed behavior | Small failing behavior test, implementation, focused suite, necessary refactor, green suite |
+| Bug fix preserving accepted behavior | Reproduce the defect with a failing regression test, fix it, verify the affected suite |
+| Existing behavior refactor or rename | Establish a green baseline, add characterization coverage if needed, refactor, keep green; do not remove working code to manufacture RED |
+| Compile-time type or visibility boundary | Successful valid control plus a compile-fail probe with the intended diagnostic |
+| Architecture dependency rule | Focused architecture probe with valid and forbidden cases |
+| Tooling, setup or CI configuration | Direct configuration, command or workflow verification appropriate to the change |
+| Documentation | Review consistency, references and examples; validate executable examples when applicable |
+
+Boundary probes test the boundary itself and are not ordinary behavioral TDD.
+This distinction does not exempt them from verification. Record justified
+departures from behavioral TDD and unavailable checks; do not claim RED was
+observed when it was not. Report the focused command and relevant RED/GREEN
+outcome with the task's evidence, without creating separate evidence artifacts
+for every cycle. Full checks and Feature acceptance remain required as applicable.
+
+Apply this convention to subsequent new behavior and fixes. Do not rewrite
+completed Foundation tasks or retroactively claim they were developed with TDD.
+Spec Kit's project-owned templates and command sources implement this convention;
+see [workflow maintenance](../CONTRIBUTING.md#spec-kit-customizations).
+
 ## Testing and Evidence
 
 Tests must be proportional to behavioral risk and must verify observable

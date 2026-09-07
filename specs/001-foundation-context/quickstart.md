@@ -3,8 +3,8 @@
 **Feature**: [Domain Foundation](spec.md)  
 **Last Updated**: 2026-09-07
 **Status**: Tool/dependency-guidance Product behavior accepted on 2026-09-07;
-committed Rust baseline has recorded Windows/Linux verification; review corrections
-verified on native Windows and Linux in WSL; Maintainer acceptance pending
+committed baseline and review correction have recorded Windows/Linux verification;
+subsequent type refinements verified on native Windows only; Maintainer acceptance pending
 **Audience**: Maintainers and contributors reviewing the first code foundation
 
 ## What This Guide Proves
@@ -552,6 +552,9 @@ reviewed snapshot without changing the historical record.
 
 ### Post-commit Review Verification (2026-09-07)
 
+This section records the review correction snapshot committed as 64dfb74.
+The later type refinement and its verification are recorded separately below.
+
 Review snapshot: corrections based on commit 4da1911. At verification time,
 these changes were uncommitted. The user subsequently authorized a local commit
 and reserved push for themselves. The Git commit containing this record and its
@@ -609,6 +612,42 @@ Native Windows rerun after the user reported updating the environment:
   unit tests, one compile-fail doctest, six admitted dependency declarations
   and all 43 architecture probes passed. The existing large_enum_variant
   warning remains non-blocking. No source changes were needed for this rerun.
+
+### Type Modeling Refinement (2026-09-07)
+
+Current snapshot: local changes based on 64dfb74, authorized by the user's request
+to replace overly broad string-based business fields with appropriate Rust types.
+No commit, push or Maintainer ACCEPT has been performed for this refinement.
+
+- Knowledge WorkingTreeState preserves Clean, Dirty and Unknown; the latter two
+  require valid explanation text. Resource and Relation results retain the type.
+  The independent fact-builder test now covers all three mapped states.
+- ProfileId and ObservationId validate identity spelling in their owning domains.
+  Profile construction/removal/map access and observation input/selection/map access
+  require the correct types. CheckoutSelection::new now returns Self because both
+  IDs are already constructed; TaskContext still validates their relationship.
+- RejectedSelection::reason returns RejectionReason, with eight variants and
+  Display text preserving previous explanations. Duplicate observation failures
+  retain their typed ID; selection sources and resolution precedence are unchanged.
+- SUPPORTED_SCHEMA_VERSION names the existing Catalog schema version 1. Names,
+  aliases, descriptions and open Resource type labels remain text. No dependency,
+  workspace member, shared-kernel value or public protocol was added.
+
+Validation on native Windows, using the already installed Rust/Cargo 1.98.1
+(`x86_64-pc-windows-msvc`), rustfmt 1.9.0-stable and Clippy 0.1.98:
+
+- New behavior tests first failed with the expected missing type/constant APIs
+  and incompatible constructor signatures, before implementation.
+- `cargo xtask check` exited 0 from `D:\RUST\project\devmeld`, compiling and running
+  Windows executables under `target`. All dependencies were available offline.
+- Formatting, workspace checking, Clippy, 43 core behavior tests (Catalog 10,
+  Local Context 15, Knowledge 14, Shared Kernel 4), three tool unit tests and one
+  compile-fail doctest passed. The existing large_enum_variant warning remains.
+- The real six-declaration dependency graph and 46 architecture probes passed.
+  Three new E0308 probes reject mixed Profile/Workspace IDs, Repository/Observation
+  IDs and assigning a String to a working-tree state after the valid control passes.
+- No WSL command was used for this refinement. WSL/Linux and macOS are not
+  credited for the changed snapshot; earlier Windows/Linux evidence stays historical.
 
 [Current fingerprints](verification.sha256) identify this revised working tree,
 including this guide. Hash UTF-8 file bytes after normalizing CRLF to LF so a

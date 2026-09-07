@@ -7,7 +7,7 @@ fn repo() -> RepositoryId {
 }
 fn observation(id: &str, repository: RepositoryId) -> CheckoutObservation {
     CheckoutObservation::new(ObservationInput {
-        id: id.into(),
+        id: ObservationId::new(id).unwrap(),
         repository,
         local_path: LocalPath::new("C:/work/repo", PathDialect::Windows).unwrap(),
         branch: Some("main".into()),
@@ -68,9 +68,15 @@ fn invalid_explicit_selections_keep_reason_and_never_resolve() {
         observation("o1", repo()),
         observation("foreign", RepositoryId::new("other").unwrap()),
     ];
-    for selected in ["missing", "foreign"] {
+    for (selected, reason) in [
+        ("missing", RejectionReason::UnknownObservation),
+        ("foreign", RejectionReason::WrongRepository),
+    ] {
         let raw = TaskContext {
-            selections: vec![CheckoutSelection::new(repo(), selected).unwrap()],
+            selections: vec![CheckoutSelection::new(
+                repo(),
+                ObservationId::new(selected).unwrap(),
+            )],
             working_area: None,
         };
         let error = raw
@@ -82,7 +88,11 @@ fn invalid_explicit_selections_keep_reason_and_never_resolve() {
             )
             .unwrap_err();
         assert_eq!(
-            error.rejections()[0].selection().unwrap().observation_id(),
+            error.rejections()[0]
+                .selection()
+                .unwrap()
+                .observation_id()
+                .as_str(),
             selected
         );
         assert_eq!(
@@ -90,18 +100,26 @@ fn invalid_explicit_selections_keep_reason_and_never_resolve() {
             Some(SelectionSource::ExplicitTask)
         );
         assert!(!error.to_string().is_empty());
+        assert_eq!(error.rejections()[0].reason(), &reason);
     }
     let conflict = TaskContext {
         selections: vec![
-            CheckoutSelection::new(repo(), "o1").unwrap(),
-            CheckoutSelection::new(repo(), "foreign").unwrap(),
+            CheckoutSelection::new(repo(), ObservationId::new("o1").unwrap()),
+            CheckoutSelection::new(repo(), ObservationId::new("o2").unwrap()),
         ],
         working_area: None,
     };
-    assert!(
-        conflict
-            .validate(vec![repo()], observations, vec![], vec![])
-            .is_err()
+    let error = conflict
+        .validate(
+            vec![repo()],
+            vec![observation("o1", repo()), observation("o2", repo())],
+            vec![],
+            vec![],
+        )
+        .unwrap_err();
+    assert_eq!(
+        error.rejections()[0].reason(),
+        &RejectionReason::ConflictingSelection
     );
 }
 
@@ -114,6 +132,11 @@ fn duplicate_snapshots_are_rejected_and_working_area_is_preserved() {
     assert_eq!(error.rejections().len(), 1);
     assert_eq!(error.rejections()[0].selection(), None);
     assert_eq!(error.rejections()[0].source(), None);
+    assert_eq!(
+        error.rejections()[0].reason(),
+        &RejectionReason::DuplicateObservationIdentity(ObservationId::new("o1").unwrap()),
+    );
+    assert_eq!(error.to_string(), "duplicate observation identity: o1");
     let area = LocalPath::new("/work", PathDialect::Posix).unwrap();
     let raw = TaskContext {
         selections: vec![],
@@ -128,4 +151,70 @@ fn duplicate_snapshots_are_rejected_and_working_area_is_preserved() {
             .resolve(&RepositoryId::new("unknown").unwrap())
             .is_err()
     );
+}
+
+#[test]
+fn observation_identity_is_validated_and_used_for_snapshot_lookup() {
+    for invalid in ["", " ", " o1", "o1 ", "o\n1", "o\0"] {
+        assert!(ObservationId::new(invalid).is_err());
+    }
+    let spelling = "\u{89c2}\u{5bdf}/o1";
+    let id = ObservationId::new(spelling).unwrap();
+    assert_eq!(id.as_str(), spelling);
+    let observed = observation(spelling, repo());
+    let valid = TaskContext {
+        selections: vec![CheckoutSelection::new(repo(), id.clone())],
+        working_area: None,
+    }
+    .validate(vec![repo()], vec![observed.clone()], vec![], vec![])
+    .unwrap();
+    assert_eq!(valid.observations().get(&id), Some(&observed));
+    let Resolution::Resolved(result) = valid.resolve(&repo()).unwrap() else {
+        panic!("expected Resolved")
+    };
+    assert_eq!(result.selected().id(), &id);
+    assert_eq!(result.basis(), ResolutionBasis::ExplicitTask);
+}
+
+#[test]
+fn rejection_reasons_distinguish_unknown_selection_from_invalid_snapshot() {
+    let observed = observation("o1", repo());
+    let error = TaskContext {
+        selections: vec![CheckoutSelection::new(
+            RepositoryId::new("other").unwrap(),
+            ObservationId::new("o1").unwrap(),
+        )],
+        working_area: None,
+    }
+    .validate(vec![repo()], vec![observed.clone()], vec![], vec![])
+    .unwrap_err();
+    assert_eq!(
+        error.rejections()[0].reason(),
+        &RejectionReason::UnknownRepository
+    );
+    assert_eq!(
+        error.rejections()[0].source(),
+        Some(SelectionSource::ExplicitTask)
+    );
+    for (known, observations, expected) in [
+        (
+            vec![repo(), repo()],
+            vec![],
+            RejectionReason::DuplicateRepositoryIdentity,
+        ),
+        (
+            vec![],
+            vec![observed],
+            RejectionReason::ObservationRepositoryAbsent,
+        ),
+    ] {
+        let error = TaskContext::default()
+            .validate(known, observations, vec![], vec![])
+            .unwrap_err();
+        assert_eq!(error.rejections().len(), 1);
+        assert_eq!(error.rejections()[0].reason(), &expected);
+        assert_eq!(error.rejections()[0].source(), None);
+        assert_eq!(error.rejections()[0].selection(), None);
+        assert!(!error.to_string().is_empty());
+    }
 }

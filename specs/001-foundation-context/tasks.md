@@ -7,7 +7,8 @@
 **Reset**: 2026-09-07
 
 **Status**: T001–T036 completed for the committed baseline with recorded Windows/Linux evidence.
-Post-commit review corrections below pass native Windows and Linux-in-WSL checks.
+Review corrections in 64dfb74 passed Windows/Linux checks; subsequent type
+refinements below pass native Windows checks and have not been rerun on WSL/Linux.
 Maintainer acceptance remains pending.
 
 **Prerequisites**: [Spec](spec.md), [Plan](plan.md), [Domain Model](data-model.md),
@@ -208,3 +209,23 @@ corrections. Quickstart records environment changes and commands.
 CI and locator fuzz testing remain follow-ups. Verification did not include an
 ACCEPT decision, commit or push. The user subsequently authorized the local
 commit and reserved push for themselves; Maintainer acceptance remains pending.
+
+## Type Modeling Refinement (2026-09-07)
+
+Following the user's request to strengthen string-based business fields:
+
+- Knowledge owns WorkingTreeState, retaining Clean/Dirty/Unknown and validated
+  explanations through explicit cross-domain mapping and both result types.
+- Catalog owns ProfileId; Local Context owns ObservationId. Constructors and
+  map/removal/selection APIs use the corresponding type. Shared Kernel is unchanged.
+- RejectionReason provides eight structured causes and preserves previous
+  explanations through Display, including the duplicated ObservationId.
+- SUPPORTED_SCHEMA_VERSION names the existing value 1. Open text fields and
+  Resource type labels retain their existing accepted inputs.
+
+Native Windows `cargo xtask check` exits 0: 43 core behavior tests, three tool
+unit tests, one compile-fail doctest and 46 architecture probes. Added compile
+probes reject mixed Profile/Workspace IDs, Repository/Observation IDs and string
+working-tree states after a valid public consumer compiles. WSL/Linux and macOS
+were not rerun for this refinement; earlier platform results apply to earlier
+snapshots. No commit, push or Maintainer ACCEPT is part of this refinement.

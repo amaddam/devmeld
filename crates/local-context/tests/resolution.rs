@@ -7,7 +7,7 @@ fn repo() -> RepositoryId {
 }
 fn obs(id: &str, freshness: Freshness) -> CheckoutObservation {
     CheckoutObservation::new(ObservationInput {
-        id: id.into(),
+        id: ObservationId::new(id).unwrap(),
         repository: repo(),
         local_path: LocalPath::new(format!("/{id}"), PathDialect::Posix).unwrap(),
         branch: None,
@@ -21,7 +21,7 @@ fn obs(id: &str, freshness: Freshness) -> CheckoutObservation {
     .unwrap()
 }
 fn selection(id: &str) -> CheckoutSelection {
-    CheckoutSelection::new(repo(), id).unwrap()
+    CheckoutSelection::new(repo(), ObservationId::new(id).unwrap())
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn all_four_resolution_bases_obey_precedence() {
         let Resolution::Resolved(result) = context.resolve(&repo()).unwrap() else {
             panic!("expected Resolved")
         };
-        assert_eq!(result.selected().id(), "a");
+        assert_eq!(result.selected().id().as_str(), "a");
         assert_eq!(result.basis(), expected);
         assert_eq!(result.considered().len(), 2);
     }
@@ -117,13 +117,15 @@ fn stale_explicit_selection_cannot_fall_back_but_stale_weak_preference_can() {
         obs("stale", Freshness::Stale("old".into())),
         obs("fresh", Freshness::Fresh),
     ];
-    assert!(
-        TaskContext {
-            selections: vec![selection("stale")],
-            working_area: None
-        }
-        .validate(vec![repo()], observations.clone(), vec![], vec![])
-        .is_err()
+    let error = TaskContext {
+        selections: vec![selection("stale")],
+        working_area: None,
+    }
+    .validate(vec![repo()], observations.clone(), vec![], vec![])
+    .unwrap_err();
+    assert_eq!(
+        error.rejections()[0].reason(),
+        &RejectionReason::IneligibleObservation
     );
     let valid = TaskContext::default()
         .validate(vec![repo()], observations, vec![selection("stale")], vec![])
@@ -131,7 +133,7 @@ fn stale_explicit_selection_cannot_fall_back_but_stale_weak_preference_can() {
     let Resolution::Resolved(result) = valid.resolve(&repo()).unwrap() else {
         panic!("expected Resolved")
     };
-    assert_eq!(result.selected().id(), "fresh");
+    assert_eq!(result.selected().id().as_str(), "fresh");
     assert_eq!(result.basis(), ResolutionBasis::SoleCandidate);
     assert!(!result.ignored_preferences().is_empty());
 }
@@ -158,7 +160,7 @@ fn ignored_sources_survive_every_resolution_outcome() {
         let ignored = match &outcome {
             Resolution::Resolved(result) => {
                 assert_eq!(fresh_count, 1);
-                assert_eq!(result.selected().id(), "fresh-a");
+                assert_eq!(result.selected().id().as_str(), "fresh-a");
                 assert_eq!(result.basis(), ResolutionBasis::SoleCandidate);
                 result.ignored_preferences()
             }
@@ -181,7 +183,7 @@ fn ignored_sources_survive_every_resolution_outcome() {
         assert_eq!(ignored[0].selection(), Some(&selection("stale")));
         assert_eq!(ignored[0].selection(), ignored[1].selection());
         assert_eq!(ignored[0].reason(), ignored[1].reason());
-        assert!(!ignored[0].reason().is_empty());
+        assert_eq!(ignored[0].reason(), &RejectionReason::IneligibleObservation);
         assert_ne!(ignored[0], ignored[1]);
     }
 }

@@ -26,18 +26,20 @@ fn resource() -> ResourceFact {
     )
     .unwrap()
 }
-fn checkout(repository: RepositoryId, revision: &str) -> CheckoutFacts {
-    CheckoutFacts::new(CheckoutFactInput {
+fn checkout_input(repository: RepositoryId, revision: &str) -> CheckoutFactInput {
+    CheckoutFactInput {
         repository,
         observation: "o1".into(),
         branch: Some("main".into()),
         revision: Some(revision.into()),
-        working_tree: "clean".into(),
+        working_tree: WorkingTreeState::Clean,
         observed_at: UNIX_EPOCH,
         observer_revision: "git/1".into(),
         basis: CheckoutBasis::ExplicitTask,
-    })
-    .unwrap()
+    }
+}
+fn checkout(repository: RepositoryId, revision: &str) -> CheckoutFacts {
+    CheckoutFacts::new(checkout_input(repository, revision)).unwrap()
 }
 
 #[test]
@@ -227,4 +229,54 @@ fn relation_results_require_the_same_checkout_consistency_as_resources() {
             )
             .is_err()
     );
+}
+
+#[test]
+fn working_tree_states_and_explanations_survive_resource_and_relation_results() {
+    let relation = Relation::new(
+        RelationIdentity::Explicit("r".into()),
+        ObjectId::Repository(repo()),
+        RelationKind::References,
+        ObjectId::Resource(ResourceId::new("note").unwrap()),
+        source(),
+        vec![],
+        scope(),
+        ReviewStatus::Unreviewed,
+        ValidityStatus::Unknown,
+    )
+    .unwrap();
+    for state in [
+        WorkingTreeState::Clean,
+        WorkingTreeState::Dirty("changed src/main.rs".into()),
+        WorkingTreeState::Unknown("not inspected".into()),
+    ] {
+        let mut input = checkout_input(repo(), "abc");
+        input.working_tree = state.clone();
+        let facts = CheckoutFacts::new(input).unwrap();
+        let resource_result = resource()
+            .evaluate(scope(), Some(facts.clone()), None)
+            .unwrap();
+        let relation_result = relation
+            .evaluate(scope(), Some(facts), TargetAvailability::Available, None)
+            .unwrap();
+        assert_eq!(resource_result.checkout().unwrap().working_tree(), &state);
+        assert_eq!(relation_result.checkout().unwrap().working_tree(), &state);
+    }
+}
+
+#[test]
+fn dirty_and_unknown_working_trees_require_valid_explanations() {
+    for invalid in ["", " ", " leading", "trailing ", "a\nb", "a\0"] {
+        for state in [
+            WorkingTreeState::Dirty(invalid.into()),
+            WorkingTreeState::Unknown(invalid.into()),
+        ] {
+            let mut input = checkout_input(repo(), "abc");
+            input.working_tree = state;
+            assert_eq!(
+                CheckoutFacts::new(input).unwrap_err(),
+                KnowledgeError::InvalidText("working-tree explanation"),
+            );
+        }
+    }
 }

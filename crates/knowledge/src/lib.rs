@@ -7,6 +7,7 @@ mod scope;
 
 pub use context_result::{
     CheckoutBasis, CheckoutFactInput, CheckoutFacts, RelationResult, ResourceResult,
+    WorkingTreeState,
 };
 pub use provenance::{
     Evidence, EvidenceSupport, ResourceFact, ReviewStatus, SourceFact, SourceType, ValidityStatus,

@@ -466,6 +466,15 @@ pub fn identities() { let _ = RepositoryId::new("repo").unwrap(); let _ = Resour
 pub fn context() -> ValidatedTaskContext { TaskContext::default().validate(vec![], vec![], vec![], vec![]).unwrap() }
 pub fn catalog() { let _ = devmeld_catalog::WorkspaceId::new("ws").unwrap(); }
 pub fn knowledge() { let _ = devmeld_knowledge::Scope::new(Default::default()).unwrap(); }
+pub fn profile(id: devmeld_catalog::ProfileId) -> devmeld_catalog::ContextProfile {
+    devmeld_catalog::ContextProfile::new(devmeld_catalog::WorkspaceId::new("ws").unwrap(), id, "Profile", vec![], vec![]).unwrap()
+}
+pub fn selection(id: devmeld_local_context::ObservationId) -> devmeld_local_context::CheckoutSelection {
+    devmeld_local_context::CheckoutSelection::new(RepositoryId::new("repo").unwrap(), id)
+}
+pub fn working_tree(input: &mut devmeld_knowledge::CheckoutFactInput) {
+    input.working_tree = devmeld_knowledge::WorkingTreeState::Clean;
+}
 pub fn outcomes(value: Resolution) { match value { Resolution::Resolved(_) => (), Resolution::Ambiguous(_) => (), Resolution::Unavailable(_) => () } }
 "#, None)?;
     for (name, code, diagnostic, text) in [
@@ -484,6 +493,24 @@ pub fn outcomes(value: Resolution) { match value { Resolution::Resolved(_) => ()
         (
             "identity-kind-mismatch",
             "pub fn wrong(id: devmeld_shared_kernel::ResourceId) -> devmeld_shared_kernel::RepositoryId { id }",
+            "E0308",
+            "mismatched",
+        ),
+        (
+            "profile-identity-kind-mismatch",
+            "pub fn wrong(id: devmeld_catalog::WorkspaceId) -> devmeld_catalog::ProfileId { id }",
+            "E0308",
+            "mismatched",
+        ),
+        (
+            "observation-identity-kind-mismatch",
+            "pub fn wrong(id: devmeld_shared_kernel::RepositoryId) -> devmeld_local_context::CheckoutSelection { devmeld_local_context::CheckoutSelection::new(id.clone(), id) }",
+            "E0308",
+            "mismatched",
+        ),
+        (
+            "string-working-tree-state",
+            "pub fn wrong(input: &mut devmeld_knowledge::CheckoutFactInput) { input.working_tree = String::from(\"clean\"); }",
             "E0308",
             "mismatched",
         ),

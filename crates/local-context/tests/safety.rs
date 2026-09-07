@@ -7,7 +7,7 @@ fn repo() -> RepositoryId {
 }
 fn input() -> ObservationInput {
     ObservationInput {
-        id: "o1".into(),
+        id: ObservationId::new("o1").unwrap(),
         repository: repo(),
         local_path: LocalPath::new("/repo", PathDialect::Posix).unwrap(),
         branch: Some("main".into()),
@@ -25,7 +25,10 @@ fn changed_caller_inputs_cannot_replace_validated_snapshot() {
     let mut original = input();
     let old = CheckoutObservation::new(original.clone()).unwrap();
     let mut raw = TaskContext {
-        selections: vec![CheckoutSelection::new(repo(), "o1").unwrap()],
+        selections: vec![CheckoutSelection::new(
+            repo(),
+            ObservationId::new("o1").unwrap(),
+        )],
         working_area: None,
     };
     let valid = raw
@@ -50,12 +53,12 @@ fn changed_caller_inputs_cannot_replace_validated_snapshot() {
 fn conflicting_weak_preferences_never_become_order_based_winners() {
     let a = CheckoutObservation::new(input()).unwrap();
     let mut other = input();
-    other.id = "o2".into();
+    other.id = ObservationId::new("o2").unwrap();
     let b = CheckoutObservation::new(other).unwrap();
     for names in [["o1", "o2"], ["o2", "o1"]] {
         let preferences = names
             .into_iter()
-            .map(|s| CheckoutSelection::new(repo(), s).unwrap())
+            .map(|s| CheckoutSelection::new(repo(), ObservationId::new(s).unwrap()))
             .collect();
         let valid = TaskContext::default()
             .validate(
@@ -92,7 +95,7 @@ fn all_three_candidate_permutations_preserve_ambiguity_and_explicit_choice() {
         .into_iter()
         .map(|id| {
             let mut facts = input();
-            facts.id = id.into();
+            facts.id = ObservationId::new(id).unwrap();
             CheckoutObservation::new(facts).unwrap()
         })
         .collect();
@@ -112,7 +115,7 @@ fn all_three_candidate_permutations_preserve_ambiguity_and_explicit_choice() {
             valid.resolve(&repo()).unwrap(),
             Resolution::Ambiguous(_)
         ));
-        let selection = CheckoutSelection::new(repo(), "b").unwrap();
+        let selection = CheckoutSelection::new(repo(), ObservationId::new("b").unwrap());
         let raw = TaskContext {
             selections: vec![selection.clone(), selection],
             working_area: None,
@@ -123,7 +126,7 @@ fn all_three_candidate_permutations_preserve_ambiguity_and_explicit_choice() {
         let Resolution::Resolved(result) = explicit.resolve(&repo()).unwrap() else {
             panic!("expected explicit choice")
         };
-        assert_eq!(result.selected().id(), "b");
+        assert_eq!(result.selected().id().as_str(), "b");
         assert_eq!(result.basis(), ResolutionBasis::ExplicitTask);
     }
 }
@@ -151,7 +154,10 @@ fn missing_observation_is_unavailable_but_unknown_repository_is_invalid() {
         facts.availability = Availability::Unavailable("missing directory".into());
         facts.freshness = freshness;
         let raw = TaskContext {
-            selections: vec![CheckoutSelection::new(repo(), "o1").unwrap()],
+            selections: vec![CheckoutSelection::new(
+                repo(),
+                ObservationId::new("o1").unwrap(),
+            )],
             working_area: None,
         };
         assert!(

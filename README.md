@@ -11,14 +11,14 @@ four core libraries, shared identities and three core domains were committed as
 `4da191195b3edafefb84d6f2896f0e56fc74e400`. Maintainer acceptance is pending;
 this is not a finished application.
 
-The committed baseline has recorded native Windows and Linux-in-WSL passes.
-Post-commit review corrections preserve rejected preference sources and tighten
-shared-kernel dependency declarations. The revised code passes the complete
-check on native Windows and Linux in WSL with Rust/Cargo 1.98.1: 38 core behavior
-tests, one compile-fail doctest, three developer-tool unit tests and 43
-architecture/type/scope probes. One non-blocking Clippy performance warning
-remains documented. See the
-[acceptance evidence](specs/001-foundation-context/quickstart.md#post-commit-review-verification-2026-09-07).
+The foundation and review correction commits have recorded native Windows and
+Linux-in-WSL passes. Current type refinements add Knowledge working-tree states,
+typed rejection reasons, owner-local ObservationId/ProfileId and a named schema
+version constant. They pass the complete native Windows check with Rust/Cargo
+1.98.1: 43 core behavior tests, one compile-fail doctest, three developer-tool unit
+tests and 46 architecture/type/scope probes. This refinement has not been rerun
+on WSL/Linux or macOS. One non-blocking Clippy performance warning remains.
+See the [acceptance evidence](specs/001-foundation-context/quickstart.md#type-modeling-refinement-2026-09-07).
 
 The product name is **DevMeld**; the repository name is **devmeld**. The existing
 Windows checkout directory need not be renamed to express that distinction.
@@ -49,9 +49,9 @@ UI, database, provider adapter or public protocol is in Feature 001.
 The next step is Maintainer review of this foundation, not automatic acceptance
 or integration work. Cargo commands and the existing-toolchain reuse procedure are
 in the acceptance guide. WSL is not required; its Linux results supplement native
-Windows evidence. macOS has not been tested. The review corrections follow the
-committed baseline; their local commit was authorized after verification.
-Publishing that commit remains with the Maintainer.
+Windows evidence. macOS has not been tested. Review corrections were committed
+as `64dfb74`; the subsequent type refinements are local changes. Publishing
+commits remains with the Maintainer.
 
 ## Run Checks
 

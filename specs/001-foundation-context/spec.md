@@ -8,7 +8,8 @@
 
 **Status**: Tool/dependency-guidance Product behavior accepted on 2026-09-07;
 architecture/runtime accepted; committed foundation has recorded Windows/Linux verification;
-review corrections verified on native Windows and Linux in WSL;
+review correction commit verified on Windows/Linux; subsequent type refinements
+verified on native Windows only;
 Maintainer acceptance pending (see quickstart.md)
 
 **Decision Record**: Architecture was accepted on 2026-09-02. The replacement

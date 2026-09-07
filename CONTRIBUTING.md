@@ -51,6 +51,46 @@ fixes, and defect corrections that preserve approved behavior may proceed
 without a Feature Spec. A defect correction that intentionally changes public
 behavior or a data contract is a material behavioral change and requires one.
 
+## Spec Kit Customizations
+
+The behavioral development rules live in `docs/engineering.md`. Project-owned
+Spec Kit sources live in `.specify/templates/overrides/`:
+
+- `tasks-template.md` defines behavior-slice task structure.
+- `tasks.md` and `implement.md` replace the corresponding command instructions.
+  They retain the existing Spec Kit governance checks and hooks and use
+  Codex-compatible skill frontmatter. Their upstream baseline is the installed
+  Spec Kit 1.0.1 command output; review upstream changes when upgrading.
+
+Edit these sources, not only `.agents/skills/speckit-{tasks,implement}/SKILL.md`.
+The latter are checked-in materialized copies, not separate rule authorities.
+With an existing Python 3 interpreter, synchronize only these two copies:
+
+```text
+python tools/speckit/sync_skills.py --check
+python tools/speckit/sync_skills.py --write
+python tools/speckit/sync_skills.py --check
+python -m unittest discover -s tools/speckit -p "test_*.py"
+```
+
+`--check` is read-only and fails on drift. Review differences before `--write`,
+which replaces only those two outputs. This helper neither installs/upgrades
+Spec Kit nor implements its general renderer, hooks or template resolution.
+The existing template resolver reads `tasks-template.md` from the override
+stack; command overrides must be materialized before the agent uses them.
+
+Before a Spec Kit refresh, preserve local changes and review the upstream
+command changes against these full replacement sources. Do not use `--force`
+merely to bypass modified-file protection. After an approved refresh, reconcile
+the override sources, synchronize the two skills and run the checks above.
+Keep `.specify/integrations/*.manifest.json` as the installer-recorded baseline;
+do not rewrite its hashes to disguise customized output as untouched upstream
+files. Keep the Python workflow helpers; do not restore a parallel shell tree.
+
+See upstream [upgrade guidance](https://github.com/github/spec-kit/blob/main/docs/upgrade.md)
+and [override resolution](https://github.com/github/spec-kit/blob/main/docs/reference/presets.md).
+No independent TDD skill is required for this convention.
+
 ## Review Gates
 
 Maintainer approval is required before accepting:

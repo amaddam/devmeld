@@ -7,12 +7,12 @@ mod task_context;
 
 pub use bindings::{LocalBinding, LocalBindingRegistry, LocalPath, PathDialect};
 pub use observations::{
-    Availability, CheckoutObservation, Freshness, ObservationInput, WorkingTree,
+    Availability, CheckoutObservation, Freshness, ObservationId, ObservationInput, WorkingTree,
 };
 pub use resolution::{Resolution, ResolutionBasis, ResolvedCheckout, UnresolvedCheckout};
 pub use task_context::{
-    CheckoutSelection, InvalidTaskContext, RejectedSelection, SelectionSource, TaskContext,
-    ValidatedTaskContext,
+    CheckoutSelection, InvalidTaskContext, RejectedSelection, RejectionReason, SelectionSource,
+    TaskContext, ValidatedTaskContext,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

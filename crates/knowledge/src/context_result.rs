@@ -9,13 +9,19 @@ pub enum CheckoutBasis {
     LocalDefault,
     SoleCandidate,
 }
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WorkingTreeState {
+    Clean,
+    Dirty(String),
+    Unknown(String),
+}
 #[derive(Clone, Debug)]
 pub struct CheckoutFactInput {
     pub repository: RepositoryId,
     pub observation: String,
     pub branch: Option<String>,
     pub revision: Option<String>,
-    pub working_tree: String,
+    pub working_tree: WorkingTreeState,
     pub observed_at: SystemTime,
     pub observer_revision: String,
     pub basis: CheckoutBasis,
@@ -26,7 +32,7 @@ pub struct CheckoutFacts {
     observation: String,
     branch: Option<String>,
     revision: Option<String>,
-    working_tree: String,
+    working_tree: WorkingTreeState,
     observed_at: SystemTime,
     observer_revision: String,
     basis: CheckoutBasis,
@@ -34,7 +40,12 @@ pub struct CheckoutFacts {
 impl CheckoutFacts {
     pub fn new(input: CheckoutFactInput) -> Result<Self, KnowledgeError> {
         text(&input.observation, "Checkout observation")?;
-        text(&input.working_tree, "working-tree fact")?;
+        match &input.working_tree {
+            WorkingTreeState::Clean => {}
+            WorkingTreeState::Dirty(reason) | WorkingTreeState::Unknown(reason) => {
+                text(reason, "working-tree explanation")?;
+            }
+        }
         text(&input.observer_revision, "observer revision")?;
         for value in [&input.branch, &input.revision].into_iter().flatten() {
             text(value, "Checkout revision")?;
@@ -62,7 +73,7 @@ impl CheckoutFacts {
     pub fn revision(&self) -> Option<&str> {
         self.revision.as_deref()
     }
-    pub fn working_tree(&self) -> &str {
+    pub fn working_tree(&self) -> &WorkingTreeState {
         &self.working_tree
     }
     pub fn observed_at(&self) -> SystemTime {

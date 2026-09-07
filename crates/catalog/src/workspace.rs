@@ -1,9 +1,11 @@
 use crate::{
-    CatalogError, ContextProfile, RepositoryRegistration, ResourceRegistration, SourceReference,
-    text,
+    CatalogError, ContextProfile, ProfileId, RepositoryRegistration, ResourceRegistration,
+    SourceReference, text,
 };
 use devmeld_shared_kernel::{RepositoryId, ResourceId};
 use std::collections::{BTreeMap, BTreeSet};
+
+pub const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct WorkspaceId(String);
@@ -27,7 +29,7 @@ pub struct Workspace {
     additional_sources: Vec<SourceReference>,
     repositories: BTreeMap<RepositoryId, RepositoryRegistration>,
     resources: BTreeMap<ResourceId, ResourceRegistration>,
-    profiles: BTreeMap<String, ContextProfile>,
+    profiles: BTreeMap<ProfileId, ContextProfile>,
 }
 impl Workspace {
     pub fn new(
@@ -52,7 +54,7 @@ impl Workspace {
     }
     fn validate(&self) -> Result<(), CatalogError> {
         text(&self.name, "Workspace name")?;
-        if self.schema_version != 1 {
+        if self.schema_version != SUPPORTED_SCHEMA_VERSION {
             return Err(CatalogError::UnsupportedSchema(self.schema_version));
         }
         let mut sources = BTreeMap::from([(self.primary_vault.id(), &self.primary_vault)]);
@@ -149,7 +151,7 @@ impl Workspace {
             .ok_or(CatalogError::UnknownReference("Resource"))?;
         Ok(next)
     }
-    pub fn without_profile(&self, id: &str) -> Result<Self, CatalogError> {
+    pub fn without_profile(&self, id: &ProfileId) -> Result<Self, CatalogError> {
         let mut next = self.clone();
         next.profiles
             .remove(id)
@@ -177,7 +179,7 @@ impl Workspace {
     pub fn resources(&self) -> &BTreeMap<ResourceId, ResourceRegistration> {
         &self.resources
     }
-    pub fn profiles(&self) -> &BTreeMap<String, ContextProfile> {
+    pub fn profiles(&self) -> &BTreeMap<ProfileId, ContextProfile> {
         &self.profiles
     }
 }
