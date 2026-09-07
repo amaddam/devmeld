@@ -1,11 +1,17 @@
 # ADR-0002: Initial Python Runtime and Quality Baseline
 
-- Status: Accepted
+- Status: Superseded by [ADR-0003](0003-rust-runtime.md) on 2026-09-07
 - Decision date: 2026-09-02
 - Scope: Initial DevMeld runtime and progressive quality-tooling baseline
 - Supersedes: none
 
 ## Decision Record
+
+Historical record only. The Maintainer accepted Rust as the replacement runtime
+on 2026-09-07. [ADR-0003](0003-rust-runtime.md) owns the current runtime and
+quality baseline; the original decision below is retained, not rewritten as if
+Python had never been accepted. Previous Python test results do not constitute
+Rust implementation evidence.
 
 The Maintainer approved this runtime and quality-baseline decision (Gate 2)
 on 2026-09-02. The architecture decision is recorded separately in

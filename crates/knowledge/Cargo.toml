@@ -1,0 +1,16 @@
+[package]
+name = "devmeld-knowledge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+devmeld-shared-kernel = { path = "../shared-kernel" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+devmeld-catalog = { path = "../catalog" }
+devmeld-local-context = { path = "../local-context" }

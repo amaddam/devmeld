@@ -2,8 +2,9 @@
 
 **Feature**: [Domain Foundation](spec.md)
 
-**Status**: Non-binding supporting-domain semantic sketch; design only; pending review
-**Last Updated**: 2026-09-04
+**Status**: Cross-feature Product behavior accepted on 2026-09-07;
+supporting-domain semantic detail remains design only, with no binding public protocol
+**Last Updated**: 2026-09-07
 
 ## Purpose and Authority
 
@@ -13,11 +14,13 @@ package-manager integration, installer, or execution protocol. It creates no
 Capability Integration package, port, adapter, fixture, or placeholder in the
 current foundation.
 
-The cross-feature behavior in this sketch is a proposed Product change pending
-Maintainer review. If accepted, its stable terms, boundaries, and semantics move
-to [`docs/product.md`](../../docs/product.md); until then this sketch is not a
-Product baseline. The standalone Product meaning of `Capability` remains
-deferred; nothing here accepts it or adds capability selection to the current
+The Maintainer accepted the cross-feature behavior on 2026-09-07. Its
+authoritative baseline is
+[`docs/product.md`](../../docs/product.md#tool-and-dependency-guidance). This
+sketch elaborates domain facts and review scenarios; it does not independently
+own Product rules or freeze public protocols and implementation representations.
+The standalone Product meaning of `Capability` remains deferred, and this
+approval does not add capability selection or tool guidance to the current
 implementation.
 
 ## Question Answered
@@ -103,11 +106,19 @@ requirements, evidence, scope, and basis. Its semantic outcome is one of:
 These descriptions are semantic categories, not accepted public enum names or
 an error catalog.
 
-When there is no explicit selection, an existing eligible project-managed
-option is preferred. Convenience, familiarity, machine-wide presence, or a tool
-found in another project does not establish eligibility. If no existing option
-is adequate, a proposal explains the unmet need, the exact project-owned surface
-that would change, and the expected effect before authorization is requested.
+When there is no explicit selection, prefer an eligible existing option that
+requires no new dependency, environment, or installation change. Among such
+options, project-managed options have the strongest reuse preference. If no
+project-managed option is suitable, prefer a verified local/system option before
+proposing a change. A local/system option is eligible when it is callable in the
+current project/task scope, compatible with the task, and authorized under
+applicable constraints.
+It must not be excluded merely because it is not project-managed.
+
+Convenience, familiarity, machine-wide presence, or a tool found in another
+project alone does not establish eligibility. If no existing option is adequate,
+a proposal explains the unmet need, the exact surface that would change, and
+the expected effect before the required change authority is established.
 
 ## Ownership Across Domains
 
@@ -137,15 +148,22 @@ that would change, and the expected effect before authorization is requested.
 2. **Explicit but unavailable**: the required option is missing, incompatible,
    or conflicts with a project constraint. Guidance explains the conflict and
    does not fall back to another option.
-3. **No explicit selection, existing option**: a maintained project script or
-   declared and verified dependency satisfies the need. Guidance reuses it
+3. **No explicit selection, project-managed option**: a maintained project script
+   or declared and verified dependency satisfies the need. Guidance reuses it
    instead of proposing a duplicate tool, dependency, or environment.
 4. **No adequate existing option**: guidance proposes one bounded change with
    its rationale and target. The option is not represented as ready until the
    required change authority and a fresh post-change observation exist.
-5. **Wrong scope or stale evidence**: a candidate exists globally, in another
-   project, or only in an outdated observation. Guidance reports unknown or
-   unavailable for the current scope rather than guessing.
+5. **Wrong scope or stale evidence**: a candidate is known only from global
+   discovery, another project, or an outdated observation, with no current-scope
+   verification. Guidance reports unknown or unavailable for the current scope
+   rather than guessing.
+6. **No explicit selection, verified local/system option**: no project-managed
+   option is suitable, but an existing system tool such as curl is verified
+   callable, compatible, and authorized in the current task scope without a new
+   dependency, environment, or installation change. Guidance selects it before
+   proposing an installation or new tool. Its availability remains a scoped
+   local observation and must be reverified when the machine or scope changes.
 
 ## Invariants
 

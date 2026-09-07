@@ -4,21 +4,16 @@
 .DS_Store
 Thumbs.db
 
-# Python environments and caches
-.venv/
-venv/
+# Spec Kit's development-workflow Python scripts (not the DevMeld runtime)
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
 
-# Build and package output
-build/
-dist/
-*.egg-info/
+# Rust build output; Cargo.lock is intentionally versioned after setup
+/target/
+*.rs.bk
+.env
+.env.*
+!.env.example
 
 # Local scratch files
 *.tmp

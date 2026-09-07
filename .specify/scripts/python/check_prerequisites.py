@@ -165,9 +165,8 @@ def _status_marker(ok: bool) -> str:
     console - a pipe or a file redirect, which is how agents and workflow steps
     invoke these scripts - and U+2713 is unencodable in cp1252, so printing it
     raised UnicodeEncodeError and aborted the report right after
-    "AVAILABLE_DOCS:". "[OK]"/"[FAIL]" is the ASCII rendering these markers
-    already have in-tree: see Test-FileExists in scripts/powershell/common.ps1
-    and normalize_status_text in tests/parity_helpers.py.
+    "AVAILABLE_DOCS:". Use the readable ASCII markers "[OK]"/"[FAIL]" when
+    the output encoding cannot represent the Unicode status glyphs.
     """
     glyph = "✓" if ok else "✗"
     try:

@@ -1,17 +1,23 @@
 # Feature Specification: Domain Foundation
 
-**Feature Branch**: Not created (specification only)
+**Feature Branch**: Not created; implementation is in the local main working tree
 
 **Created**: 2026-09-01
 
-**Last Updated**: 2026-09-04
+**Last Updated**: 2026-09-07
 
-**Status**: Proposed tool/dependency-guidance Product change prepared for
-Maintainer review; architecture/runtime accepted; implementation not started
+**Status**: Tool/dependency-guidance Product behavior accepted on 2026-09-07;
+architecture/runtime accepted; implementation reset on 2026-09-07; Rust foundation implemented and verified on native Windows, Maintainer acceptance pending
 
-**Decision Record**: The project decision-maker accepted the two architecture
-and runtime proposals on 2026-09-02. Their owning ADRs and the still-deferred
-Capability gate are recorded in [Plan](plan.md#maintainer-decision-gates).
+**Decision Record**: Architecture was accepted on 2026-09-02. The replacement
+runtime and documentation-only implementation reset were accepted on 2026-09-07
+in [ADR-0003](../../docs/adr/0003-rust-runtime.md), superseding ADR-0002. The owning
+ADRs and deferred Capability gate are recorded in [Plan](plan.md#maintainer-decision-gates).
+Existing implementation passes do not count as evidence for the replacement.
+The feature behavior, acceptance criteria and implementation scope below are unchanged.
+The accepted Tool/Dependency Guidance behavior is owned by
+[Product](../../docs/product.md#tool-and-dependency-guidance); its approval does
+not expand this Feature's three-domain implementation scope.
 
 **Input**: User description: "Plan DevMeld's complete domain map and constraints
 first, but keep the first code foundation limited to the core domains. Do not
@@ -239,12 +245,15 @@ gate detects dependency reversal.
   implemented scenario needs actual cross-object/domain coordination outside
   domain objects. Empty layers or pass-through services MUST NOT be created to
   mirror an architecture diagram; domain invariants MUST remain domain-owned.
-- **FR-022**: The Capability Integration design MUST prepare evidence-backed tool
-  and dependency guidance for Maintainer review. The proposal MUST honor
-  applicable explicit selections, otherwise prefer eligible options already
-  managed in the relevant project/task scope, distinguish project declarations
-  from local observations and verified availability, and keep selection
-  authority separate from change authority. A request to use an option MUST NOT
+- **FR-022**: The Capability Integration design MUST reflect the accepted
+  Tool/Dependency Guidance behavior in `docs/product.md`. The design MUST honor
+  applicable explicit selections, otherwise prefer eligible existing options
+  requiring no new dependency, environment, or installation change. Among those
+  options, project-managed options have the strongest reuse preference; verified
+  local/system options MUST also be eligible when callable, compatible, and
+  authorized in the current project/task scope. The design MUST distinguish
+  project declarations from local observations and verified availability, and
+  keep selection authority separate from change authority. A request to use an option MUST NOT
   by itself authorize installation, dependency changes, environment creation,
   or system modification. Any such change MUST remain an explained proposal
   until separately authorized. The design MUST preserve project-owned sources
@@ -255,7 +264,7 @@ gate detects dependency reversal.
 **Design scope** includes the complete five-domain map, ubiquitous language,
 ownership, invariants, state lifecycles, dependency direction, negative model
 constraints, and non-binding semantic sketches for future context, managed
-write behavior, and a proposed tool/dependency-guidance Product change.
+write behavior, and the accepted tool/dependency-guidance Product behavior.
 
 **Implementation scope** includes only the minimum pure domain foundation for
 Project Catalog, Local Context Resolution, and Context Knowledge; application
@@ -292,10 +301,9 @@ benchmark claims.
   reversal semantics.
 - **Capability Integration**: A design-only supporting domain boundary for
   Capability Provider and Agent Client registration/compatibility plus a
-  proposed evidence-backed tool/dependency-guidance model. It does not own
-  project dependency declarations, installation, or execution. Neither the
-  guidance proposal nor any separate `Capability` concept becomes cross-feature
-  Product semantics before Maintainer approval.
+  design-level model of accepted tool/dependency-guidance behavior. It does not
+  own project dependency declarations, installation, or execution. A separate
+  `Capability` concept remains subject to Maintainer Product approval.
 - **Task Context Validation**: Validation that distinguishes malformed or
   contradictory explicit selections from valid inputs that can be resolved.
 - **Active Checkout Resolution**: Resolved, Ambiguous, or Unavailable outcome
@@ -338,10 +346,11 @@ benchmark claims.
 - **SC-010**: The implemented core foundation can be inspected and verified
   without a real Git Checkout, Vault, database, Agent Client, generated target,
   hosted service, or desktop application.
-- **SC-011**: A design review of at least four tool-selection cases—an available
-  explicit selection, an unavailable explicit selection, reuse without an
-  explicit selection, and a proposed new dependency—identifies the authoritative
-  inputs, project/task scope, selection authority, separate change authority,
+- **SC-011**: A design review of at least six tool-selection cases—an available
+  explicit selection, an unavailable explicit selection, project-managed reuse,
+  verified local/system reuse, insufficient or stale scope evidence, and a
+  proposed new dependency—identifies the authoritative inputs, project/task
+  scope, selection authority, separate change authority,
   and outcome basis without silent substitution, implicit installation
   permission, duplicate environment creation, or supporting-domain
   implementation.
@@ -364,9 +373,9 @@ benchmark claims.
   foundation; such work also needs an approved Feature scope.
 - Supporting-domain code and user-visible features will be planned separately
   when real requirements provide acceptance evidence.
-- Reuse means reuse within the relevant project and task environment, not
-  assuming that a machine-wide installation or another project's environment is
-  eligible.
+- Reuse includes project-managed and local/system options verified as eligible
+  in the relevant project/task scope. Machine-wide discovery or presence in
+  another project's environment alone does not establish eligibility.
 - A request to use a tool authorizes selection of that tool, not installation,
   dependency changes, environment creation, or system modification. A required
   change needs its own applicable authorization even when it is project- or

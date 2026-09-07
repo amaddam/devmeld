@@ -141,6 +141,52 @@ result does not become stale merely because it was queried from another context.
 Review automation may evolve over time, but public context contracts must keep
 these meanings distinct rather than collapsing them into one status.
 
+## Tool and Dependency Guidance
+
+**Decision**: Accepted by the Maintainer on 2026-09-07 as cross-feature product
+behavior.
+
+DevMeld provides evidence-backed context about tools, dependencies, scripts,
+and runtimes applicable to a task. This helps Agent Clients reuse available
+options while keeping their choices explainable.
+
+An applicable explicit user or project selection controls the choice. If the
+required option is unavailable, incompatible, or conflicts with an applicable
+constraint, guidance reports the reason and must not silently substitute it.
+
+Without an explicit selection, prefer an eligible existing option requiring no
+new dependency, environment, or installation change. Among such options,
+project-managed options have the strongest reuse preference. If no project
+option is suitable, prefer an existing local/system option verified callable,
+compatible, and authorized in the current project/task scope before proposing
+a change. An option must not be excluded merely because it is system-managed.
+Machine-wide presence alone does not establish current-task eligibility.
+
+Project manifests, lockfiles, maintained scripts, and configuration remain the
+sources of truth for project declarations. DevMeld must not create a competing
+dependency registry. Declared, discovered, verified usable, compatible, and
+authorized are distinct facts. Observations retain their source, scope,
+freshness, and relevant compatibility evidence; missing or stale evidence
+remains unknown. Local availability is not a portable project guarantee and
+must be reverified when the machine or scope changes.
+
+Selection Authority and Change Authority are separate. A request to use a tool
+authorizes its selection, but does not by itself authorize installation,
+dependency changes, environment creation, or system modification. Any required
+change remains a separate proposal explaining the unmet need and affected
+surface, with its own applicable authorization from an explicit instruction or
+project policy. Existing authorization may cover the change within its stated
+scope; a tool selection cannot supply missing change authority. An option is
+not ready merely because a change is authorized: fresh evidence must establish
+its availability after the change.
+
+Agent Clients retain responsibility for invocation, installation, environment
+changes, and enforcement. DevMeld supplies guidance and evidence, and must not
+claim that guidance alone enforces client behavior. Guidance must not expose
+credential values; it may identify a required credential kind or approved
+reference. A command, library, or script does not become a Capability Provider
+merely because it is a candidate tool option.
+
 ## Managed Writes
 
 DevMeld writes only within an authorized Managed Surface.

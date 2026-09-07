@@ -37,47 +37,134 @@ the owning decision before coding.
 
 ## Runtime and Automated Quality Gates
 
-[ADR-0002](adr/0002-initial-python-runtime.md) accepts Python 3.14.x and
-standard-library-first core development. The initial foundation has no
-production third-party dependencies. Tool configurations are created with the
-first code; this guide defines their accepted baseline.
+[ADR-0003](adr/0003-rust-runtime.md) accepts stable Rust, Edition 2024, and
+standard-library-first core development. ADR-0002 is historical. Feature 001
+now provides four core libraries and the developer-only Rust verification tool below.
 
-- **Ruff**: use its formatter and rule families `E`, `F`, `I`, `UP`, and `B`,
-  ignoring `E501`. Target Python 3.14. Do not enable `ALL`, preview rules, `SIM`,
-  duplicated annotation checks, or complexity/size thresholds by default.
-- **mypy**: target Python 3.14 and use strict checking for core domain code and
-  any implemented application/port code. Tests and future adapters may use
-  narrow, explained overrides where needed; avoid repository-wide ignores or
-  untyped core boundaries. Strict typing is not a requirement to split domain
-  logic into more functions or classes.
-- **pytest**: verify observable invariants and failure outcomes. Validate
-  configuration and registered markers; do not impose a numeric coverage target
-  or implementation-shape quota instead of testing meaningful behavior.
+### Toolchain and Dependencies
 
-No initial hard limits apply to branches, arguments, returns, statements,
-cyclomatic complexity, function length, or file length. Rule exceptions should
-be local and explained; new rule families need an identified risk rather than
-automatic adoption of every available check.
+Use the existing compatible native toolchain where possible. Record its host,
+compiler, Cargo, rustfmt, Clippy and linker evidence in the Feature acceptance
+guide. Pin the tested compiler in `rust-toolchain.toml`; record intentional
+minimum support with `rust-version`, without claiming untested older releases.
+An operational version pin is updateable, not a permanent architecture rule.
+Do not silently install Rust, build tools, a second runtime, or dependencies.
 
-After setup, local and CI checks must use the same documented sequence:
+Use one Cargo workspace, root lockfile and target directory. Declare shared
+settings at the root and explicitly inherit them in every member. Keep initial
+production and test dependencies standard-library-only apart from the admitted
+workspace identity crate and specifically allowed test-only domain edges.
+The approved developer-only tools/xtask package uses serde_json for Cargo JSON
+metadata/diagnostics. Its dependency closure stays outside all four core crates;
+do not turn this exception into permission for arbitrary product dependencies.
+Later dependencies need a concrete requirement; inspect existing declarations
+before adding one. No blanket ban on third-party libraries is intended.
+
+### Rust Modeling Style
+
+- Prefer ordinary structs, enums, newtypes, methods and named policies. Traits,
+  generics and macros need an actual abstraction or substitution requirement;
+  do not reproduce a Java inheritance framework or design every value as a trait.
+- Protect validated state with private fields and validating constructors.
+  Expose shared immutable views; do not return mutable references to protected
+  fields or add unchecked constructors to make tests easier.
+- Use distinct identity types where identity kinds must not interchange.
+  Give failure cases owner-local typed errors; errors used at crate boundaries
+  should have readable `Display` and appropriate `std::error::Error` support.
+- Keep expected failures in explicit `Result` outcomes, not panics or fabricated
+  success. A domain-result enum models mutually exclusive semantic outcomes;
+  validation errors remain separate. Review wildcard matches on closed domain
+  outcomes rather than globally prohibiting wildcard syntax.
+- Prefer understandable ownership and owned snapshots. Use `Clone` where a
+  snapshot or duplication is intentional; do not introduce lifetimes, `Arc`,
+  interior mutability or async merely to avoid an unmeasured copy.
+- Pure rules receive observation, freshness and time facts explicitly. They do
+  not perform filesystem/network/process IO or read a hidden current clock.
+  Standard-library path/time value types are not themselves IO.
+- Keep serialization, SDK types and adapters outside core invariants. No
+  universal error registry, metadata bag, entity base, or blanket service layer.
+- Use `expect`/`unwrap` for clearly valid test fixtures if useful. In production,
+  handle fallible external/domain inputs explicitly; an assertion needs a true
+  internal invariant, not a convenient substitute for error handling.
+
+### Conservative Check Policy
+
+Use compiler checking, default rustfmt, Clippy, and Cargo's built-in tests:
+
+- Rust compiler errors are gates. `unsafe_code = "forbid"` applies to the current
+  pure-core crates, not claims about the standard library or future dependencies.
+- Clippy `correctness`: deny; `suspicious` and `perf`: warn.
+- Clippy `style`, `complexity`, `pedantic`, `nursery`, and `restriction`:
+  allow initially. Use group priority `-1` so narrow justified overrides can
+  take precedence. Do not enable preview/nightly-only rules by default.
+- Each member opts into `[lints] workspace = true`; root settings alone do not
+  propagate. Narrow overrides must be visible and justified.
+- Do not use blanket `-D warnings`, redundant formatters/type checkers, blanket
+  clone bans, or quotas for branches, arguments, returns, complexity, function/
+  file length, or coverage percentage.
+- Unit and integration tests verify behavior; compile-fail probes verify specific
+  type/visibility guarantees. A failing compiler command is evidence only after
+  a valid control succeeds and the intended diagnostic is confirmed.
+
+### Cross-platform Check Entry Point
+
+Project checks MUST NOT require an OS-specific shell. Use Rust filesystem and
+process APIs with native paths and separate arguments; do not compose commands
+for PowerShell/Bash/cmd, hard-code drive letters, or assume an executable suffix.
+Platform details such as rejecting Windows junctions may be handled locally
+behind cfg, without changing the common check entry point.
+
+After installing the pinned Rust toolchain and native linker, fetch the reviewed
+locked dependencies once with `cargo fetch --locked`. Then on Windows, macOS or
+Linux run `cargo xtask check`. It executes this equivalent sequence:
 
 ```text
-python -m ruff format --check src tests
-python -m ruff check src tests
-python -m mypy src/devmeld
-python -m pytest
+cargo fmt --all -- --check
+cargo check --workspace --all-targets --locked --offline
+cargo clippy --workspace --all-targets --locked --offline
+cargo test --workspace --locked --offline
+cargo xtask architecture
+cargo xtask test-architecture
 ```
 
-Add Import Linter only once real domain packages exist. Limit it to accepted
-dependency directions, prove rejection with controlled failing examples, and
-do not create empty application, port, adapter, or entrypoint packages merely
-to satisfy its configuration. Run `lint-imports` as an additional check only
-after this gate is introduced.
+The xtask alias is defined in .cargo/config.toml and runs with --locked --offline.
+It requires neither PowerShell/Bash nor Python. Checks fail on nonzero native-command exit,
+invalid metadata or an unexpected probe result. The default Cargo test command
+includes doctests; if selecting `--all-targets`, run doctests separately.
+Offline assumes required dependencies and toolchains already exist; Cargo
+offline does not stop rustup from trying to acquire a missing toolchain.
 
-Sonar, additional type checkers, property-testing libraries, and hook frameworks
-are not initial requirements. Add one only when it covers a distinct actual
-need. Record compatible development-tool versions and interpreter versions so
-checks are reproducible, without freezing patch versions in governance prose.
+Spec Kit's separate workflow helpers use only `.specify/scripts/python` and an
+existing Python 3 interpreter. Both integration settings select `script: py`.
+Do not restore a parallel PowerShell script tree when refreshing Spec Kit.
+Python may display shell-specific environment-variable hints, but does not
+execute a shell or depend on a PowerShell script to perform its work.
+
+### Dependency Direction Checks
+
+After real domain crates exist, inspect Cargo dependency declarations and test
+compiler visibility. The Feature Plan owns allowed normal/build/dev edges.
+Check all declarations, including optional, renamed and target-specific ones;
+do not only inspect currently activated features or the current host's graph.
+Use Cargo metadata JSON, not hand-written TOML parsing or source-text import
+guessing. Treat metadata IDs as opaque.
+
+Cargo metadata does not expose workspace lint inheritance. Review the member
+manifests explicitly; the architecture harness additionally compiles an unsafe
+probe in each copied member to verify its effective unsafe policy. This does
+not prove every Clippy setting or forbid all future local lint overrides.
+
+Prove the real gate using isolated copies/fixtures containing forbidden edges
+and private-import attempts, with valid controls. Test-only dependencies do not
+authorize production coupling, examples, benchmarks or supporting-domain code.
+Do not create fake production layers to make a checker look effective.
+
+Cargo graph checks cannot prove that core code never calls `std::fs`,
+`std::process`, or a clock. Code review and focused behavior tests still own
+that purity check. Dependency checks do not replace semantic review.
+
+Sonar, Import Linter, additional analyzers, property-test libraries, hook
+frameworks and async runtimes are not initial requirements.
 
 ## Human Inspection and Documentation
 

@@ -1,371 +1,327 @@
-# Implementation Plan: Domain Foundation
+# Implementation Plan: Domain Foundation — Rust
 
-**Branch**: `001-foundation-context` (feature identifier; no Git branch created)  
-**Date**: 2026-09-01  
-**Last Updated**: 2026-09-04
-**Status**: Proposed tool/dependency-guidance Product change prepared for
-Maintainer review; architecture/runtime accepted; implementation not started
-**Spec**: [Domain Foundation specification](spec.md)
+**Branch**: main (existing checkout; feature identifier: 001-foundation-context)
 
-**Input**: Revised Feature Specification from
-`specs/001-foundation-context/spec.md`
+**Created**: 2026-09-01
+
+**Last Updated**: 2026-09-07
+
+**Status**: Rust foundation implemented and verified on native Windows and Linux in WSL; Maintainer acceptance pending
+**Spec**: [Domain Foundation](spec.md)
 
 ## Summary
 
-Design the complete DevMeld domain map while implementing only the three core
-domains: Project Catalog, Local Context Resolution, and Context Knowledge.
-Managed Materialization and Capability Integration remain documented supporting
-boundaries with responsibilities, invariants, and negative constraints, but no
-code, ports, test doubles, or stable machine protocols are created for them in
-this feature.
+Preserve the five-domain conceptual design and implement only Project Catalog,
+Local Context Resolution and Context Knowledge. The Maintainer accepted the
+Rust restart in [ADR-0003](../../docs/adr/0003-rust-runtime.md), superseding the
+Python runtime. [ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md)
+still owns the modular-monolith architecture.
 
-Capability Integration design now includes a proposed evidence-backed
-tool/dependency-guidance model: explicit applicable selections are preserved;
-otherwise existing eligible project-managed options are preferred. Selection
-authority is separate from change authority, so any dependency, installation,
-environment, or system change remains a separately authorized proposal. Project
-declarations remain authoritative, and Agent Clients retain execution
-responsibility.
+The preceding reset removed the Windows Python implementation after recoverable
+backup and updated documents only. The subsequent Maintainer start request now
+authorizes the implementation tasks below. Existing Python completion evidence and the partial WSL Rust sample
+are not acceptance evidence for the planned implementation. No further language
+comparison is required before implementation, and no dual core is maintained.
 
-Context Profile code covers only identity, naming, Repository/Resource
-selections, and Capability-independent portable rules. Capability selections
-remain design only, without placeholder fields or behavior.
-
-The foundation fixes domain semantics rather than future application APIs.
-Context and materialization documents are non-binding semantic sketches: they
-do not select operation names, JSON envelopes, pagination, public error codes,
-ranking formats, approval fields, or compatibility versions. Application
-protocols belong to the first Feature that needs them.
+Context Profile implementation remains the identity/naming/Repository/Resource
+subset. Managed Materialization, Capability Integration, capability selection
+and Tool Guidance implementation remain excluded. Accepted Tool Guidance Product
+behavior stays in [Product](../../docs/product.md#tool-and-dependency-guidance);
+the [semantic detail](tool-use-semantics.md) preserves scoped reuse, separate
+selection/change authority and Agent Client execution ownership.
 
 ## Technical Context
 
-**Language/Version**: Python 3.14.x, accepted in
-[ADR-0002](../../docs/adr/0002-initial-python-runtime.md).
+**Language/Version**: Stable Rust, Edition 2024; exact supported toolchain and
+Cargo rust-version recorded at T001. No nightly dependency or permanent patch
+pin in ADR prose. Native Windows development first; not Windows-only support.
 
-**Primary Dependencies**: Standard library only in the production core. The
-initial quality baseline is Ruff, mypy, and pytest, with settings owned by the
+**Primary Dependencies**: Standard library and internal workspace crates only
+for the four foundation libraries and their domain tests. Cargo compiler/tests,
+rustfmt and conservative Clippy. The approved developer-only tools/xtask package
+uses serde_json to parse Cargo metadata and diagnostics; its locked transitive
+dependencies do not enter core manifests or product binaries. This replaces the
+PowerShell verification prerequisite without hand-writing a JSON/TOML parser.
+
+**Storage**: None. Portable, local, derived, generated and query-derived state
+remain distinct conceptual lifecycles; no database, physical schema or index.
+
+**Testing**: Per-domain pure behavior tests, compile-fail visibility/type probes,
+and Cargo-metadata architecture checks after real crates exist. Follow the
 [Engineering Guide](../../docs/engineering.md#runtime-and-automated-quality-gates).
-No tool configuration or dependency environment has been implemented yet.
 
-**Storage**: No production persistence adapter is in scope. Pure values and only
-the minimum in-memory substitutes required by an implemented core rule may be
-used. The design still separates portable, local, derived, generated, and
-query-derived lifecycles so future persistence cannot collapse their authority.
+**Target Platform**: Native Windows first; Windows/macOS/Linux remain targets.
+WSL is optional, never the implicit toolchain for native Windows acceptance.
+Record each tested host; path-string examples do not prove execution on that OS.
 
-**Testing**: Pytest invariant/behavior tests, conservative Ruff format/lint
-checks, and mypy strict for core domain code and any genuinely needed
-application/port code. Import Linter is introduced only after real packages
-exist and only for accepted dependency contracts.
+**Project Type**: Virtual Cargo workspace with four internal library packages
+and one developer-only xtask binary; no product executable in Feature 001.
+One root Cargo.lock and target directory; no separate tool workspace/environment.
 
-**Target Platform**: Local Windows, macOS, and Linux development environments;
-no required hosted service. Platform verification remains implementation work.
+**Performance Goals**: No latency, throughput, ranking or language-speed claim.
+Pure domain tests require no real Git/Vault/database/client/network. Architecture
+tests may run Cargo/rustc on isolated test files, not application integrations.
 
-**Project Type**: Domain-oriented modular monolith, accepted in
-[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md). The first code
-contains a minimal shared kernel and three core domain packages only.
+**Constraints**: Preserve Product and Constitution; no IO in domain decisions;
+no hidden clock; no Capability placeholders, speculative layers, generic entity/
+repository/service framework, UI, provider SDK, installer, storage or public API.
+No complexity/size quotas. Copying the partial WSL experiment is not completion.
 
-**Performance Goals**: No production throughput or latency target. Core behavior
-tests are deterministic and require no external process, repository, database,
-network, Vault, Agent Client, or generated target. Architecture tests may invoke
-local verification tools over isolated temporary fixtures, not production
-adapters or user data.
-
-**Constraints**:
-
-- preserve the accepted architecture/runtime decisions and the bounded
-  Capability-independent implementation scope;
-- domain code does not import adapters, entrypoints, filesystem, Git, database,
-  Codex, UI, or another domain's internals;
-- portable objects do not contain machine-absolute paths, current-machine
-  selection, developer identity, credentials, or Active Checkout;
-- invalid Task Context is rejected before Active Checkout resolution;
-- valid resolution produces only Resolved, Ambiguous, or Unavailable and never
-  guesses through ambiguity;
-- application coordination does not own domain invariants;
-- create `application/` only for real coordination outside domain objects;
-  neither an empty package nor a pass-through service is required;
-- no generic entity hierarchy, CRUD service, Generic Repository, catch-all
-  metadata map, or shared utilities package replaces domain language;
-- no public application protocol, supporting-domain port, or speculative test
-  double is created in this feature;
-- tool/dependency guidance is design only: no environment discovery, dependency
-  installation, generic command runner, enforcement integration, or duplicate
-  dependency registry is implemented;
-- no initial hard gate on complexity, branch count, argument count, return
-  count, statement count, function length, or file length.
-
-**Scale/Scope**: Five designed domains; three implemented core domains; one
-minimal shared kernel; core-required ports only; pure invariant fixtures; no
-supporting-domain or production-adapter package
-
-## Domain Strategy and Delivery Scope
-
-| Domain | Classification | Design ownership | This feature's code |
-| --- | --- | --- | --- |
-| Project Catalog | Core | Workspace composition, Vault/source references, logical Repository identity, Context Profile selections, Resource identity | Minimal foundation and core-required ports/tests; Context Profile excludes capability selections |
-| Local Context Resolution | Core | Local Bindings, Checkout observations, Task Context validation, Active Checkout resolution | Domain rules/tests; coordination and ports only when actually needed |
-| Context Knowledge | Core | Relations, Evidence, Scope, independent provenance dimensions, Scope Match and context-result semantics | Domain rules/tests; coordination and ports only when actually needed |
-| Managed Materialization | Supporting | Preview, ownership, preconditions, manifest, conflict, verification and reversal semantics | Design only; no package, port, fixture or protocol |
-| Capability Integration | Supporting | Capability Provider and Agent Client registration/compatibility; evidence-backed tool/dependency guidance; provisional capability-declaration semantics | Design only; no package, discovery adapter, installer, port, fixture or protocol |
-
-The Verification Harness is test support, not a production domain or source of
-Product truth.
-
-The accepted modules form one application/deployment boundary. Their
-boundaries protect language and dependency direction; they do not imply
-microservices, remote calls, event sourcing, distributed transactions, or one
-database per domain.
+**Scale/Scope**: Five designed domains, three core libraries, two shared identity
+types; application/ports only if a named implemented core rule demonstrates need.
 
 ## Maintainer Decision Gates
 
-Gate 1 and Gate 2 are prerequisites for foundation implementation tasks: both
-were accepted on 2026-09-02 and are recorded in
-[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md) and
-[ADR-0002](../../docs/adr/0002-initial-python-runtime.md). Within the approved
-foundation scope, Gate 3 blocks only work that depends on formal Capability
-Product semantics, not unrelated core tasks.
-
 ### Gate 1: Initial Application Architecture
 
-**Status**: Accepted on 2026-09-02.
+Accepted on 2026-09-02 in
+[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md):
+domain-oriented modular monolith, inward dependencies, demand-created layers.
+Rust library boundaries do not create separate services or deployables.
 
-**Decision**: domain-oriented modular monolith with package-by-domain ownership,
-inward adapter dependencies, and demand-created application/port packages.
+### Gate 2: Runtime and Quality Baseline
 
-**Record**: [ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md).
-
-### Gate 2: Initial Runtime
-
-**Status**: Accepted on 2026-09-02.
-
-**Decision**: Python 3.14.x, standard-library-first core code, and a progressive
-Ruff/mypy/pytest baseline without initial complexity or logical-simplification
-gates.
-
-**Record**: [ADR-0002](../../docs/adr/0002-initial-python-runtime.md) and
-[Engineering Guide](../../docs/engineering.md#runtime-and-automated-quality-gates).
+Rust accepted on 2026-09-07 in
+[ADR-0003](../../docs/adr/0003-rust-runtime.md). The original
+[ADR-0002](../../docs/adr/0002-initial-python-runtime.md) is superseded, not deleted.
+Engineering owns operational checks. Runtime approval is not code acceptance.
 
 ### Gate 3: Capability Product Meaning
 
-**Status**: Deferred; not approved by the Gate 1/Gate 2 decision.
+Deferred. It blocks any work that depends on a standalone Capability meaning,
+including Context Profile capability selection, regardless of owning domain.
+It does not block this Capability-independent foundation.
 
-**Scope**: Capability-dependent work in any domain, including Context Profile
-capability selection and a future Capability Integration Feature. It does not
-block task generation or acceptance for this Capability-independent foundation.
-
-`docs/product.md` currently defines Capability Provider and uses lowercase
-`capabilities` in Context Profile, but does not define a standalone Capability
-concept.
-
-The proposed tool/dependency-guidance behavior is documented in
-`tool-use-semantics.md` without making each tool a Capability Provider. It is
-pending Maintainer Product review and does not resolve this Gate: the standalone
-`Capability` meaning and capability selection remain deferred.
-
-**Proposal**: define Capability as a named context function selectable by a
-Context Profile and supplied by one or more Capability Providers, independent of
-provider implementation.
-
-**On acceptance**: update `docs/product.md`. Until then, `Capability Declaration`
-in the design remains a provisional implementation-facing term. Acceptance does
-not automatically expand this Feature: capability selection and Capability
-Integration still require an approved scope before implementation. No
-placeholder Capability IDs, fields, default-empty lists, no-op behavior, ports,
-or fixtures may be introduced to bypass the unresolved meaning.
+Tool/Dependency Guidance was accepted on 2026-09-07 in Product, but neither
+resolves Gate 3 nor authorizes Domain 5 implementation. Accepting Gate 3 later
+would still not expand Feature 001 automatically. No Capability IDs, empty
+lists, no-op selection methods, ports or fixtures may disguise unsupported work.
 
 ## Constitution Check
 
-*GATE: Passed for the bounded foundation. Gate 1 and Gate 2 are accepted and
-recorded. Gate 3 remains a scoped blocker for Capability-dependent work, which
-is excluded from this implementation. This is not implementation acceptance or
-Constitution ratification.*
+Pre-planning and post-design review: **PASS for the document/three-core scope**.
+This is neither implementation acceptance nor Constitution ratification.
 
-| Principle | Plan evidence | Result |
-| --- | --- | --- |
-| Context, Not Workflow or Execution | Core semantics and tool guidance describe context and decisions only; Agent Clients retain invocation, installation and enforcement | PASS |
-| Grounded and Explainable Context | Evidence, Scope, source identity, resolution basis, ambiguity, tool availability and decision basis are explicit | PASS |
-| Local-First, Portable, and Rebuildable | State lifecycle classes retain distinct authorities; local tool observations are scoped and rebuildable; no hosted service or production store is required | PASS |
-| Explicit and Reversible Writes | Managed-write invariants remain visible; a dependency/environment change is only a proposal until separately authorized | PASS |
-| Human-Inspectable by Default | Domain models, semantic sketches, validation results, tool decisions and decision gates are readable documents | PASS |
-| Deliver Value in Vertical Slices | Supporting-domain code and public protocols are deferred; the non-user-visible core foundation does not claim product value | PASS |
+| Principle | Design evidence |
+| --- | --- |
+| Context, Not Workflow or Execution | Core evaluates supplied context facts; no command runner or execution owner |
+| Grounded and Explainable Context | Rejected selections, snapshot identity, candidates, Evidence and Scope Match stay explicit |
+| Local-First, Portable, and Rebuildable | No hosted dependency; portable values exclude local bindings; no store is introduced |
+| Explicit and Reversible Writes | Implementation reset is backed up; managed-write design remains deferred; no user-project writes |
+| Human-Inspectable by Default | Owning ADRs, conceptual model, Rust mapping, typed errors and review records remain inspectable |
+| Deliver Value in Vertical Slices | Internal foundation makes no user-visible outcome claim; no supporting-domain implementation |
 
-### Post-Design Recheck
+Post-design: no Product/Constitution change, no public contract, no new Capability
+meaning, no required application wrapper, and no exception/complexity waiver.
 
-- Full design coverage is not treated as full implementation scope.
-- Active Checkout receives only a valid Task Context and remains a resolution
-  result rather than portable state.
-- `Knowledge` remains a Product category, not a base entity.
-- `Capability Declaration` is visibly provisional pending Product approval.
-- Context Profile implementation and acceptance explicitly exclude capability
-  selection; this does not narrow its full Product meaning.
-- No operation names, transport envelopes, error catalogs, or protocol versions
-  are accepted by this foundation.
-- Ports and test doubles require an implemented core rule; future adapters do not
-  justify them.
-- Application packages require real coordination outside domain objects, not
-  merely a matching box in the architecture diagram.
-- Proposed tool guidance preserves user/project selections, authoritative
-  dependency sources, scoped observations, and separate selection/change
-  authority without claiming that DevMeld executes or enforces the choice.
-- Tool/dependency guidance does not make every executable, library or script a
-  Capability Provider and does not resolve the standalone Capability meaning.
-- No Constitution exception or complexity waiver is required.
+## Domain Strategy and Delivery Scope
+
+| Domain | This Feature |
+| --- | --- |
+| Project Catalog | Workspace, source references, Repository/Resource registration, Capability-independent Profile |
+| Local Context Resolution | Binding Registry, observations, raw/valid Task Context, resolution |
+| Context Knowledge | Source/Evidence/Relation/Scope, independent statuses, explainable query-derived results |
+| Managed Materialization | Design only; no code, port or test double |
+| Capability Integration | Design only, including Tool Guidance; no discovery/installer/execution |
+
+The existing [Domain Model](data-model.md) owns the complete concept/invariant
+inventory. [Rust Design](rust-design.md) maps the three cores to implementation
+types and records lexical/path/state boundaries without accepting a public API.
 
 ## Project Structure
 
-### Documentation (this feature)
+### Documents
 
-```text
-specs/001-foundation-context/
-├── spec.md
-├── plan.md
-├── research.md
-├── data-model.md
-├── context-semantics.md
-├── materialization-semantics.md
-├── tool-use-semantics.md
-├── quickstart.md
-├── tasks.md
-└── checklists/
-    └── requirements.md
-```
+    docs/
+      engineering.md
+      adr/
+        0001-domain-oriented-modular-monolith.md
+        0002-initial-python-runtime.md          # historical, superseded
+        0003-rust-runtime.md                   # current runtime
+    specs/001-foundation-context/
+      spec.md
+      plan.md
+      research.md
+      data-model.md
+      rust-design.md
+      context-semantics.md
+      materialization-semantics.md
+      tool-use-semantics.md
+      quickstart.md
+      tasks.md
+      checklists/requirements.md
 
-There is no `contracts/` directory because this feature accepts no public
-machine contract. The two accepted decisions are now recorded in `docs/adr/`.
+No contracts directory: there is no public machine contract in this Feature.
 
-[Tasks](tasks.md) decomposes the reviewed scope after Gate 1/Gate 2 approval and
-ADR/Engineering updates. Gate 3 remains open; no Capability-dependent or
-tool-guidance implementation and no placeholder supporting-domain code belongs
-in these tasks.
+### Source Layout
 
-### Source Code (planned, not yet implemented)
+    Cargo.toml                                # virtual workspace, resolver 3
+    Cargo.lock                                # generated by Cargo
+    rust-toolchain.toml                        # tested operational toolchain
+    crates/
+      shared-kernel/                          # package devmeld-shared-kernel
+        Cargo.toml
+        src/lib.rs
+        src/identity.rs
+        tests/identity.rs
+      catalog/                                # package devmeld-catalog
+        Cargo.toml
+        src/lib.rs
+        src/references.rs
+        src/registrations.rs
+        src/profiles.rs
+        src/workspace.rs
+        tests/registrations.rs
+        tests/workspace_profiles.rs
+      local-context/                          # package devmeld-local-context
+        Cargo.toml
+        src/lib.rs
+        src/bindings.rs
+        src/observations.rs
+        src/task_context.rs
+        src/resolution.rs
+        tests/state_validation.rs
+        tests/resolution.rs
+        tests/safety.rs
+      knowledge/                              # package devmeld-knowledge
+        Cargo.toml
+        src/lib.rs
+        src/provenance.rs
+        src/relations.rs
+        src/scope.rs
+        src/context_result.rs
+        tests/provenance_relations.rs
+        tests/scope.rs
+        tests/context_result.rs
+        tests/core_fact_boundaries.rs
+    .cargo/config.toml                        # cargo xtask alias
+    tools/xtask/                              # developer-only; not a core domain
+      Cargo.toml
+      src/main.rs
+      src/architecture.rs
+      src/probes.rs
 
-```text
-pyproject.toml
+Additional error modules or focused test fixtures may be introduced with real
+content. Do not create an empty root facade, binary, application, ports, adapters,
+entrypoints or either supporting domain. Internal modules default to private;
+lib.rs selectively re-exports the domain's intended API.
 
-src/devmeld/
-├── shared_kernel/
-│   └── stable identity and schema-version primitives only
-├── catalog/
-│   ├── domain/
-│   ├── application/    # only for real coordination outside domain objects
-│   └── ports/          # only when an implemented core rule requires one
-├── local_context/
-│   ├── domain/
-│   ├── application/    # only for real coordination outside domain objects
-│   └── ports/          # only when an implemented core rule requires one
-└── knowledge/
-    ├── domain/
-    ├── application/    # only for real coordination outside domain objects
-    └── ports/          # only when an implemented core rule requires one
-
-tests/
-├── unit/
-├── contract/           # only if a core-owned port actually exists
-├── architecture/       # activated after real packages exist
-└── fixtures/           # only for fixtures actually used by tests
-```
-
-Do not create `materialization/`, `capabilities/`, `adapters/`, or
-`entrypoints/` as empty architecture. The first approved Feature requiring one
-of those boundaries creates the necessary package.
-
-**Structure Decision**: package by domain. Each owner has domain rules;
-application coordination and ports are conditional, not mandatory folders.
-Do not create an empty `application/` or a pass-through service to mirror this
-tree. Avoid global `models/`, `services/`, and `repositories/` directories
-because they hide ownership.
-
-The first task list starts with pure domain objects/policies and explicitly
-supplied immutable facts; it identifies no mandatory application package or
-external-fact port yet. If implementation demonstrates a genuine need, record
-the named core rule and add exact-path tasks before creating the component.
-Passing values between tests is not evidence that a production port is needed.
+Four library members are justified by three actual ownership boundaries and a
+shared identity need, not a rule that every future noun/layer needs a crate.
+The detailed layout is a revisable Plan choice, not a public SDK contract.
 
 ## Dependency and Modeling Rules
 
-1. The shared kernel admits only values with identical semantics in every
-   consuming core domain; convenience is insufficient.
-2. A domain package depends only on its own domain code and the minimal shared
-   kernel. Cross-domain references use stable IDs or immutable public facts.
-3. Application code coordinates its own domain and genuinely required ports; it
-   cannot update another domain's state or reproduce its invariants. Introduce
-   it only for actual cross-object/domain coordination outside domain objects.
-   Multiple input values alone do not justify moving a domain policy outward.
-4. A port is named for an implemented core need. There is no generic persistence,
-   provider, client, or CRUD port and no port created for a future adapter.
-5. Future adapters translate external identities, states, and failures through
-   anti-corruption mappings. External objects never enter core APIs.
-6. Persistence records, transport DTOs, and semantic sketches are not domain
-   objects or accepted public protocols.
-7. Domain invariants live in aggregates, value objects, domain services, or
-   policies named in the owning language.
-8. Domain events require a demonstrated producer, consumer, and delivery need;
-   this foundation adds no event bus or event sourcing.
-9. A requirement that does not fit triggers a boundary review rather than an
-   `extra`, `metadata`, type switch, or cross-domain mutation.
-10. Proposed tool/dependency guidance references project-owned declarations and
-    scoped observations. It does not own manifests or lockfiles, treat global
-    presence as project eligibility, derive change authority from selection
-    authority, or execute the selected option.
+### Shared-Kernel Inventory
 
-## First Code Foundation
+Only RepositoryId and ResourceId: Catalog/Local Context/Knowledge share the former;
+Catalog/Knowledge share the latter. Use distinct validated immutable newtypes.
+Single-owner IDs, schema versions, timestamps, paths, Scope, status enums and
+errors remain with their owners. No generic validation/utilities framework.
 
-With Gate 1 and Gate 2 accepted and recorded, this foundation may provide only:
+### Allowed Edges
 
-1. stable identity and schema-version primitives admitted to the shared kernel;
-2. Project Catalog values and invariants for portable Workspace, Repository,
-   Resource registration, and the declared Context Profile subset, without
-   capability-selection fields or behavior;
-3. Task Context validation, immutable Checkout observations, and
-   Resolved/Ambiguous/Unavailable resolution policies;
-4. Context Knowledge values and policies for Relation, Evidence, Scope,
-   provenance dimensions, Scope Match, and explainable context-result facts;
-5. a port and substitute only where one of the above implemented rules genuinely
-   needs an external fact;
-6. pure invariant tests and the accepted Ruff/mypy/pytest configuration;
-7. the minimum Import Linter contracts after packages exist, including seeded
-   violations proving the gate works.
+| Package | Normal dependencies | Dev dependencies beyond its normal ones |
+| --- | --- | --- |
+| devmeld-shared-kernel | None | None |
+| devmeld-catalog | devmeld-shared-kernel | None |
+| devmeld-local-context | devmeld-shared-kernel | None |
+| devmeld-knowledge | devmeld-shared-kernel | devmeld-catalog and devmeld-local-context, only for core_fact_boundaries tests |
+| xtask (developer tool, not a domain) | serde_json (registry; tool-only) | None |
 
-It will not implement Managed Materialization, Capability Integration,
-capability selection, tool/environment discovery, dependency installation or
-enforcement, real storage/source/client adapters, public query operations,
-materialization operations, a production CLI, or benchmark claims.
+No core may depend on xtask. It has no dependency on core libraries; it inspects
+their metadata and builds isolated test consumers. All subprocesses use Rust
+Command with separate arguments, not shell command strings. Paths use native
+Path/PathBuf operations; temporary fixtures are owned and bounded. Rust/Cargo
+and the native linker suffice for project verification on each supported host.
+Python is required only for optional Spec Kit workflow commands, not cargo xtask.
+
+No build-dependencies or build scripts in the foundation. Cross-core acceptance
+maps public immutable facts into consumer-owned values in test code only;
+Knowledge production code does not depend on the other cores. No examples or
+benchmarks use these dev edges. No production coordination is introduced merely
+to host a test. These test edges are added at T024, not initial scaffolding.
+
+Workspace members and dependencies are explicit, with one root lockfile.
+Each member inherits workspace lint/package policy. Do not bypass boundaries
+through path includes, foreign source modules, broad re-exports or build-time
+code generation.
+
+### Enforcement After Real Crates Exist
+
+The architecture check reads cargo metadata --format-version 1 --no-deps and
+inspects every packages[].dependencies declaration, not resolve (null in this
+mode). Cover normal/dev/build, optional, renamed and target-specific edges.
+Resolve allowed local packages by member identity and manifest/path; do not
+infer identity by splitting Cargo's opaque package IDs or trusting import aliases.
+Reject unexpected members, third-party declarations in core crates,
+unknown dependency kinds or paths outside the expected workspace.
+Only xtask's explicitly admitted serde_json declaration is a tool exception.
+
+Probes use isolated copies of the real manifests/source/checker and generate
+fixture-local lockfiles when adding seed dependencies. Never mutate the real
+working tree or lockfile for a negative test. Test valid graphs and allowed dev
+edges, then forbidden core-to-core/kernel-outward/adapter/entrypoint edges,
+including hidden target/optional/build/renamed variants. Separately compile
+consumer fixtures proving private modules/fields and validated-state boundaries.
+Check intended diagnostics after valid controls compile successfully.
+
+Cargo metadata omits lint settings. Member manifest review checks explicit
+inheritance; separate unsafe compiler probes in all four copied members verify
+the effective safety gate. The checker also bounds the current four flat
+library/source/test layouts; approved future layers require updating this
+Feature-local allowlist. This is not a permanent architectural folder quota.
+
+Graph checks do not detect every possible std IO call or prove architectural
+correctness. Review domain purity, source inclusion, semantic ownership and
+public surfaces separately; tests and compiler checks are complementary.
+
+## Rust Modeling and Coverage
+
+Preserve the full approved foundation, not the narrower experimental subset:
+
+- Catalog includes schema version, names, aliases, source references, supported
+  locators, same-Workspace identity/selection rules and immutable update checks.
+- Local Context includes local bindings and registry revision, full observation
+  facts, validation errors retaining rejected selections, working area and
+  candidate/basis explanations. Validated context owns the exact checked snapshot.
+- Knowledge keeps Evidence/revision/hash or derivation, directed relation facts,
+  independent status dimensions, all designed Scope dimensions and explanations.
+  Unsupported interval matching remains Unknown, never invented semantics.
+- Errors, type/visibility checks and behavior tests all matter; a successful
+  compiler run cannot substitute for schema, cross-field or scope validation.
+
+T023 implementation review: all current rules accept owner-local immutable values
+or explicitly supplied facts. No application coordination or external-fact port
+is necessary. T024 translates the exposed facts in test code only; no production
+facade or layer is introduced. Future needs must name their rule and exact tasks.
 
 ## Delivery Sequence
 
-1. Confirm the accepted Gate 1/Gate 2 ADRs, Engineering guidance, and the
-   design-only tool/dependency-guidance boundary. Keep the task scope
-   Capability-independent; Gate 3 remains deferred.
-2. Create the minimal project/tooling baseline and shared-kernel primitives.
-3. Implement Project Catalog language and invariants with pure tests, limiting
-   Context Profile to its declared Capability-independent subset.
-4. Implement Task Context validation and Local Context Resolution outcomes with
-   pure observations and explicit ambiguity.
-5. Implement Context Knowledge provenance and Scope Match with pure facts.
-6. Add only the ports, substitutes, and contract tests demonstrated necessary by
-   steps 3–5. Add application coordination only if a real need remains outside
-   domain objects; otherwise leave those packages absent.
-7. Once the three core packages exist, add the minimum Import Linter contracts
-   and prove them with seeded dependency violations.
-8. Run the Maintainer acceptance guide without creating supporting-domain or
-   public-protocol artifacts.
+1. T001–T005: native setup, reproducible Cargo policy, shared identity tests/code.
+2. T006–T007: record fresh implementation-start review of existing design/gates.
+3. T008–T024: tests-first implementation of the three complete core domains,
+   followed by test-only fact-boundary validation.
+4. T025–T028: adversarial regressions, real graph checks and seeded compiler/
+   dependency violations; no production IO or speculative integration.
+5. T029–T032: semantic review, native checks and honest acceptance submission.
 
-Every step preserves the accepted dependency direction. Temporary workflow code
-or speculative ports are not allowed to bypass the domain simply because a
-future Feature may need them.
+The reset task list has been implemented and verified on native Windows;
+tasks.md and quickstart.md record the submission, with Maintainer acceptance pending.
+A document checkpoint or empty workspace is not a product MVP or foundation acceptance.
 
 ## Design Artifacts
 
-- [Research decisions and proposals](research.md)
-- [Conceptual domain model](data-model.md)
-- [Context semantic sketch](context-semantics.md)
-- [Materialization semantic sketch](materialization-semantics.md)
-- [Tool and dependency guidance semantic sketch](tool-use-semantics.md)
-- [Foundation acceptance guide](quickstart.md)
+- [Research](research.md)
+- [Conceptual model](data-model.md)
+- [Rust mapping and invariants](rust-design.md)
+- [Context semantics](context-semantics.md)
+- [Materialization semantics](materialization-semantics.md)
+- [Tool Guidance semantics](tool-use-semantics.md)
+- [Acceptance guide](quickstart.md)
+- [Tasks](tasks.md)
 
 ## Complexity Tracking
 
-No Constitution violation is requested. The revised scope intentionally trades
-early breadth for three implemented core boundaries while keeping supporting
-domain knowledge inspectable and revisable.
+No Constitution exception. Four library boundaries use the already selected
+Cargo toolchain; no new service, framework or mandatory technical layer is added.

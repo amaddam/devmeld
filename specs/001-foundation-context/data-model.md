@@ -1,12 +1,18 @@
 # Conceptual Domain Model: DevMeld Foundation
 
 **Feature**: [Domain Foundation](spec.md)  
-**Status**: Reviewed foundation design; proposed tool/dependency-guidance Product change prepared for Maintainer review; architecture/runtime accepted; five domains designed, three core domains selected for first implementation
+**Status**: Reviewed foundation design; tool/dependency-guidance Product behavior accepted on 2026-09-07; architecture/runtime accepted; five domains designed, three core domains selected for first implementation
 **Date**: 2026-09-01
 
-**Last Updated**: 2026-09-04
+**Last Updated**: 2026-09-07
 
 ## Purpose
+
+The implementation was reset for the runtime decision in
+[ADR-0003](../../docs/adr/0003-rust-runtime.md) on 2026-09-07. This conceptual
+model remains language-independent and unchanged in scope. The planned
+[Rust mapping](rust-design.md) must cover it fully; a partial experiment cannot
+silently narrow its fields or invariants.
 
 This is a conceptual domain model: it assigns language, state, decisions, and
 invariants to owners. It is not a database schema, serialization schema, class
@@ -400,7 +406,7 @@ Resolving it does not add this supporting domain to the current Feature scope.
 ### Responsibility
 
 Own stable registration and compatibility facts for the external capabilities
-DevMeld may expose or consume, plus proposed evidence-backed decisions about
+DevMeld may expose or consume, plus evidence-backed decisions about
 which tool or dependency option is applicable in a project/task scope and
 whether using it requires separately established change authority. It does not
 own project dependency
@@ -409,12 +415,12 @@ authentication, or generated surfaces.
 
 ### Tool and Dependency Guidance
 
-The proposed cross-feature behavior and non-binding domain detail are in
-[`tool-use-semantics.md`](tool-use-semantics.md). They require Maintainer review
-before stable Product terms, boundaries, or semantics are recorded in
-[`docs/product.md`](../../docs/product.md). This responsibility is design only
-in the current foundation and does not depend on accepting a standalone
-`Capability` Product concept.
+The cross-feature behavior was accepted by the Maintainer on 2026-09-07 and is
+owned by [`docs/product.md`](../../docs/product.md#tool-and-dependency-guidance).
+The domain detail in [`tool-use-semantics.md`](tool-use-semantics.md) does not
+freeze public protocols or implementation representations. This responsibility
+remains design only in the current foundation and does not depend on accepting
+a standalone `Capability` Product concept.
 
 #### Selection Requirement Fact
 
@@ -469,9 +475,14 @@ scope, and basis. It distinguishes:
 - insufficient or stale evidence that leaves the decision undetermined.
 
 These are semantic outcome categories, not public enum names. An explicit
-applicable selection is not replaced silently. Without one, an existing
-eligible project-managed option is preferred; machine-wide presence, another
-project's environment, or Agent familiarity does not establish eligibility.
+applicable selection is not replaced silently. Without one, prefer eligible
+existing options requiring no new dependency, environment, or installation
+change. Project-managed options have the strongest reuse preference among these
+options; verified local/system options are also eligible when callable,
+compatible, and authorized in the current project/task scope. Machine-wide
+presence, another project's environment, or Agent familiarity alone does not
+establish eligibility. Local/system availability remains a scoped observation,
+not a portable project guarantee.
 
 ### Aggregate: Capability Provider Registration
 
@@ -525,7 +536,7 @@ language.
 | Workspace, Repository, Context Profile, Resource registration | Portable | Versioned project/Vault metadata | Read directly; migrate explicitly by schema version |
 | Developer/Machine identity, Local Binding, local client location | Local | Human-inspectable local registry | Re-enter or rediscover without changing portable state |
 | Checkout Observation | Local observed fact | External Checkout plus observation receipt | Re-observe; never synthesize as portable truth |
-| Tool availability observation | Local observed fact | Project declarations plus the scoped runtime/environment inspected | Re-observe for the selected project/task scope; stale or missing evidence becomes unknown |
+| Tool availability observation | Local observed fact | The scoped runtime/environment actually inspected, plus observation evidence/receipt | Re-observe for the current project/task scope; stale or missing evidence becomes unknown |
 | Tool guidance decision | Query-derived | Selection requirements, project declarations, local observations and current authorization facts | Recompute when any input, scope or authority changes |
 | Search index, extracted relation candidate, rank | Derived | Declared portable/local sources | Delete and rebuild; no unique authoritative fact allowed |
 | Materialized client artifact | Generated | Preview inputs plus manifest | Verify, regenerate, or bounded revert |

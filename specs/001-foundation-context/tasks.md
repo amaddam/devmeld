@@ -1,215 +1,186 @@
-# Tasks: Domain Foundation
+# Tasks: Domain Foundation — Rust Restart
 
-**Input**: Design documents in `specs/001-foundation-context/`  
-**Created**: 2026-09-02  
-**Status**: Proposed tool/dependency-guidance Product change pending Maintainer
-review; no task has been executed
+**Input**: Design documents in specs/001-foundation-context/
+
+**Created**: 2026-09-02
+
+**Reset**: 2026-09-07
+
+**Status**: T001–T036 complete with native Windows and Linux-in-WSL evidence. The cross-platform tooling correction preserves the core implementation; Maintainer acceptance remains pending.
 
 **Prerequisites**: [Spec](spec.md), [Plan](plan.md), [Domain Model](data-model.md),
-[Research](research.md), [Context Semantics](context-semantics.md), and
-[Tool/Dependency Guidance](tool-use-semantics.md), and
-[Acceptance Guide](quickstart.md). Gate 1 and Gate 2 are accepted in
-[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md) and
-[ADR-0002](../../docs/adr/0002-initial-python-runtime.md). The
-[Engineering Guide](../../docs/engineering.md#runtime-and-automated-quality-gates)
-owns the required checks. Gate 3 remains deferred and is not a blocker for these
-Capability-independent tasks.
+[Rust Design](rust-design.md), [Research](research.md), [Context Semantics](context-semantics.md),
+[Tool Guidance](tool-use-semantics.md), [Acceptance Guide](quickstart.md),
+[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md) and current
+[ADR-0003](../../docs/adr/0003-rust-runtime.md). Engineering owns the check policy.
 
-**Tests**: Required by FR-016 and the Spec acceptance scenarios. Write focused
-tests before their implementation, observe the intended failure, and then make
-them pass. Do not confuse a missing environment dependency with a tested domain
-failure.
+Gate 3 is still deferred. It does not block these Capability-independent tasks.
+No language-comparison experiment is required. Old Python checked boxes/test
+counts and WSL samples do not complete any task in this reset list.
 
-**Organization**: User-story phases follow the Spec. The existing domain design
-and accepted ADRs are inputs, not work to rewrite. US1 tasks preserve review
-traceability; US2 implements three core domains; US3 proves their safety and
-dependency constraints. Completion still requires evidence, not only checked
-boxes.
+**Tests**: Required by FR-016. Write tests before their corresponding rules;
+observe intended failures, then implement. Environment or linker failure is not
+a domain red test. Compile-fail cases require valid controls and expected diagnostics.
 
-## Format and Path Conventions
+## Format and Scope
 
-- Task lines use `- [ ] TNNN [P?] [USn?] description`.
-- `[P]` means the task can run alongside the explicitly identified peers after
-  its prerequisites, with no shared-file edits. It is not an instruction to
-  spawn agents automatically.
-- Paths below are repository-relative. Module filenames guide this first
-  implementation; they do not require a class, aggregate, or service per noun.
-- Create directories with real implementation or test content only. Ordinary
-  package initialization is allowed, but empty architectural layers are not.
-- `application/` is conditional on real coordination outside domain objects;
-  `ports/` and `tests/contract/` are conditional on a demonstrated external-fact
-  need. None is currently scheduled as mandatory production code.
-- Capability selections, Capability IDs/placeholders, supporting-domain code,
-  public protocols, production adapters/entrypoints, persistence, and benchmark
-  claims remain outside this task list.
+- Task lines use TNNN identifiers, completion checkboxes, optional [P], and story labels.
+- [P] permits work on independent files after prerequisites; it does not request
+  automatic agent spawning.
+- Paths are repository-relative. Crate entrypoints required for compilation are
+  ordinary package setup, not permission for empty application/port layers.
+- No product executable, public API contract, database, async runtime, provider SDK,
+  Capability fields, Tool Guidance implementation or supporting-domain crate.
+- Conditional application/ports require a named implemented need and added
+  exact-path tasks before creation. No such component is currently mandatory.
+- This document creates tasks, not code or authorization to start implementing
+  during the documentation-only reset. Do not commit or push without a request.
 
 ## Phase 1: Setup
 
-**Purpose**: Make the accepted Python and three-tool baseline runnable without
-creating a production workflow or speculative layers.
+**Purpose**: Prepare the accepted native Rust toolchain and lightweight checks.
 
-- [ ] T001 Create `pyproject.toml` for the Python 3.14 baseline and `src/` test/import layout; declare only Ruff, mypy, and pytest as initial quality dependencies, apply the Engineering Guide settings, keep core typing strict and logic/complexity/size gates disabled, and add no production framework, CLI, or storage dependency.
-- [ ] T002 Create the minimal Python package entry at `src/devmeld/__init__.py`, preserve and extend `.gitignore` only for actual local development outputs, and record interpreter/tool versions plus reproducible setup commands in `specs/001-foundation-context/quickstart.md`; do not pre-create domain sublayers or report a test pass before tests exist.
+- [X] T001 Verify the existing native Windows stable toolchain, rustfmt, Clippy and MSVC linker without silently installing tools; create the tested operational pin in rust-toolchain.toml and record host/version/linker evidence and intended rust-version in specs/001-foundation-context/quickstart.md. Stop for missing installation authority, not for another language-selection experiment.
+- [X] T002 Create root Cargo.toml as a virtual workspace (resolver 3), the four member Cargo.toml and src/lib.rs entries at crates/shared-kernel/, crates/catalog/, crates/local-context/ and crates/knowledge/; explicitly inherit workspace package/lint settings, use only the Plan's normal path edges, publish=false and no build scripts, generate Cargo.lock with Cargo, and keep .gitignore aligned with actual outputs. No root facade, binary, external dependency or optional architectural layer.
 
-**Checkpoint**: The interpreter and the three quality tools can be invoked.
-Import Linter is not installed/configured as a required gate at this stage.
+**Checkpoint**: Native compile/link and tools can run. Four library entries are
+not completed domains; an empty test run is not acceptance. Every member uses
+the inherited conservative policy.
 
 ## Phase 2: Foundational Values
 
-**Purpose**: Establish only the identities actually shared by the three core
-domains, not a universal model framework.
+**Purpose**: Share only genuinely identical identity semantics.
 
-- [ ] T003 Record the first shared-kernel admission inventory in `specs/001-foundation-context/plan.md`: identify actual consumers of each shared stable ID; keep single-owner IDs and representation versions domain-local, and exclude Capability values, paths, status enums, generic entity bases, and unused correlation/version types.
-- [ ] T004 Write identity equality, immutability, invalid-value, and kind-separation tests in `tests/unit/shared_kernel/test_identity.py` for the inventory from T003; check runtime or static type-boundary evidence as appropriate to the chosen representation without assuming a wire format.
-- [ ] T005 Implement only the admitted identity values in `src/devmeld/shared_kernel/identity.py` and make T004 pass; do not introduce a Generic Entity, generic persistence interface, or shared validation/utilities layer.
+- [X] T003 Confirm the RepositoryId/ResourceId consumer inventory in specs/001-foundation-context/plan.md and input-validation examples in specs/001-foundation-context/rust-design.md; keep owner-local IDs, versions, paths, Scope and status/error types outside the shared kernel.
+- [X] T004 Write equality, immutability, valid Unicode/invalid-input and kind-separation tests in crates/shared-kernel/tests/identity.rs; include compiler-oriented fixtures or doctest cases proving kind mismatch and protect the intended diagnostic with a valid control in the later architecture harness.
+- [X] T005 Implement only the admitted private validated identity newtypes and owner-specific errors in crates/shared-kernel/src/identity.rs with selective exports in crates/shared-kernel/src/lib.rs; make T004 pass without a generic utility, entity or repository framework.
 
-**Checkpoint**: Shared identity tests and core static typing pass. Remaining
-single-owner values are implemented with their owning domain, not added to the
-kernel for convenience.
+**Checkpoint**: Identity tests and compiler checks pass; no claimed cross-platform
+execution or public wire format.
 
 ## Phase 3: User Story 1 — Establish the Complete Domain Map (P1)
 
-**Goal**: Retain the reviewed five-domain design and bounded code scope without
-restarting domain design. The design already exists; these tasks record its
-relationship to the implementation about to begin.
+**Goal**: Preserve and review the existing language/ownership design before code
+rules are implemented, not redesign Product around Rust.
 
-**Independent Test**: A document review can locate every concept's owner,
-lifecycle, negative constraint, and design-only/implemented classification
-without running an adapter or inspecting a future workflow.
+**Independent Test**: Document review locates all five owners, invariants,
+lifecycle classes, provisional terms and three-domain code boundary.
 
-- [ ] T006 [P] [US1] Cross-check the existing ownership, lifecycle, and invariant inventory in `specs/001-foundation-context/data-model.md`, including the proposed tool/dependency guidance in `specs/001-foundation-context/tool-use-semantics.md`, against the Spec and accepted Product rules; record the reviewed document revisions in `specs/001-foundation-context/quickstart.md` while preserving both supporting domains without creating implementation work for them or treating the proposal as accepted.
-- [ ] T007 [P] [US1] Verify the accepted ADR links, scoped Gate 3, pending Maintainer status and separate selection/change authority of the tool/dependency-guidance proposal, demand-created layers, deferred protocols, and the FR-018 extension rule against `specs/001-foundation-context/plan.md`, and record the implementation-start review in `specs/001-foundation-context/checklists/requirements.md`; do not mark proposed Product behavior as accepted or supporting-domain behavior as implemented.
+- [X] T006 [US1] Cross-check specs/001-foundation-context/data-model.md, rust-design.md and tool-use-semantics.md against Product and Spec; record reviewed revisions in specs/001-foundation-context/quickstart.md, including complete core field coverage and supporting-domain design-only status.
+- [X] T007 [US1] Review ADR-0001/0003, the scoped Capability Gate 3, accepted Tool Guidance selection/change authority, deferred protocols, FR-018 extension rule and demand-created layers against specs/001-foundation-context/plan.md; record implementation-start review in quickstart.md without treating specification checklist boxes as executable acceptance.
 
-**Checkpoint**: US1's design review is traceable. No speculative schema,
-Capability concept, application API, or supporting-domain task has been added.
+**Checkpoint**: First reviewable design increment. Not a user-visible MVP and
+not sufficient for completed foundation acceptance.
 
 ## Phase 4: User Story 2 — Implement Only the Core Domain Foundation (P2)
 
-**Goal**: Implement Project Catalog, Local Context Resolution, and Context
-Knowledge as pure domain rules with explicit facts. A complete business
-workflow is not required.
+**Goal**: Implement the complete approved core subset using pure rules and facts.
 
-**Independent Test**: Run the three domains' unit suites without a real Git
-repository, Vault, database, Agent Client, generated file, or network. Catalogue
-identity/selection, Task Context validation/resolution, and provenance/Scope
-Match must each have standalone evidence.
+**Independent Test**: Each core's Cargo suite runs without Git/Vault/database/
+network/client/production IO. No production application service is necessary.
 
 ### Tests Before Implementation
 
-- [ ] T008 [P] [US2] Write portable-reference and registration tests in `tests/unit/catalog/test_registrations.py`: stable Repository/Resource identity, rename preservation, per-registration alias/canonical-key validation, and rejection of machine-specific state using both Windows and POSIX path examples without filesystem access.
-- [ ] T009 [P] [US2] Write Workspace and Context Profile tests in `tests/unit/catalog/test_workspace_profiles.py`: exactly one primary Vault, distinct optional sources, supported representation version, cross-registration alias/canonical-key collisions, known same-Workspace references, Repository/Resource eligibility, blocked deletion of referenced registrations, and absence of Capability fields/defaults/behavior.
-- [ ] T010 [P] [US2] Write Local Binding, immutable observation, and raw Task Context validation tests in `tests/unit/local_context/test_state_validation.py`: catalog identity cannot be redefined, removing a binding has no external effect, and wrong-Repository, conflicting, unknown, or ineligible explicit selections are rejected before resolution.
-- [ ] T011 [P] [US2] Write resolution tests in `tests/unit/local_context/test_resolution.py` for the four ordered valid bases, Resolved/Ambiguous/Unavailable outcomes, candidate-order independence, invalid-input exclusion, and stale/unavailable observed facts without silent Checkout substitution.
-- [ ] T012 [P] [US2] Write Evidence, source/review/validity, and directed Relation tests in `tests/unit/knowledge/test_provenance_relations.py`; cover required support, explicit source revisions, independent status dimensions, direction reversal, and unavailable targets without creating a generic Knowledge entity.
-- [ ] T013 [P] [US2] Write Scope Match tests in `tests/unit/knowledge/test_scope.py` for matching, mismatched, and unknown dimensions, missing scope as unspecified rather than universal, and recomputation without mutating declared Scope or review/validity facts.
-- [ ] T014 [P] [US2] Write context-result tests in `tests/unit/knowledge/test_context_result.py` requiring stable identity, source/Evidence, declared Scope, independent Scope Match/review/validity, and applicable Checkout-resolution basis; ensure relevance cannot disguise scope mismatch and do not test an invented JSON or ranking protocol.
+- [X] T008 [P] [US2] Write portable-reference and Repository/Resource registration tests in crates/catalog/tests/registrations.rs: identity, display-name/alias changes, canonical-key collisions, source/type/locator/eligibility and complete supported relative/remote locator boundaries, including Windows/POSIX and encoded traversal/control/credential failures without IO.
+- [X] T009 [P] [US2] Write Workspace/Profile tests in crates/catalog/tests/workspace_profiles.rs: exactly one primary Vault, distinct sources, supported schema version, names, known same-Workspace eligible Repository/Resource references, cross-registration alias collisions, checked updates and blocked referenced removal, with Capability placeholders absent.
+- [X] T010 [P] [US2] Write binding/observation/raw-task tests in crates/local-context/tests/state_validation.rs: registry revision and local-only transitions, full branch/commit/working-tree/time/source facts, explicit availability/freshness, working area, immutable snapshots and rejected-selection explanations for conflicting/unknown/wrong-Repository/ineligible input.
+- [X] T011 [P] [US2] Write resolution tests in crates/local-context/tests/resolution.rs: four ordered bases, exactly three valid-input outcomes, Repository and considered observations/basis, invalid explicit no-fallback, duplicate/contradictory snapshot rejection, candidate-order independence and changed-observation revalidation.
+- [X] T012 [P] [US2] Write source/Evidence/Relation tests in crates/knowledge/tests/provenance_relations.rs: source revisions, locator/range or derivation, optional content hash, required support, independent review/validity, typed direction and unavailable target explanations.
+- [X] T013 [P] [US2] Write Scope tests in crates/knowledge/tests/scope.rs: all designed dimensions, exact match/mismatch/unknown, missing as unspecified, mismatch precedence, unsupported interval semantics and recomputation without source/status mutation.
+- [X] T014 [P] [US2] Write Resource/Relation result tests in crates/knowledge/tests/context_result.rs: identity/source/Evidence, declared Scope and per-dimension match explanations, independent statuses, applicable consistent Checkout basis, repository-only queries without invented Checkout requirements and relevance unable to hide mismatches.
 
 ### Domain Implementation
 
-- [ ] T015 [P] [US2] Implement portable source references and Repository/Resource registration values in `src/devmeld/catalog/domain/references.py` and `src/devmeld/catalog/domain/registrations.py`, using domain-local validation and stable IDs to satisfy T008; perform no path discovery or I/O.
-- [ ] T016 [US2] Implement Workspace/catalog consistency and the supported Context Profile subset in `src/devmeld/catalog/domain/workspace.py` and `src/devmeld/catalog/domain/profiles.py` after T015; enforce T009 plus cross-registration alias uniqueness using domain-owned rules and immutable catalog facts, with no Capability placeholders or pass-through application service.
-- [ ] T017 [P] [US2] Implement local-only bindings and immutable Checkout observations in `src/devmeld/local_context/domain/bindings.py` and `src/devmeld/local_context/domain/observations.py`; accept explicitly supplied catalog IDs/observation facts and exclude client-location integration, Git execution, filesystem scans, and portable path leakage.
-- [ ] T018 [US2] Implement raw Task Context validation and distinct valid/invalid results in `src/devmeld/local_context/domain/task_context.py` after T017; preserve rejected selections and reasons, and ensure invalid explicit input cannot become a resolution variant or fall back to another choice.
-- [ ] T019 [US2] Implement the ValidTaskContext-only resolution policy in `src/devmeld/local_context/domain/resolution.py` after T018; satisfy T011 using pure observations, exactly three outcome variants, the documented precedence, and explainable candidates/bases without guessing through stale or ambiguous facts.
-- [ ] T020 [P] [US2] Implement immutable provenance/resource facts and directed Relations in `src/devmeld/knowledge/domain/provenance.py` and `src/devmeld/knowledge/domain/relations.py` to satisfy T012; keep Evidence, Source Type, Review Status, and Validity Status distinct and external representations out of the domain.
-- [ ] T021 [US2] Implement declared Scope and query-time matching in `src/devmeld/knowledge/domain/scope.py` after T020, satisfying T013; preserve unsupported or missing dimensions as explicitly unknown rather than inventing a version grammar or silently broadening scope.
-- [ ] T022 [US2] Implement explainable context-result facts in `src/devmeld/knowledge/domain/context_result.py` after T021, satisfying T014; use explicit immutable inputs and stable identities, not foreign domain internals, a query service, serialized DTOs, or public operation/error catalogs.
-- [ ] T023 [US2] Review T015–T022 for genuine coordination or external-fact needs and record the outcome in `specs/001-foundation-context/plan.md`; if pure inputs suffice, explicitly retain no application/port packages. If a real in-scope need is demonstrated, name the core rule and add bounded exact-path implementation/test tasks before creating any optional component; do not invent one to fill the tree.
-- [ ] T024 [US2] Add cross-core fact-boundary tests in `tests/unit/test_core_fact_boundaries.py` after the three domain branches and T023: supply equivalent immutable facts from two independent test builders, verify the same outcomes and no foreign-state mutation, and reject inappropriate external representations at the relevant boundaries. If T023 introduced an actual port, add its two-substitute contract evidence; otherwise create no port or `tests/contract/` directory solely for this test.
+- [X] T015 [P] [US2] Implement portable references and Repository/Resource registrations in crates/catalog/src/references.rs and registrations.rs, exporting selected APIs from crates/catalog/src/lib.rs; satisfy T008 with validated private state and no filesystem/network discovery.
+- [X] T016 [US2] Implement complete Workspace consistency and the Capability-independent Profile subset in crates/catalog/src/workspace.rs and profiles.rs after T015; satisfy T009 with schema version, names, same-Workspace references and immutable checked transitions, not cascade deletion or pass-through services.
+- [X] T017 [P] [US2] Implement Local Binding Registry and full immutable Checkout observations in crates/local-context/src/bindings.rs and observations.rs, with selective lib.rs exports; satisfy T010's state rules without Git execution, hidden clocks, client integration or portable path leakage.
+- [X] T018 [US2] Implement raw task validation in crates/local-context/src/task_context.rs after T017; retain rejected selections/reasons and produce a private ValidatedTaskContext owning the checked catalog/task/observation snapshot, with no unchecked construction or mutable escape.
+- [X] T019 [US2] Implement resolution in crates/local-context/src/resolution.rs after T018; satisfy T011 using only the checked snapshot, typed Resolved/Ambiguous/Unavailable, explicit precedence, complete evidence and no separate unvalidated observation argument.
+- [X] T020 [P] [US2] Implement source/resource/Evidence facts and directed Relations in crates/knowledge/src/provenance.rs and relations.rs, selectively exporting via lib.rs; satisfy T012 without a Knowledge base entity or foreign SDK/storage objects.
+- [X] T021 [US2] Implement Scope and query-time matching in crates/knowledge/src/scope.rs after T020; satisfy T013, retaining unknown intervals and separate explanations without inventing a grammar or mutating facts.
+- [X] T022 [US2] Implement Resource/Relation result evaluation and consumer-owned Checkout facts in crates/knowledge/src/context_result.rs after T021; satisfy T014 without a normal dependency on Catalog/Local Context or an invented query protocol.
+- [X] T023 [US2] Review the three implementations for actual coordination/external-fact needs and record the result in specs/001-foundation-context/plan.md; if pure inputs suffice, keep application/ports absent. If not, name the in-scope core rule and add exact-path implementation/test tasks before creating any optional component.
+- [X] T024 [US2] Add only the Plan's Catalog/Local Context dev-dependencies to crates/knowledge/Cargo.toml and refresh Cargo.lock through Cargo; implement crates/knowledge/tests/core_fact_boundaries.rs using two independent equivalent fact builders, explicit consumer-owned mapping and no foreign mutation. Add two-substitute tests only if T023 justified a real port; do not create a production facade, demo or extra harness crate.
 
-**Checkpoint**: Each core unit suite passes independently and the pure
-cross-core boundary test passes. Domain decisions do not live in an application
-wrapper, fixture, provider object, or future adapter. Any new optional component
-has named acceptance evidence and tasks, not just a directory.
+**Checkpoint**: All core suites and cross-core fact tests pass; complete Spec/
+Domain Model coverage is checked against Rust Design, not the partial WSL sample.
 
 ## Phase 5: User Story 3 — Prove Core Safety and Dependency Rules (P3)
 
-**Goal**: Protect the implemented core invariants and dependency directions with
-focused, non-overlapping checks. Import Linter is activated only now, after the
-three core packages contain real code.
+**Goal**: Add the smallest effective enforcement over the real implemented graph.
 
-**Independent Test**: Run safety regressions and prove that actual architecture
-contracts reject seeded violations while allowing legitimate inward use.
-Architecture probes operate only on isolated test fixtures.
+**Independent Test**: Real gate rejects controlled violations and accepts valid
+inward/test-only boundaries. No violation is seeded in the actual checkout.
 
-- [ ] T025 [P] [US3] Add focused adversarial regressions in `tests/unit/test_core_safety.py` for invalid-selection no-fallback, reordered candidates, changed observations/revisions, portable/local separation, and conflicting provenance dimensions; verify that query-derived facts never replace source truth or mutate stored domain facts.
-- [ ] T026 [US3] Add Import Linter to `pyproject.toml` only after Phase 4 and configure the minimum accepted dependency contracts: core-to-adapter/entrypoint, application-to-concrete-adapter where an application package exists, and cross-domain-internal imports; make optional-package absence valid without weakening constraints or creating placeholder production layers.
-- [ ] T027 [US3] Implement `tests/architecture/test_dependency_contracts.py` after T026, exercising the actual configured contract rules against temporary fixture graphs with each forbidden import and legitimate inward/public-fact use; assert the expected violated contract, not just a nonzero exit caused by malformed configuration, and keep seeded modules outside production source.
-- [ ] T028 [P] [US3] Implement `tests/architecture/test_scope_boundaries.py` to detect out-of-scope supporting packages, Capability-selection or tool-guidance placeholders, public protocol artifacts, and empty optional application layers within production source and this Feature's artifacts; exclude Spec Kit/tool templates and the design-only `specs/001-foundation-context/tool-use-semantics.md` artifact from production-code findings, and do not add line-count, complexity, or pattern-count rules as substitutes for semantic review.
-- [ ] T029 [US3] Review invariant ownership and every actual application/port component against `specs/001-foundation-context/data-model.md` and record findings in `specs/001-foundation-context/quickstart.md`; verify coordination is real, no service merely forwards domain calls, and no conditional port/contract task remains unfinished before claiming US3 complete.
+- [X] T025 [P] [US3] Add adversarial regressions in crates/local-context/tests/safety.rs and crates/knowledge/tests/context_result.rs for stale/replaced snapshots, invalid-selection no-fallback, candidate reordering, independent status conflicts and query-derived/source separation; confirm protected state cannot be mutated through the public APIs.
+- [X] T026 [P] [US3] Implement the cargo metadata JSON gate (now tools/xtask/src/architecture.rs, migrated at T034) after real cores exist; enforce the Plan member/path and normal/dev/build allowlist across optional/target-specific/renamed declarations and initial no-build-script/no-extra-target scope. Fail on command/JSON/unknown-kind errors; do not rely on the absent --no-deps resolve graph.
+- [X] T027 [US3] Implement the regression harness (now tools/xtask/src/probes.rs, migrated at T034) using isolated copies of real manifests/source, the actual checker and fixture-local locks; prove valid graph and allowed dev edges pass, while core-to-core, kernel-outward, adapter/entrypoint and build/optional/target/renamed violations fail for intended reasons. Compile valid consumer controls before private-module/field, identity-kind, fabricated/raw-context and non-exhaustive-match probes; confirm specific diagnostics, not arbitrary failure, and effective inherited unsafe policy in each core member (Cargo metadata omits lint settings).
+- [X] T028 [US3] Complete bounded-scope assertions in the harness (now tools/xtask/src/probes.rs) and human source review: only four planned core libraries, no Capability placeholders, hidden source includes, speculative layers or production IO; no public mutable escape/re-export bypass. The T033 developer tool is not a product domain. Record any automated-check limitations in specs/001-foundation-context/quickstart.md rather than claiming Cargo proves semantic purity.
 
-**Checkpoint**: Safety tests pass, every seeded forbidden dependency is detected
-for the intended reason, legitimate dependencies pass, and optional layers are
-absent unless justified. A passing scan over an empty graph is not evidence.
+**Checkpoint**: Real graph and compiler boundary evidence exists. Metadata checks
+and human ownership review are complementary, not interchangeable.
 
-## Phase 6: Verification and Handoff
+## Phase 6: Polish and Acceptance
 
-- [ ] T030 Run the Engineering Guide's Ruff format/check, mypy, pytest, and now-active `lint-imports` sequence, plus each core domain's unit suite independently, and record commands, results, interpreter/tool versions, and tested/unverified platforms in `specs/001-foundation-context/quickstart.md`; do not claim cross-platform or production integration coverage that was not run.
-- [ ] T031 Reconcile implemented filenames, shared-kernel admissions, and actual conditional-layer/port decisions in `specs/001-foundation-context/plan.md`; remove stale claims of mandatory scaffolding and confirm the implementation has not expanded the Spec, either supporting domain, or design-only tool/dependency guidance.
-- [ ] T032 Prepare the final evidence-backed review submission in `specs/001-foundation-context/quickstart.md`, referencing all Spec success criteria and ADR revisions; distinguish completed implementation checks from the Maintainer's final ACCEPT/REVISE decision, and leave that approval for the Maintainer rather than self-ratifying it.
+- [X] T029 Review full FR/SC coverage against specs/001-foundation-context/spec.md, data-model.md, rust-design.md and context-semantics.md; record semantic findings, justified optional layers and resolved gaps in quickstart.md without changing Product meaning or crediting old runtime results.
+- [X] T030 Run the complete Engineering Cargo/fmt/Clippy/test and architecture sequence, plus each core suite independently; record commands, exits, toolchain/linker, native platform, test/negative-probe counts and unverified targets in specs/001-foundation-context/quickstart.md. Include doctests and never substitute a WSL result for Windows.
+- [X] T031 Recheck docs/product.md, docs/engineering.md, docs/adr/0001-domain-oriented-modular-monolith.md, docs/adr/0003-rust-runtime.md and all specs/001-foundation-context/ links/statuses; correct only owning-artifact discrepancies, retain Gate 3 and supporting-domain exclusions, and do not claim a user-visible vertical slice.
+- [X] T032 Submit the exact code/Spec/Plan/ADR revisions, evidence and remaining limitations using specs/001-foundation-context/quickstart.md Acceptance Record; leave Maintainer ACCEPT/REVISE to the reviewer, and do not commit or push without explicit instruction.
 
-## Dependencies and Execution Order
+## Cross-platform Tooling Correction (2026-09-07)
 
-```text
-Setup: T001 -> T002
-    -> shared foundation: T003 -> T004 -> T005
-    -> US1: T006 || T007
-    -> US2 tests: T008 || T009 || T010 || T011 || T012 || T013 || T014
-        -> Catalog:   T015 -> T016
-        -> Local:     T017 -> T018 -> T019
-        -> Knowledge: T020 -> T021 -> T022
-        -> T023 -> T024
-    -> US3: T025 || (T026 -> T027) || T028
-        -> T029
-    -> T030 -> T031 -> T032
-```
+The Maintainer approved Rust-only project verification via a developer-only
+`tools/xtask` package and its `serde_json` dependency, and removal of redundant
+Spec Kit PowerShell scripts. This does not change domain behavior or Gate 3.
 
-- All US2 implementation branches require the shared foundation, the US1
-  checkpoint, and their corresponding failing tests. They may then proceed
-  independently using stable IDs and explicit input facts.
-- T023 waits for all three core branches; T024 waits for any actual optional
-  component work that T023 demonstrates is necessary.
-- US3 needs the actual US2 packages. It is independently verifiable but not
-  implementable before there is a real dependency graph to check.
-- T026 must not be pulled forward into initial setup. T027 must test its real
-  contracts rather than a separate hard-coded imitation.
-- Final handoff waits for all stories, including any precisely scoped tasks
-  added for an evidenced optional need.
+- [X] T033 Add tools/xtask/Cargo.toml, src/main.rs and .cargo/config.toml; include the developer tool in the one workspace/lockfile while retaining the four core libraries and their dependency policy. Document JSON parsing as a tool-only dependency and fetch only this approved dependency closure.
+- [X] T034 Port the real metadata checker and negative harness into tools/xtask/src/architecture.rs and probes.rs with native Rust process/filesystem APIs, safe isolated fixtures, fail-closed diagnostics and no shell dependency; preserve the previous 35 probes and add platform/path/tool-isolation regressions before retiring scripts/*.ps1.
+- [X] T035 Remove the six .specify/scripts/powershell/*.ps1 files and corresponding integration inventory entries; retain the Python configuration and entrypoints, remove dangling comments, verify safe Python commands without modifying Feature artifacts.
+- [X] T036 Run the complete Cargo/xtask sequence on native Windows, exercise Linux where an existing compatible environment is available without changing experiments, record macOS and any other unverified targets honestly, update owning documentation and verification.sha256. Do not commit or push.
 
-## Parallel Examples
+## Dependencies and Parallel Opportunities
 
-- **US1**: T006 writes acceptance-guide traceability while T007 writes the
-  requirements checklist; neither rewrites the other task's file.
-- **US2**: T008–T014 can author independent tests in separate files. Afterward,
-  the Catalog, Local Context, and Knowledge implementation branches can run
-  concurrently; preserve each branch's sequential dependencies.
-- **US3**: T025 and T028 use different test files and can proceed alongside
-  T026–T027 after US2. Join all evidence before the T029 semantic review.
-- Tasks that edit `pyproject.toml`, `plan.md`, or `quickstart.md` at different
-  phases remain sequenced; do not treat shared-document edits as parallel.
+- T001 -> T002 -> T003 -> T004 -> T005 establish setup and identities.
+- T006 -> T007 complete the fresh design-start review; both write quickstart.md,
+  so they are deliberately sequential.
+- After T007, T008–T014 can run on their distinct test files.
+- Catalog: T008/T009 -> T015 -> T016.
+- Local Context: T010/T011 -> T017 -> T018 -> T019.
+- Knowledge: T012/T013/T014 -> T020 -> T021 -> T022.
+- These three code branches can proceed independently after their tests; within
+  a crate, shared lib.rs edits stay with that branch.
+- All three -> T023 -> T024. Only T024 changes the shared lock/dev dependency map.
+- T025 and T026 may run independently after T024; T027 follows T026, then T028.
+- T029–T032 follow all implementation and evidence work, including any exact-path
+  tasks added for a genuine optional need.
+- T033 -> T034 replace the developer check implementation; T035 independently
+  simplifies Spec Kit. T036 verifies and records the combined correction.
 
 ## Requirement and Success-Criterion Coverage
 
-| Scope | Evidence tasks |
+| Requirements / outcomes | Tasks |
 | --- | --- |
-| FR-001–004, FR-009, FR-018, FR-022; SC-001–002, SC-011 | T006–T007, T031: existing domain map, lifecycles, ownership, extension review, and design-only tool/dependency guidance |
-| FR-005–006, FR-019–021; SC-003, SC-009 | T007, T009, T016, T023, T028–T029, T032: scoped implementation, gates and demand-created layers |
-| FR-007–008, FR-017; SC-008 | T003–T005, T023–T024, T027: stable boundaries, actual-need inventory and substitution evidence |
-| FR-010–011; SC-005 | T008–T009, T015–T017, T025: portability/authority; generated/rebuildability design reviewed in T006 without building storage or writes |
-| FR-012–013; SC-004 | T010–T011, T017–T019, T025: validation separated from resolution and no fallback |
-| FR-014–015; SC-006 | T012–T014, T020–T022, T028: provenance, Scope Match and no frozen public protocol |
-| FR-016; SC-007, SC-010 | T004, T008–T014, T024–T030: pure tests and effective seeded dependency checks |
+| FR-001–004, FR-009, FR-018, FR-022; SC-001–002, SC-011 | T006–T007, T029, T031 |
+| FR-005–006, FR-019–021; SC-003, SC-009 | T002, T009, T016, T023, T028–T029, T032 |
+| FR-007–008, FR-017; SC-008 | T003–T005, T023–T024, T027 |
+| FR-010–011; SC-005 | T008–T010, T015–T017, T025 |
+| FR-012–013; SC-004 | T010–T011, T017–T019, T025, T027 |
+| FR-014–015; SC-006 | T012–T014, T020–T022, T025, T029 |
+| FR-016; SC-007, SC-010 | T004, T008–T014, T024–T030 |
 
-## Implementation Strategy
+## Completion Boundary
 
-US1 is the smallest reviewable design checkpoint, not a user-visible MVP and
-not evidence that the code foundation exists. Proceed through the three US2
-core branches with tests before code, then activate US3's dependency gate over
-the real package graph. Complete all three stories and handoff evidence before
-calling the foundation implemented.
-
-Do not add a demo query, generated file, database, provider integration, public
-API, or generic framework to make the foundation look complete. Future
-user-visible Features will supply their own end-to-end acceptance scenarios.
-Do not execute code implementation or commit changes merely because this task
-list was generated.
+36 total tasks: Setup 2; Foundational 3; US1 2; US2 17; US3 4; Polish 4;
+cross-platform correction 4. 36 checked, 0 open.
+The earlier native Code Integrity interruption was resolved
+by the user; the full suite and all independent package suites now pass without
+an execution workaround. The current complete quality sequence passes on native
+Windows and Linux in WSL: 37 core behavior tests, three tool unit tests, one
+compile-fail doctest and 40 controlled architecture/type/scope/path probes.
+macOS remains unverified. Core implementation and deferred domain scope are unchanged.
+T032 is the review submission in quickstart.md with verification.sha256, not an
+automatic Maintainer ACCEPT. No commit or push was performed.
+US1 is the first independently reviewable design checkpoint, not a product MVP.
+Foundation completion requires all three stories and evidence, not just design
+or an executable demo. Real integrations and user-visible vertical slices are
+planned by later Features.

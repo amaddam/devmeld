@@ -8,8 +8,13 @@
 ## Decision Record
 
 The Maintainer approved this architecture decision (Gate 1) on 2026-09-02.
-The runtime decision is recorded separately in
+The current runtime decision is recorded separately in
+[ADR-0003](0003-rust-runtime.md), which supersedes the initial
 [ADR-0002](0002-initial-python-runtime.md).
+
+The runtime-specific enforcement reference was updated on 2026-09-07 for the
+accepted Rust migration; the modular-monolith decision and ownership rules are
+unchanged.
 
 This decision does not ratify the Constitution, approve Capability Product
 semantics, or authorize supporting-domain implementation.
@@ -74,8 +79,10 @@ The detailed first-code layout and conditional packages remain in the
   coordination or integration boundaries with actual implemented needs.
 - Pure invariant tests can run without production sources or adapters.
 - Package-by-domain does not by itself enforce isolation. After real core
-  packages exist, introduce the minimum Import Linter dependency contracts and
-  demonstrate them with controlled violations.
+  packages exist, enforce the accepted dependency directions and demonstrate
+  rejection with controlled violations. Runtime-specific checks are owned by
+  the Engineering Guide and the active runtime ADR, not fixed to one language's
+  linter in this architecture decision.
 - Some small values or mappings may remain domain-local instead of sharing a
   misleading abstraction. A boundary may evolve when real feature evidence
   warrants an explicit design change.

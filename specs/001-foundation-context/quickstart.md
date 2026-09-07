@@ -1,9 +1,9 @@
 # Foundation Acceptance Guide
 
 **Feature**: [Domain Foundation](spec.md)  
-**Last Updated**: 2026-09-04
-**Status**: Proposed tool/dependency-guidance Product change prepared for
-Maintainer review; verification becomes runnable after implementation
+**Last Updated**: 2026-09-07
+**Status**: Tool/dependency-guidance Product behavior accepted on 2026-09-07;
+Rust foundation implemented and verified on native Windows and Linux in WSL; Maintainer acceptance pending
 **Audience**: Maintainers and contributors reviewing the first code foundation
 
 ## What This Guide Proves
@@ -29,18 +29,18 @@ Review these owning artifacts:
 5. [Context semantic sketch](context-semantics.md)
 6. [Materialization semantic sketch](materialization-semantics.md)
 
-Gate 1 and Gate 2 were explicitly accepted on 2026-09-02. Before implementing
+Gate 1 was accepted on 2026-09-02; Gate 2 was replaced on 2026-09-07. Before implementing
 [the task list](tasks.md), confirm the authoritative records:
 
 1. [ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md):
    domain-oriented modular monolith and package-by-domain organization;
-2. [ADR-0002](../../docs/adr/0002-initial-python-runtime.md): Python 3.14.x,
-   standard-library-first core, and Ruff/mypy/pytest;
+2. [ADR-0003](../../docs/adr/0003-rust-runtime.md): stable Rust, Edition 2024,
+   standard-library-first core; ADR-0002 is superseded;
 3. [Engineering Guide](../../docs/engineering.md#runtime-and-automated-quality-gates):
    the concrete progressive check policy.
 
-This resolves the two general prerequisites. It does not mean the code,
-`pyproject.toml`, tool environment, or acceptance evidence already exists.
+These ADRs resolve the two general prerequisites; they are not implementation
+acceptance. Section 11 records fresh native Rust evidence, not old test passes.
 
 Gate 3, Capability Product meaning, may remain undecided. It blocks only work
 that depends on that meaning in any domain. Such work would require a Maintainer
@@ -78,8 +78,8 @@ placeholder fields, default-empty lists, no-op behavior, or test fixtures.
 
 ### Review Tool and Dependency Guidance
 
-Review the proposed Product behavior in the
-[semantic sketch](tool-use-semantics.md) and its representation in the
+Review the accepted [Product behavior](../../docs/product.md#tool-and-dependency-guidance),
+the [semantic sketch](tool-use-semantics.md), and its representation in the
 [Domain Model](data-model.md#tool-and-dependency-guidance) using at least these
 cases:
 
@@ -90,7 +90,13 @@ cases:
    dependency already satisfies the need;
 4. no adequate existing option exists and a bounded dependency/environment
    change is proposed;
-5. the only observation is global, from another project, or stale.
+5. the only evidence is global discovery, another project's observation, or
+   stale evidence, with no current-scope verification;
+6. no project-managed option is suitable, but an existing local/system tool is
+   verified callable, compatible, and authorized in the current task scope and
+   requires no new dependency, environment, or installation change. Guidance
+   selects it before proposing a change; reusing it in a different machine or
+   scope requires fresh verification.
 
 For every case, identify the authoritative project declaration, local
 observation and freshness, project/task scope, selection authority, separate
@@ -130,24 +136,106 @@ Those decisions belong to the first approved Feature with a real consumer.
 
 ## 5. Verification Environment After Implementation
 
-Use the accepted Python 3.14.x baseline and record the interpreter and quality-
-tool versions selected during setup. If a runtime or baseline change becomes
-necessary, update the owning ADR/Engineering artifacts before relying on it.
+### Current Planning Observation — Not Implementation Evidence
 
-The local/CI sequence is:
+On 2026-09-07 the Windows checkout contained the previous Python implementation.
+It was backed up and removed for the Rust design reset. Rust/Cargo 1.98.1 for
+x86_64-pc-windows-msvc and rustfmt/Clippy components were found in the user's
+standard Cargo directory, but cargo/rustc were not on this terminal's PATH.
+No PATH, toolchain, system or linker installation was changed. A native project
+build/link test had not yet been run at that planning checkpoint. T001 evidence
+below supersedes that observation. WSL observations
+are not native Windows evidence.
+
+### Historical Native Setup Evidence — T001–T002
+
+On 2026-09-07 the implementation request started the reset task list. A native
+Rust program was compiled, linked and executed successfully outside the repository.
+The four workspace libraries also passed the initial Cargo test and Clippy runs
+(zero domain tests at setup; not foundation acceptance).
+
+- Host: x86_64-pc-windows-msvc.
+- rustc: 1.98.1 (48a229cea 2026-09-01); Cargo: 1.98.1.
+- rustfmt: 1.9.0-stable; Clippy: 0.1.98.
+- MSVC linker: Visual Studio 2022 Community, VC Tools 14.44.35207,
+  Hostx64/x64/link.exe, discovered by the existing Visual Studio installer tooling.
+- Operational pin and intentionally tested minimum: 1.98.1. Older versions are
+  not claimed supported merely because they understand Edition 2024.
+- No tools, external packages or system settings were installed or changed.
+
+This machine registers that exact compiler under stable-x86_64-pc-windows-msvc,
+not the version-named toolchain. For checks in this session, reuse it only after
+verifying the version matches rust-toolchain.toml. The override is process-local,
+not a repository or user-wide rustup override. If stable changes, re-evaluate
+the pin deliberately rather than bypassing a mismatch:
 
 ```powershell
-python -m ruff format --check src tests
-python -m ruff check src tests
-python -m mypy src/devmeld
-python -m pytest
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+$env:RUSTUP_TOOLCHAIN = 'stable-x86_64-pc-windows-msvc'
+if ((rustc --version) -notmatch '^rustc 1\.98\.1 ') { throw 'Toolchain does not match pin' }
 ```
 
-The accepted configuration keeps Ruff conservative (`E`, `F`, `I`, `UP`, `B`,
-with `E501` and initial complexity/size gates disabled), gives mypy ownership of
-core static typing, and uses pytest for invariant and failure-case evidence. No
-database, network, Git fixture repository, Vault, Codex installation, or hosted
-service is required.
+### Historical Setup Procedure at T001–T002
+
+1. Recheck the installed native Windows Rust toolchain and MSVC linker. Use an
+   existing authorized developer shell/path; stop with the precise missing
+   prerequisite before installing anything or changing system policy.
+2. Choose a supported stable compiler, record rustc -Vv, cargo -V, rustfmt and
+   Clippy versions, and create the operational rust-toolchain.toml pin. Declare
+   the intentionally supported rust-version; do not promise earlier versions
+   just because they support Edition 2024.
+3. Create the virtual workspace and four minimal library entries from Plan.
+   Each listed member must have a real Cargo manifest and lib.rs entry; ordinary
+   compiler-required package setup does not justify any speculative sublayer.
+   The core rules and tests remain to be implemented after this setup.
+4. Generate Cargo.lock with cargo generate-lockfile --offline once the manifests
+   are valid. Commit it only when a later commit is requested. No third-party
+   production/test package, alternate runtime or new environment is needed.
+5. Apply Engineering's workspace lints explicitly in each member. Verify tooling
+   availability without claiming an empty test run as foundation acceptance.
+
+### Current Cross-platform Check Procedure — T033–T036
+
+With the pinned Rust toolchain, rustfmt, Clippy and native linker available, run
+from the repository root on Windows, macOS or Linux using the same commands:
+
+```text
+cargo fetch --locked
+cargo xtask check
+```
+
+The first command is the initial bootstrap for the explicitly approved
+`tools/xtask` dependency closure. No third-party dependency was added to a core
+library. The workspace has one lockfile and target directory; no parallel tool
+environment is created. After bootstrap, the alias runs locked/offline.
+
+`cargo xtask check` runs formatting, Cargo checking, conservative Clippy, workspace
+tests (including doctests), the metadata gate and its regression harness, stopping
+on the first failed command. Individual boundary checks are also available:
+
+```text
+cargo xtask architecture
+cargo xtask test-architecture
+```
+
+The Rust tool replaces the previous project PowerShell scripts. It uses native
+process/filesystem APIs, separate command arguments and OS paths, not shell
+commands. No PowerShell, Bash or Python is required for these project checks.
+The Windows override in the historical setup evidence is a host-specific way to
+reuse an already installed exact compiler, not a universal setup requirement.
+Section 11 records actual Windows and Linux execution; macOS remains unverified.
+
+Cargo offline does not prevent rustup toolchain downloads. Do not run a newly
+pinned absent toolchain as an implicit installation step. If future reviewed
+dependencies require fetching, record and authorize that setup explicitly before
+returning to locked/reproducible checks.
+
+Spec Kit uses only `.specify/scripts/python/`. Both integration settings select
+`py`; the six redundant PowerShell scripts and their integration inventory entries
+were removed. The Python scripts are not the DevMeld runtime or reason to recreate
+the removed project .venv. Use an existing authorized interpreter if the
+documentation workflow needs them. Shell-specific environment assignment hints
+printed for users do not introduce a shell dependency in the Python workflow.
 
 ## 6. Exercise Project Catalog
 
@@ -162,7 +250,10 @@ Using pure values and only core-required substitutes, verify:
    Resource references, enforces Capability-independent portable rules, and
    cannot persist an Active Checkout;
 6. removing a referenced registration is rejected until dependent selections
-   are revised explicitly.
+   are revised explicitly;
+7. schema version, source locators, aliases, Resource type/eligibility and
+   same-Workspace references are present; no field is silently dropped to match
+   the partial experiment.
 
 Review evidence must also confirm that capability-selection fields, behavior,
 and placeholders are absent. This is subset acceptance, not a claim that the
@@ -185,7 +276,10 @@ Validate raw Task Context before invoking resolution:
 | No eligible candidate | Unavailable with an explanation |
 
 Candidate order must not change an outcome, and a later Checkout observation
-must not mutate an earlier observation.
+must not mutate an earlier observation. Local Binding Registry transitions,
+working area and full observation provenance must also be covered. Validation
+and resolution use the same immutable snapshot; changing observations requires
+revalidation, never a second unvalidated observation input.
 
 ## 8. Exercise Context Knowledge
 
@@ -207,29 +301,42 @@ real parser, index, or public query API. Verify:
 The evidence must demonstrate [Context Semantics](context-semantics.md), not a
 preselected wire representation.
 
-## 9. Activate Dependency Enforcement Only After Packages Exist
+## 9. Activate Dependency Enforcement Only After Crates Exist
 
-Do not create Import Linter configuration while the domain packages are only a
-plan. Once the three real core packages and their accepted dependencies exist,
-add only the minimum contracts needed to reject representative violations such
-as:
+Implement the actual Cargo metadata gate for the [allowed edges](plan.md#allowed-edges).
+Check all declarations, not only the currently active graph: normal, dev, build,
+optional, renamed and target-specific edges. Unknown members/paths/kinds and
+malformed metadata fail explicitly. Core-to-core normal dependencies are
+forbidden even when only public symbols are used; the specified Knowledge
+dev-dependencies are allowed only for test composition.
 
-```text
-core domain -> adapter                 REJECT
-core domain -> entrypoint              REJECT
-core domain A -> core domain B internals REJECT
-application -> concrete adapter        REJECT
-adapter -> core-owned port              ALLOW
-entrypoint -> application API           ALLOW
-```
+In temporary copies of real manifests/source, using the actual compiled Rust
+checker, demonstrate:
 
-Run `lint-imports` only after configuration exists. Seed controlled violations
-or equivalent rule probes so an empty or ineffective scan cannot be presented
-as architecture evidence.
+| Probe | Expected |
+| --- | --- |
+| Four core libraries plus the isolated developer-only xtask package | PASS |
+| Specified Knowledge test-only dependencies | PASS |
+| xtask to its admitted JSON parser dependency | PASS |
+| Core to xtask, xtask to core, or xtask library leakage | REJECT |
+| Core to another core as normal dependency | REJECT |
+| Shared kernel to a domain | REJECT |
+| Core to isolated adapter/entrypoint fixture | REJECT |
+| Forbidden build/optional/target-specific/renamed edge | REJECT |
+| Consumer accessing foreign private module/field | Compiler REJECT with intended diagnostic |
+| Raw or fabricated validated context passed to resolution | Compiler REJECT with intended diagnostic |
+| ResourceId passed where RepositoryId is required | Compiler REJECT with intended diagnostic |
+| Closed resolution match omits a variant | Compiler REJECT with intended diagnostic |
 
-Only the architecture probes may use isolated temporary package files or invoke
-local verification tools to test these rules. They must not create fake
-production layers, access real user targets, or require a hosted service.
+Generate probe-local locks after adding seeds; never mutate the actual workspace
+or its lockfile. Valid controls must succeed, and missing dependencies/linkers
+must fail the probe harness rather than count as detected violations. Temporary
+adapter/entrypoint fixtures are checker test inputs, not production scaffolding.
+No real Git repository, user files, credentials or hosted service is involved.
+
+Compiler and metadata checks do not prove that std IO or a hidden clock is
+absent. Review core source, included modules, public surfaces and ownership too.
+No Python Import Linter or extra analyzer is introduced.
 
 ## 10. Confirm Honest Scope
 
@@ -247,35 +354,196 @@ The first code foundation passes only when:
   `entrypoints/` package exists as empty architecture;
 - no tool/environment discovery, dependency installation, command execution,
   enforcement integration, duplicate dependency registry, or tool-guidance
-  placeholder is implemented;
+  placeholder is implemented as product behavior; the developer verification
+  tool's own Cargo subprocesses and isolated fixtures are not Domain 5;
 - no public machine contract or real Git, Vault, filesystem, database, Codex,
   CLI, Desktop, or network behavior is claimed;
 - no benchmark improvement or user-visible workflow is claimed;
 - later Features must traverse accepted core rules rather than bypass them for
   delivery speed.
 
+## 11. Implementation Status and Required Rust Evidence
+
+The Rust foundation is implemented in the native Windows working tree on
+2026-09-07. Previous Python and WSL experiment results are not credited. The
+cross-platform tooling correction was additionally compiled and tested from an
+isolated copy of this working tree on Linux in WSL, not from the old experiment.
+No commit, push or system-policy change was made by the implementation agent.
+The Maintainer-approved `serde_json` tool dependency closure was fetched against
+the shared lockfile in both environments; no core dependency was added.
+
+| Item | Current state |
+| --- | --- |
+| Product and five-domain design | Retained; scope unchanged |
+| Architecture / runtime | ADR-0001 / ADR-0003 Accepted |
+| Constitution ratification / Capability Gate 3 | Still deferred |
+| Implementation | Three core libraries plus the two shared identity values |
+| T001–T036 | Implemented, verified and submitted; not Maintainer ACCEPT |
+| Native Windows checks | Passed on x86_64-pc-windows-msvc |
+| Linux checks in WSL Ubuntu | Passed on x86_64-unknown-linux-gnu from a fresh copy |
+| Supporting domains / Tool Guidance implementation | Absent |
+| macOS, distribution, real integrations, performance | Not verified |
+
+### Cross-platform Verification Results — T030, T034–T036
+
+`cargo xtask check` and every constituent command below exited 0 on both native
+Windows and Linux in WSL. Windows used the exact existing-toolchain procedure in
+section 5: Rust/Cargo 1.98.1, rustfmt 1.9.0, Clippy 0.1.98 and MSVC 14.44.35207.
+Linux used the verified existing `stable` toolchain, Rust/Cargo 1.98.1 for
+x86_64-unknown-linux-gnu, compiling and linking Linux binaries.
+
+| Command | Result |
+| --- | --- |
+| `cargo fmt --all -- --check` | PASS |
+| `cargo check --workspace --all-targets --locked --offline` | PASS |
+| `cargo clippy --workspace --all-targets --locked --offline` | PASS; one distinct non-blocking performance warning |
+| `cargo test --workspace --locked --offline` | 37 core behavior tests + 3 tool unit tests + 1 compile-fail doctest PASS |
+| `cargo xtask architecture` | Four core libraries plus xtask; six admitted dependency declarations PASS |
+| `cargo xtask test-architecture` | 40 graph/schema/scope/compiler/path probes PASS |
+
+At T030 each core package was also tested independently on Windows with
+`cargo test -p <package> --locked --offline --quiet` (all exits 0):
+
+| Package | Behavior tests | Doctests |
+| --- | --- | --- |
+| devmeld-shared-kernel | 4 | 1 compile-fail |
+| devmeld-catalog | 9 | 0 |
+| devmeld-local-context | 12 | 0 |
+| devmeld-knowledge | 12 | 0 |
+
+These are test-function counts, not coverage percentages. The Knowledge status
+matrix exercises 36 source/review/validity combinations within one test.
+Local Context additionally exercises all six orderings of three candidates.
+
+The 40-probe harness retains the previous 35 cases and contains 19 graph/layout
+controls and cases, seven metadata failure cases, nine public-consumer compilation
+controls/cases, four core unsafe-policy probes and one fixture path-escape guard.
+Every probe uses a temporary path containing spaces and Unicode. Intended
+diagnostics include ARCH_EDGE, ARCH_TARGET,
+ARCH_MEMBERS, ARCH_SCOPE, ARCH_PATH, ARCH_KIND, metadata command/JSON/schema
+failures, and Rust E0603/E0616/E0308/E0599/E0596/E0061/E0004/unsafe_code.
+Valid controls compile first; an arbitrary failed command is not credited.
+Fixtures are isolated copies and removed after the run, not production packages.
+
+The Linux verification ran in `/tmp/devmeld-linux-review-20260907b`, copied from
+the current Windows tree. It did not modify the user's existing WSL experiment.
+An initial WSL compiler probe triggered rustup synchronization from the repository
+pin and was interrupted; final checks explicitly used the already installed,
+version-verified `stable` toolchain. No claim is made that Cargo's offline flag
+prevents rustup activity. macOS execution was not available and is not credited.
+
+Spec Kit smoke checks passed on Windows using the existing Python interpreter:
+prerequisites with tasks, task-template output, template resolution, feature
+creation dry-run and plan-command help. The local Feature pointer hash was
+unchanged. Linux Python 3.14.4 also passed the prerequisite check against its
+copied Feature documents. No new Feature, plan or branch was created by these
+checks. The six tracked PowerShell scripts were deleted; only an empty local
+directory may remain because directory cleanup was blocked by tool policy.
+
+Clippy's `large_enum_variant` warning concerns the owned Resolution snapshot.
+It is visible and non-blocking under the accepted perf=warn policy. No measured
+performance problem justifies adding indirection yet; no blanket warnings-as-
+errors or suppression was added.
+
+### Resolved Native Execution Interruption
+
+An earlier full run was blocked before launching Catalog registrations tests
+(OS error 4551, Code Integrity event 3077 at 17:58:38 local time on 2026-09-07).
+After the user reported resolving the system setting, the same repository
+target and normal Cargo commands ran successfully. The agent did not change
+security policy, rename binaries, move the target directory or substitute WSL.
+The complete rerun above supersedes the earlier blocked status.
+
+### Semantic and Ownership Review — T003–T007, T023, T028–T029
+
+The five-owner map and provisional-concept inventory were checked against
+Product. RepositoryId is shared by all three cores; ResourceId by Catalog and
+Knowledge. Owner-local paths, statuses, errors and other identities were not
+promoted into the shared kernel. The six Tool Guidance design cases preserve
+selection/change authority and local-observation/project-declaration separation;
+their Product acceptance does not resolve Gate 3 or authorize implementation.
+
+All production modules, their exports and constructors were reviewed. They use
+pure supplied values with no filesystem/network/process IO, hidden clock,
+include/path-module trick, interior mutable escape, unsafe block, generic
+persistence layer or Capability placeholder. Cross-core composition occurs only
+in the Knowledge integration test and maps facts explicitly into consumer-owned
+values. Two independent equivalent fact builders yield identical outcomes.
+No current rule needs an application service or external-fact port.
+
+Two implementation gaps found during review were corrected with regressions:
+encoded home shorthand in portable locators is rejected; Scope summaries no
+longer become permanently Unknown solely because both sides omit a dimension.
+The latter retains per-dimension Unknown and explicit comparison participation,
+one-sided unknowns and unsupported intervals. Its bounded summary meaning is
+documented in [Rust Design](rust-design.md#domain-3-context-knowledge), not promoted
+into Product or a public query protocol.
+
+Further regressions cover atomic rejection when replacing a Profile's eligible
+Resource or redirecting its source, independent statuses across query changes,
+Relation Checkout consistency, invalid-explicit-selection no fallback, and
+immutable validated snapshots under changed caller inputs.
+
+| Requirements / criteria | Evidence |
+| --- | --- |
+| FR-001–004, FR-009, FR-018, FR-022; SC-001–002, SC-011 | Five-owner/lifecycle/extension review; six Tool Guidance design cases; no supporting implementation |
+| FR-005–006, FR-019–021; SC-003, SC-009 | Four-library layout, Profile subset, full source review; ADR decisions remain authoritative |
+| FR-007–008, FR-017; SC-008 | Independent fact builders and explicit mapping; no foreign SDK or unnecessary port |
+| FR-010–011; SC-005 | Catalog portable-locator/Workspace tests; separate local bindings/observations; generated-state design remains deferred |
+| FR-012–013; SC-004 | State validation, four resolution priorities, all three outcomes, adversarial/permutation/snapshot tests |
+| FR-014–015; SC-006 | Evidence/Relation/Scope/result tests, 36 status combinations; no public protocol introduced |
+| FR-016; SC-007, SC-010 | Windows/Linux behavior/doctest suites and 40 controlled architecture probes |
+
+### Limitations Requiring Honest Review
+
+- Automated checks cover manifest edges, target/layout scope and specific Rust
+  visibility/type/safety examples. They do not prove all semantic ownership,
+  source expansion, IO purity, correct facts or re-export intent.
+- Cargo metadata omits lint settings. All four manifests explicitly inherit the
+  workspace policy; actual unsafe probes verify the effective unsafe gate.
+  Other Clippy settings and narrow overrides still require manifest/source review.
+- The initial flat source/layout gate is a revisable 001 scope check, not a
+  permanent rule against justified future application/port/adapter layers.
+- Portable locators support a bounded relative/remote lexical subset; local paths
+  are dialect-tagged absolute spellings, not proof of OS validity or existence.
+  See Rust Design for exclusions. No actual source parsing/discovery occurs.
+- Observation freshness and availability are supplied facts. Old snapshots do
+  not automatically age or re-inspect themselves; changed facts need revalidation.
+- Unsupported version intervals remain Unknown. Evidence hashes/derived IDs
+  retain supplied provenance, not verified cryptographic trust.
+- Windows and Linux in WSL were executed here. macOS builds, packaging,
+  signing, MSRV below 1.98.1 and performance remain unverified. There is no product CLI,
+  UI, integration adapter or user-visible vertical slice in this submission.
+
 ## Acceptance Record
 
-When implementation is reviewed, record:
+Submitted for Maintainer review on 2026-09-07:
 
 ```text
-Foundation revision:
-Spec/Plan revision:
-Architecture ADR revision (required):
-Runtime ADR revision (required):
+Foundation revision: uncommitted main working tree based on bb7523d4ece4c42a0da98516ebe7cfd653fb9400
+Code/Spec/Plan/ADR revisions: exact per-file SHA256 in verification.sha256
+Architecture: ADR-0001 accepted; unchanged by this implementation
+Runtime: ADR-0003 accepted; unchanged by this implementation
 Context Profile acceptance scope: Capability-independent subset only
-Capability-dependent implementation: excluded; Gate 3 not required for this acceptance
-Tool/dependency-guidance Product proposal: accept / revise
+Capability-dependent implementation: excluded; Gate 3 remains deferred
+Tool/dependency-guidance Product decision: accepted by Maintainer on 2026-09-07
+Tool/dependency-guidance Product source: docs/product.md#tool-and-dependency-guidance
 Tool/dependency-guidance implementation: excluded
-Verification command:
-Passing tests:
-Seeded dependency violations detected:
-Maintainer:
-Decision: ACCEPT / REVISE
-Notes:
+Verification: section 11 commands; all exit 0 on native Windows and Linux in WSL
+Passing tests: 37 core behavior + 3 tool unit + 1 compile-fail doctest
+Architecture/type/scope/path probes: 40 passed with intended diagnostics
+Developer tooling: Rust xtask, serde_json tool-only; Spec Kit Python-only
+Maintainer: pending reviewer entry
+Decision: PENDING — reviewer to choose ACCEPT or REVISE
+Notes: limitations above; no commit or push
 ```
+
+[Verification fingerprints](verification.sha256) identify the submitted file
+contents, including this guide, rather than pretending the base Git commit
+contains uncommitted code. The manifest excludes itself and build artifacts.
+Any subsequent edit requires fresh relevant checks and updated fingerprints.
 
 An ACCEPT decision means the three-domain code foundation is ready to support a
 later adapter-backed Feature. It does not approve either supporting-domain
-implementation, capability-selection or tool-guidance behavior, the Capability
-Product meaning, or any future application protocol.
+implementation, capability-selection implementation, tool-guidance implementation,
+the standalone Capability Product meaning, or any future application protocol.

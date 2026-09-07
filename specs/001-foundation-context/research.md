@@ -2,12 +2,12 @@
 
 **Feature**: [Domain Foundation](spec.md)  
 **Date**: 2026-09-01  
-**Last Updated**: 2026-09-04
-**Status**: Architecture/runtime accepted; tool/dependency-guidance Product
-change proposed for Maintainer review; Capability Product meaning remains deferred
+**Last Updated**: 2026-09-07
+**Status**: Rust runtime accepted on 2026-09-07; post-reset verification is recorded in [Acceptance Guide](quickstart.md);
+tool/dependency-guidance Product behavior accepted; Capability Product meaning deferred
 
 This document records foundation reasoning. Accepted architecture/runtime
-decisions are owned by ADR-0001 and ADR-0002; detailed quality rules are owned by
+decisions are owned by ADR-0001 and ADR-0003 (superseding ADR-0002); quality rules are owned by
 the Engineering Guide. Research alone does not accept Product concepts or
 public protocols.
 
@@ -194,73 +194,64 @@ and could make transport DTOs look like the domain model.
 The retained design artifacts are [Context Semantics](context-semantics.md) and
 [Materialization Semantics](materialization-semantics.md).
 
-## Decision 9: Use Python 3.14 for the First Code Foundation
+## Decision 9: Use Stable Rust for the Restarted Foundation
 
-**Status**: Accepted on 2026-09-02; Gate 2 recorded in
-[ADR-0002](../../docs/adr/0002-initial-python-runtime.md).
+**Status**: Accepted on 2026-09-07 in
+[ADR-0003](../../docs/adr/0003-rust-runtime.md), superseding the Python baseline
+in ADR-0002. This is a Maintainer decision, not a measured language ranking.
 
-**Decision**: Target Python 3.14.x, use standard-library types in the production
-core, and avoid production parser, database, CLI, UI, and provider libraries in
-this phase.
+**Decision**: Stable Rust, Edition 2024, standard-library-first core and native
+Windows development first. Keep Windows/macOS/Linux targets; version pins,
+supported rust-version and actual platform evidence belong to setup artifacts.
 
-**Rationale**: The runtime's typing and data-model facilities are
-sufficient for a framework-independent domain core. Restricting dependencies
-keeps the first implementation review focused on language and invariants.
-The [Python versions status](https://devguide.python.org/versions/) was rechecked
-on 2026-09-02 and lists 3.14 in stable bugfix maintenance. The local planning
-interpreter reports 3.14.6; a supported patch version and compatible tool
-versions must still be recorded and verified during implementation setup.
+**Rationale**: Explicit identity/state ownership and native local-tool delivery
+fit DevMeld's context-engine direction. The project accepts Rust's learning,
+compilation and integration costs. Types protect parts of a correct design;
+they do not substitute for domain design, tests, architecture checks or review.
 
-**Rejected alternatives**:
+**Alternatives**: TypeScript remains technically viable but is not selected as
+a parallel core. Python's previous implementation is real historical work, not
+a zero-code starting point; it is removed after recoverable backup rather than
+maintained as a second baseline. No additional comparative experiment is a gate.
 
-- adopting a prerelease runtime;
-- adding an application framework before an adapter or entrypoint is in scope;
-- choosing persistence or CLI libraries as part of domain design.
+**Consequence**: No Rust source is written during this documentation reset.
+Prior Python passes and the limited WSL sample do not prove the new implementation.
+Do not narrow accepted invariants to match experimental code. Spec Kit's Python
+scripts are workflow tools, not DevMeld runtime code, and remain untouched.
 
-**Acceptance consequence**: ADR-0002 and the Engineering Guide now own the
-runtime and tooling baseline. This decision does not claim that implementation
-or cross-platform verification has happened.
+## Decision 10: Use Cargo's Tools and Focused Boundary Checks
 
-## Decision 10: Adopt a Progressive, Non-Overlapping Tool Baseline
+**Authority**: [Engineering Guide](../../docs/engineering.md#runtime-and-automated-quality-gates).
 
-**Status**: Accepted as part of Gate 2. The authoritative settings are in the
-[Engineering Guide](../../docs/engineering.md#runtime-and-automated-quality-gates).
+**Decision**: Compiler checks, default rustfmt, conservative Clippy and Cargo
+tests. Correctness is a gate; suspicious/perf remain warnings; style/complexity/
+pedantic/nursery/restriction are not imposed as initial logic/size constraints.
+No global warnings-as-errors, blanket clone ban or numeric complexity target.
 
-**Decision**: Begin with three quality tools only:
+After the three core crates exist, use the Rust tools/xtask Cargo-metadata
+check and isolated negative probes. The approved 2026-09-07 portability correction
+replaces the original PowerShell checks; serde_json is a developer-tool-only
+dependency, not a core library dependency or a second runtime. The gate checks all declarations, including
+optional/target-specific/build/renamed edges, not only active dependencies.
+Use valid controls and explicit expected errors; do not equate any failing
+command with a successful negative test. Metadata checks cannot prove std IO
+purity; domain review and behavior tests remain necessary.
 
-- Ruff with conservative `E`, `F`, `I`, `UP`, and `B` rule families, ignoring
-  `E501` and leaving logical simplification and complexity rules disabled;
-- mypy strict for core domain and any implemented application/core-owned port code, with
-  narrow documented overrides only where genuinely necessary;
-- pytest for invariant, behavior, and failure-case evidence.
+**Evidence**: Cargo supports shared workspace settings and an explicit resolver
+for virtual workspaces. Members opt into lint inheritance. Cargo metadata exposes
+dependency kinds and declarations even when --no-deps omits the resolved graph.
+Cargo's default test selection includes doctests; --all-targets must not silently
+replace that coverage. Windows MSVC toolchain/linker setup is independent of WSL.
 
-Do not initially enable Ruff `ALL`, `SIM`, duplicate annotation linting, or hard
-gates for complexity, branches, arguments, returns, statements, function
-length, or file length. Add Import Linter only after the three core packages
-actually exist and only for accepted dependency contracts. Defer Sonar,
-additional type checkers, Hypothesis, and commit-hook frameworks until a
-concrete non-duplicated need exists.
+- [Cargo workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html)
+- [Cargo metadata](https://doc.rust-lang.org/cargo/commands/cargo-metadata.html)
+- [Cargo test](https://doc.rust-lang.org/cargo/commands/cargo-test.html)
+- [Clippy usage](https://doc.rust-lang.org/clippy/usage.html)
+- [Rustup Windows](https://rust-lang.github.io/rustup/installation/windows.html)
 
-**Evidence retained from the initial repository comparison**:
-
-- FastAPI combines Ruff, strict mypy, and pytest while explicitly ignoring
-  Ruff's `C901` complexity rule.
-  [Source](https://github.com/fastapi/fastapi/blob/master/pyproject.toml)
-- Starlette uses a narrow Ruff selection with strict mypy and pytest rather than
-  enabling every lint or complexity rule.
-  [Source](https://github.com/encode/starlette/blob/master/pyproject.toml)
-- Pydantic uses multiple type checkers because typing behavior is part of its
-  product and still configures a more permissive McCabe threshold; that
-  specialized burden is not a suitable DevMeld baseline.
-  [Source](https://github.com/pydantic/pydantic/blob/main/pyproject.toml)
-- attrs lets mypy own annotations and disables several mechanical complexity
-  and size rules, illustrating that mature projects tune tools around their
-  model rather than accepting every available metric.
-  [Source](https://github.com/python-attrs/attrs/blob/main/pyproject.toml)
-
-These tools have distinct responsibilities and run locally without a
-persistent service. Sonar can be reconsidered when code history, CI governance,
-or cross-repository quality reporting creates a concrete need.
+**Rejected defaults**: Import Linter for Rust, Sonar, another formatter or type
+checker, third-party test/architecture frameworks, async runtime and hook stack.
+These would need a distinct demonstrated requirement.
 
 ## Decision 11: Defer Production Storage
 
@@ -306,13 +297,19 @@ machinery as demonstration code.
 
 ## Decision 13: Model Tool and Dependency Guidance Without Implementing It
 
-**Status**: Proposed cross-feature Product behavior and supporting-domain detail
-prepared for Maintainer review; not accepted or recorded in `docs/product.md`.
+**Status**: Cross-feature Product behavior accepted by the Maintainer on
+2026-09-07 and owned by
+[`docs/product.md`](../../docs/product.md#tool-and-dependency-guidance).
+Supporting-domain detail remains design only; public protocols are not fixed.
 
 **Decision**: Extend the Capability Integration design with evidence-backed
 tool/dependency guidance. Preserve explicit applicable selections; otherwise
-prefer an eligible option already managed within the relevant project/task
-scope. Keep project declarations, local discovery, verified availability,
+prefer an eligible existing option requiring no new dependency, environment,
+or installation change. Among those options, project-managed options have the
+strongest reuse preference; a local/system tool verified callable, compatible,
+and authorized in the current project/task scope is also eligible. This avoids
+adding a dependency merely because a suitable existing tool is system-managed.
+Keep project declarations, local discovery, verified availability,
 compatibility, selection authority, and change authority as separate facts. A
 request to use an option controls selection but does not authorize installing
 it or changing a dependency, environment, or system. Treat any such change as a
@@ -347,15 +344,42 @@ The non-binding design is recorded in
 the standalone Product meaning of `Capability`, choose supported package
 ecosystems, or expand the implementation scope.
 
+## Decision 14: Use Compilation Boundaries for the Three Core Owners
+
+**Decision**: A virtual workspace with shared-kernel, catalog, local-context
+and knowledge library members; explicit member lists and resolver 3. Normal
+dependencies go only from a core to the admitted identity kernel. No root facade,
+product executable or additional domain layer is necessary. The developer-only
+xtask member is verification tooling, not a fifth domain. See the [Plan](plan.md).
+
+**Rationale**: These are actual ownership boundaries requiring isolation,
+not speculative domains. Crate visibility and declared dependencies supply
+compiler support; a small metadata gate rejects adding forbidden dependencies.
+One deployment boundary can contain several library crates.
+
+**Test-only exception**: Knowledge's core_fact_boundaries integration test may
+use Catalog and Local Context as explicit dev-dependencies. No normal/build edge
+or examples/benchmarks are authorized. This tests real public fact translation
+without creating a production coordinator or extra harness library.
+
+**Rejected alternatives**: A single crate protected only by naming conventions;
+one crate per technical layer; a universal facade for tests; unrestricted dev
+edges; regex-based TOML/import analysis presented as a complete architecture gate.
+
+**Limits**: Cargo cannot determine whether a dependency is semantically justified
+or whether a std call performs forbidden IO. Review remains necessary. Negative
+probes must use copies of real configuration and cover disguised/conditional
+declarations; architecture evidence is future work, not a planning result.
+
 ## Protected Decision Gates
 
-Gate 1 and Gate 2 were accepted on 2026-09-02 and are recorded in
-[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md) and
-[ADR-0002](../../docs/adr/0002-initial-python-runtime.md). The following
-prerequisites are resolved for the reviewed foundation scope:
+Gate 1 remains accepted on 2026-09-02 in
+[ADR-0001](../../docs/adr/0001-domain-oriented-modular-monolith.md). Gate 2 is now
+owned by [ADR-0003](../../docs/adr/0003-rust-runtime.md), accepted on 2026-09-07
+and superseding ADR-0002. The general prerequisites are:
 
-1. Gate 1: domain-oriented modular-monolith architecture;
-2. Gate 2: Python 3.14.x and the three-tool baseline.
+1. Gate 1: domain-oriented modular monolith;
+2. Gate 2: stable Rust and the progressive Cargo/rustfmt/Clippy/test baseline.
 
 Tooling guidance is recorded in [the Engineering Guide](../../docs/engineering.md).
 
@@ -366,7 +390,7 @@ Integration Feature. It does not block unrelated core task generation or
 acceptance. This foundation excludes Capability-dependent implementation and
 placeholders; approving Gate 3 alone does not expand its scope.
 
-The proposed tool/dependency-guidance rules do not resolve Gate 3. They describe
+The accepted tool/dependency-guidance rules do not resolve Gate 3. They describe
 how evidence and separate selection/change authority constrain a future tool
 choice without requiring a universal `Capability` entity or capability-selection
 implementation.
