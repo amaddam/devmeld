@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "presets": {
+    "devmeld-workflow": {
+      "version": "0.1.0",
+      "source": "local",
+      "manifest_hash": "sha256:03b8c7dafdab3a38a474ac44b91ad059216b46ebdf4c96f1bb0af18aabe70aa3",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "codex": [
+          "tasks",
+          "implement"
+        ]
+      },
+      "registered_skills": {
+        "codex": [
+          "speckit-tasks",
+          "speckit-implement"
+        ]
+      },
+      "installed_at": "2026-09-07T19:41:57.436486+00:00"
+    }
+  }
+}

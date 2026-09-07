@@ -54,38 +54,71 @@ behavior or a data contract is a material behavioral change and requires one.
 ## Spec Kit Customizations
 
 The behavioral development rules live in `docs/engineering.md`. Project-owned
-Spec Kit sources live in `.specify/templates/overrides/`:
+Spec Kit sources remain in `.specify/templates/overrides/`:
 
 - `tasks-template.md` defines behavior-slice task structure.
-- `tasks.md` and `implement.md` replace the corresponding command instructions.
-  They retain the existing Spec Kit governance checks and hooks and use
-  Codex-compatible skill frontmatter. Their upstream baseline is the installed
-  Spec Kit 1.0.1 command output; review upstream changes when upgrading.
+- `tasks.md` and `implement.md` contain command instructions, retaining the
+  existing governance checks and hooks. Their upstream baseline is Spec Kit
+  1.0.1; review upstream changes when upgrading.
+- `preset.yml` registers these three files as the local `devmeld-workflow`
+  preset. Command sources have command frontmatter; the official generator
+  supplies skill names, provenance metadata and titles.
 
-Edit these sources, not only `.agents/skills/speckit-{tasks,implement}/SKILL.md`.
-The latter are checked-in materialized copies, not separate rule authorities.
-With an existing Python 3 interpreter, synchronize only these two copies:
+Edit these sources, not `.specify/presets/devmeld-workflow/` (the installed
+copy) or `.agents/skills/speckit-{tasks,implement}/SKILL.md` (generated output).
+The installed copy, `.specify/presets/.registry` and generated skills are
+checked in so a fresh checkout retains the registered workflow. They are not
+additional authorities; include regenerated changes in the same review.
+
+Use the installed Specify CLI, tested here at 1.0.1 on native Windows. These
+read-only commands inspect registration and template selection; they are NOT
+a source-versus-generated drift check:
 
 ```text
-python tools/speckit/sync_skills.py --check
-python tools/speckit/sync_skills.py --write
-python tools/speckit/sync_skills.py --check
-python -m unittest discover -s tools/speckit -p "test_*.py"
+specify preset list
+specify preset info devmeld-workflow
+specify preset resolve tasks-template
 ```
 
-`--check` is read-only and fails on drift. Review differences before `--write`,
-which replaces only those two outputs. This helper neither installs/upgrades
-Spec Kit nor implements its general renderer, hooks or template resolution.
-The existing template resolver reads `tasks-template.md` from the override
-stack; command overrides must be materialized before the agent uses them.
+When the preset is not registered, install it from the project-owned source:
 
-Before a Spec Kit refresh, preserve local changes and review the upstream
-command changes against these full replacement sources. Do not use `--force`
-merely to bypass modified-file protection. After an approved refresh, reconcile
-the override sources, synchronize the two skills and run the checks above.
+```text
+specify preset add --dev .specify/templates/overrides
+```
+
+After editing an already registered preset, first review and preserve the
+complete source directory, including `preset.yml`. In Spec Kit 1.0.1, refresh
+using these separate official commands, stopping if either fails:
+
+```text
+specify preset remove devmeld-workflow
+specify preset add --dev .specify/templates/overrides
+```
+
+Removal deletes the installed copy, not the override source directory. Never
+use `.specify/presets/devmeld-workflow` as the reinstall source. Do not run
+workflow skills between removal and successful reinstallation; if installation
+fails, repair the source and rerun `preset add` before continuing. The `--dev`
+option copies files; it does not create a live link or watch source edits.
+
+After refresh, inspect the generated skill diff and confirm the required rule
+body is preserved, run `specify preset list` and `specify preset resolve
+tasks-template`, and run `git diff --check`. The official generator may change
+frontmatter formatting, provenance and the skill title; those are not behavior
+changes. Reinstallation also updates the registry's installation timestamp.
+
+Do not use `specify integration use codex` as a narrow preset-refresh shortcut:
+the tested 1.0.1 command also restores the removed PowerShell helper tree and
+updates the shared infrastructure manifest, even with `script: py`. Likewise,
+do not run integration upgrade, init or `--force` merely to regenerate skills.
+Review shared-infrastructure changes separately during an approved upgrade.
 Keep `.specify/integrations/*.manifest.json` as the installer-recorded baseline;
-do not rewrite its hashes to disguise customized output as untouched upstream
-files. Keep the Python workflow helpers; do not restore a parallel shell tree.
+do not rewrite its hashes to disguise customized output as untouched upstream.
+
+The migration was verified in isolated repository copies: official install,
+remove/reinstall, edited-source propagation and repeated rendering preserved
+both command bodies and unrelated files, with no PowerShell tree restored.
+The project no longer maintains a separate skill synchronization script.
 
 See upstream [upgrade guidance](https://github.com/github/spec-kit/blob/main/docs/upgrade.md)
 and [override resolution](https://github.com/github/spec-kit/blob/main/docs/reference/presets.md).

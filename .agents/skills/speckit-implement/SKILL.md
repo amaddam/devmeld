@@ -1,12 +1,14 @@
 ---
-name: "speckit-implement"
-description: "Execute the implementation plan by processing and executing all tasks defined in tasks.md"
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+name: speckit-implement
+description: Execute the implementation plan by processing and executing all tasks
+  defined in tasks.md
+compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: "github-spec-kit"
-  source: ".specify/templates/overrides/implement.md"
+  author: github-spec-kit
+  source: override:implement
 ---
 
+# Speckit Implement Skill
 
 ## User Input
 

@@ -1,0 +1,19 @@
+schema_version: "1.0"
+preset:
+  id: devmeld-workflow
+  name: DevMeld Workflow
+  version: "0.1.0"
+  description: Project-owned behavior-slice tasks and task-specific implementation verification.
+requires:
+  speckit_version: ">=1.0.1,<1.1.0"
+provides:
+  templates:
+    - type: command
+      name: tasks
+      file: tasks.md
+    - type: command
+      name: implement
+      file: implement.md
+    - type: template
+      name: tasks-template
+      file: tasks-template.md

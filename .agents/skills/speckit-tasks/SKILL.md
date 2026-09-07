@@ -1,12 +1,14 @@
 ---
-name: "speckit-tasks"
-description: "Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+name: speckit-tasks
+description: Generate an actionable, dependency-ordered tasks.md for the feature based
+  on available design artifacts.
+compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: "github-spec-kit"
-  source: ".specify/templates/overrides/tasks.md"
+  author: github-spec-kit
+  source: override:tasks
 ---
 
+# Speckit Tasks Skill
 
 ## User Input
 
