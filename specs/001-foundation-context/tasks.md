@@ -140,7 +140,7 @@ Spec Kit PowerShell scripts. This does not change domain behavior or Gate 3.
 - [X] T033 Add tools/xtask/Cargo.toml, src/main.rs and .cargo/config.toml; include the developer tool in the one workspace/lockfile while retaining the four core libraries and their dependency policy. Document JSON parsing as a tool-only dependency and fetch only this approved dependency closure.
 - [X] T034 Port the real metadata checker and negative harness into tools/xtask/src/architecture.rs and probes.rs with native Rust process/filesystem APIs, safe isolated fixtures, fail-closed diagnostics and no shell dependency; preserve the previous 35 probes and add platform/path/tool-isolation regressions before retiring scripts/*.ps1.
 - [X] T035 Remove the six .specify/scripts/powershell/*.ps1 files and corresponding integration inventory entries; retain the Python configuration and entrypoints, remove dangling comments, verify safe Python commands without modifying Feature artifacts.
-- [X] T036 Run the complete Cargo/xtask sequence on native Windows, exercise Linux where an existing compatible environment is available without changing experiments, record macOS and any other unverified targets honestly, update owning documentation and verification.sha256. Do not commit or push.
+- [X] T036 Run the complete Cargo/xtask sequence on native Windows, exercise Linux where an existing compatible environment is available without changing experiments, record macOS and any other unverified targets honestly, and update owning documentation and acceptance evidence. The original manual fingerprint step was retired on 2026-09-08; see Evidence Maintenance below. Do not commit or push.
 
 ## Dependencies and Parallel Opportunities
 
@@ -182,8 +182,9 @@ an execution workaround. The baseline complete quality sequence passed on native
 Windows and Linux in WSL: 37 core behavior tests, three tool unit tests, one
 compile-fail doctest and 40 controlled architecture/type/scope/path probes.
 macOS remains unverified. Core implementation and deferred domain scope are unchanged.
-T032 is the review submission in quickstart.md with verification.sha256, not an
-automatic Maintainer ACCEPT. The original implementation agent reported no commit
+T032 is the review submission in quickstart.md, not an automatic Maintainer ACCEPT.
+Its original fingerprint artifact remains in the historical commit below.
+The original implementation agent reported no commit
 or push during submission; that snapshot was subsequently committed as
 4da191195b3edafefb84d6f2896f0e56fc74e400.
 US1 is the first independently reviewable design checkpoint, not a product MVP.
@@ -235,4 +236,12 @@ does not grant Maintainer ACCEPT.
 ## Rejection Receipt Correction (2026-09-08)
 
 - [X] T037 [US2] Preserve both sides of a rejected selection conflict in crates/local-context/src/task_context.rs, using a failing regression in crates/local-context/tests/safety.rs; verify explicit-task, Workspace and LocalDefault sources and exchanged input order without changing validation or resolution priority (FR-012–013).
-- [X] T038 Update the committed type-refinement status in README.md and specs/001-foundation-context/quickstart.md, record the focused and full verification results, and refresh specs/001-foundation-context/verification.sha256 after T037. Keep historical evidence and Maintainer acceptance separate; do not commit or push.
+- [X] T038 Update the committed type-refinement status in README.md and specs/001-foundation-context/quickstart.md, and record the focused and full verification results after T037. The original manual fingerprint step was retired on 2026-09-08; see Evidence Maintenance below. Keep historical evidence and Maintainer acceptance separate; do not commit or push.
+
+## Evidence Maintenance (2026-09-08)
+
+The manual checksum steps originally performed in T036 and T038 are historical,
+not recurring requirements. Their files remain recoverable from Git history.
+Subsequent reviews use Git revisions and the commands/results/platform records
+described in [Recording Verification Evidence](quickstart.md#recording-verification-evidence).
+Do not recreate a per-file source checksum list or refresh one after each edit.

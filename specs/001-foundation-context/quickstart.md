@@ -527,7 +527,7 @@ Original submission and subsequent commit, retained as history:
 ```text
 Submitted snapshot: originally reviewed as an uncommitted tree based on bb7523d4ece4c42a0da98516ebe7cfd653fb9400
 Committed snapshot: 4da191195b3edafefb84d6f2896f0e56fc74e400
-Original Code/Spec/Plan/ADR revisions: verification.sha256 as stored in that commit
+Original Code/Spec/Plan/ADR revisions: source tree in the committed snapshot above; the historical fingerprint file remains in that commit
 Architecture: ADR-0001 accepted; unchanged by this implementation
 Runtime: ADR-0003 accepted; unchanged by this implementation
 Context Profile acceptance scope: Capability-independent subset only
@@ -544,7 +544,7 @@ Decision: PENDING — reviewer to choose ACCEPT or REVISE
 Notes: the original submitting agent reported no commit or push at submission time; the snapshot was committed subsequently
 ```
 
-Before these corrections, all 68 entries in the original manifest matched the
+Historical verification: before these corrections, all 68 entries in the original manifest matched the
 checkout after CRLF-to-LF normalization (three matched raw bytes; 65 differed
 only in line endings). Git recorded LF in the index and CRLF in the working
 tree under core.autocrlf=true. This links the committed contents to the original
@@ -557,8 +557,8 @@ The later type refinement and its verification are recorded separately below.
 
 Review snapshot: corrections based on commit 4da1911. At verification time,
 these changes were uncommitted. The user subsequently authorized a local commit
-and reserved push for themselves. The Git commit containing this record and its
-fingerprint manifest identifies the submitted revision. Maintainer acceptance
+and reserved push for themselves. Git commit 64dfb74 identifies the submitted
+revision. Maintainer acceptance
 remains PENDING; commit authorization is not an ACCEPT decision.
 
 The changes retain SelectionSource on rejected preferences and enforce exactly
@@ -652,8 +652,9 @@ Validation on native Windows, using the already installed Rust/Cargo 1.98.1
 
 ### Rejection Receipt Correction (2026-09-08)
 
-T037–T038 correct the local working tree based on 08f115d. When a selection revokes
-an earlier preference for the same Repository, normalization retains that earlier
+T037–T038 were implemented against 08f115d and subsequently committed as 6053bbb.
+When a selection revokes an earlier preference for the same Repository,
+normalization retains that earlier
 selection and its source with ConflictingSelection, alongside the current
 selection's own reason. Explicit conflicts still fail validation; weak preference
 conflicts do not become a first/last-wins selection. No resolution priority, public
@@ -684,12 +685,20 @@ Rust/Cargo 1.98.1 toolchain with a process-local
   ACCEPT occurred during this correction. Linux and macOS were not rerun; earlier
   platform evidence remains attached to its historical snapshots.
 
-[Current fingerprints](verification.sha256) identify the correction snapshot,
-including this guide. Hash UTF-8 file bytes after normalizing CRLF to LF so a
-normal Git checkout on Windows does not invalidate the comparison. The original
-manifest remains available in commit 4da1911. The manifest excludes itself and
-build artifacts; hashes identify contents, not successful test execution.
-Any subsequent edit requires fresh relevant checks and updated fingerprints.
+### Recording Verification Evidence
+
+Acceptance evidence identifies the reviewed Git commit, test commands and results,
+execution platform/toolchain, and unverified targets. For a run against uncommitted
+changes, identify the base commit and reviewed diff; do not present the base commit
+alone as the tested revision. Associate the resulting commit once those changes
+are committed. A commit identifies contents, not proof that tests passed.
+
+The manual source-file checksum list `verification.sha256` and its per-edit refresh
+requirement were retired on 2026-09-08. Historical copies remain in Git, including
+commit 6053bbb; do not recreate or maintain that list for ordinary development.
+Changes still require verification appropriate to their risk, not another manual
+inventory of every file. Cargo.lock and upstream tool installation manifests have
+separate purposes and are unaffected.
 
 An ACCEPT decision means the three-domain code foundation is ready to support a
 later adapter-backed Feature. It does not approve either supporting-domain
