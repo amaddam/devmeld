@@ -76,6 +76,98 @@ fn conflicting_weak_preferences_never_become_order_based_winners() {
 }
 
 #[test]
+fn conflicting_selections_retain_all_participants_and_sources() {
+    let observations: Vec<_> = ["a", "b", "unselected"]
+        .into_iter()
+        .map(|id| {
+            let mut facts = input();
+            facts.id = ObservationId::new(id).unwrap();
+            CheckoutObservation::new(facts).unwrap()
+        })
+        .collect();
+    for names in [["a", "b"], ["b", "a"]] {
+        for source in [
+            SelectionSource::ExplicitTask,
+            SelectionSource::WorkspaceSelection,
+            SelectionSource::LocalDefault,
+        ] {
+            let preferences = names
+                .into_iter()
+                .map(|id| CheckoutSelection::new(repo(), ObservationId::new(id).unwrap()))
+                .collect();
+            let (selections, workspace, defaults) = match source {
+                SelectionSource::ExplicitTask => (preferences, vec![], vec![]),
+                SelectionSource::WorkspaceSelection => (vec![], preferences, vec![]),
+                SelectionSource::LocalDefault => (vec![], vec![], preferences),
+            };
+            let validated = TaskContext {
+                selections,
+                working_area: None,
+            }
+            .validate(vec![repo()], observations.clone(), workspace, defaults);
+            let rejected = if source == SelectionSource::ExplicitTask {
+                validated.unwrap_err().rejections().to_vec()
+            } else {
+                let Resolution::Ambiguous(result) = validated.unwrap().resolve(&repo()).unwrap()
+                else {
+                    panic!("conflicting weak preferences must not select a winner")
+                };
+                result.ignored_preferences().to_vec()
+            };
+            assert_eq!(
+                rejected.len(),
+                2,
+                "both conflicting selections must be retained"
+            );
+            let ids: std::collections::BTreeSet<_> = rejected
+                .iter()
+                .map(|rejection| {
+                    assert_eq!(rejection.source(), Some(source));
+                    assert_eq!(rejection.reason(), &RejectionReason::ConflictingSelection);
+                    let selection = rejection.selection().unwrap();
+                    assert_eq!(selection.repository(), &repo());
+                    selection.observation_id().as_str()
+                })
+                .collect();
+            assert_eq!(ids, std::collections::BTreeSet::from(["a", "b"]));
+        }
+    }
+}
+
+#[test]
+fn invalid_preference_preserves_its_cause_and_the_revoked_preference() {
+    let observation = CheckoutObservation::new(input()).unwrap();
+    for names in [["o1", "missing"], ["missing", "o1"]] {
+        let preferences = names
+            .into_iter()
+            .map(|id| CheckoutSelection::new(repo(), ObservationId::new(id).unwrap()))
+            .collect();
+        let context = TaskContext::default()
+            .validate(vec![repo()], vec![observation.clone()], vec![], preferences)
+            .unwrap();
+        let Resolution::Resolved(result) = context.resolve(&repo()).unwrap() else {
+            panic!("the existing sole-candidate fallback must remain available")
+        };
+        assert_eq!(result.selected(), &observation);
+        assert_eq!(result.basis(), ResolutionBasis::SoleCandidate);
+        let rejected = result.ignored_preferences();
+        assert_eq!(rejected.len(), 2);
+        for (id, reason) in [
+            ("o1", RejectionReason::ConflictingSelection),
+            ("missing", RejectionReason::UnknownObservation),
+        ] {
+            let rejection = rejected
+                .iter()
+                .find(|r| r.selection().unwrap().observation_id().as_str() == id)
+                .unwrap();
+            assert_eq!(rejection.source(), Some(SelectionSource::LocalDefault));
+            assert_eq!(rejection.selection().unwrap().repository(), &repo());
+            assert_eq!(rejection.reason(), &reason);
+        }
+    }
+}
+
+#[test]
 fn unknown_availability_is_not_a_success_default() {
     let mut facts = input();
     facts.availability = Availability::Unknown("not inspected".into());

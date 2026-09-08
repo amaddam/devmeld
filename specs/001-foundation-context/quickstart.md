@@ -615,9 +615,10 @@ Native Windows rerun after the user reported updating the environment:
 
 ### Type Modeling Refinement (2026-09-07)
 
-Current snapshot: local changes based on 64dfb74, authorized by the user's request
+Historical snapshot: changes based on 64dfb74, authorized by the user's request
 to replace overly broad string-based business fields with appropriate Rust types.
-No commit, push or Maintainer ACCEPT has been performed for this refinement.
+The refinement was subsequently committed as 75aa138. Its verification and commit
+do not grant Maintainer ACCEPT.
 
 - Knowledge WorkingTreeState preserves Clean, Dirty and Unknown; the latter two
   require valid explanation text. Resource and Relation results retain the type.
@@ -649,7 +650,41 @@ Validation on native Windows, using the already installed Rust/Cargo 1.98.1
 - No WSL command was used for this refinement. WSL/Linux and macOS are not
   credited for the changed snapshot; earlier Windows/Linux evidence stays historical.
 
-[Current fingerprints](verification.sha256) identify this revised working tree,
+### Rejection Receipt Correction (2026-09-08)
+
+T037–T038 correct the local working tree based on 08f115d. When a selection revokes
+an earlier preference for the same Repository, normalization retains that earlier
+selection and its source with ConflictingSelection, alongside the current
+selection's own reason. Explicit conflicts still fail validation; weak preference
+conflicts do not become a first/last-wins selection. No resolution priority, public
+signature, dependency or domain boundary changed.
+
+Verification on native Windows in `C:\java\project\DevMeld`, using the existing
+Rust/Cargo 1.98.1 toolchain with a process-local
+`RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-msvc` override:
+
+- RED: `cargo test -p devmeld-local-context --test safety conflicting_selections_retain_all_participants_and_sources --locked --offline`
+  failed before the implementation change: the assertion expected two retained
+  selections and received one. This was a behavioral failure, not a compiler or
+  environment failure.
+- GREEN: the same command exited 0 after the correction. It covers both input
+  orders for explicit task, Workspace and LocalDefault sources, with an extra
+  unselected observation to prevent reconstructing receipts from all candidates.
+  The affected package suite also passed.
+- Additional regression: `cargo test -p devmeld-local-context --test safety invalid_preference_preserves_its_cause_and_the_revoked_preference --locked --offline`
+  exited 0. An unknown preference retains UnknownObservation, the revoked valid
+  preference retains ConflictingSelection, and sole-candidate fallback is unchanged
+  in both input orders. No separate RED was claimed for this added boundary case.
+- `cargo xtask check` exited 0: formatting, workspace checking, conservative Clippy,
+  45 core behavior tests (Catalog 10, Local Context 17, Knowledge 14, Shared Kernel 4),
+  three tool unit tests, one compile-fail doctest, the six-declaration graph check
+  and all 46 architecture probes passed. The existing large_enum_variant warning
+  remains non-blocking.
+- No tool installation, dependency fetch, WSL execution, commit, push or Maintainer
+  ACCEPT occurred during this correction. Linux and macOS were not rerun; earlier
+  platform evidence remains attached to its historical snapshots.
+
+[Current fingerprints](verification.sha256) identify the correction snapshot,
 including this guide. Hash UTF-8 file bytes after normalizing CRLF to LF so a
 normal Git checkout on Windows does not invalidate the comparison. The original
 manifest remains available in commit 4da1911. The manifest excludes itself and

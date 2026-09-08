@@ -9,6 +9,7 @@
 **Status**: T001–T036 completed for the committed baseline with recorded Windows/Linux evidence.
 Review corrections in 64dfb74 passed Windows/Linux checks; subsequent type
 refinements below pass native Windows checks and have not been rerun on WSL/Linux.
+The 2026-09-08 rejection-receipt correction is tracked separately as T037–T038.
 Maintainer acceptance remains pending.
 
 **Prerequisites**: [Spec](spec.md), [Plan](plan.md), [Domain Model](data-model.md),
@@ -228,4 +229,10 @@ unit tests, one compile-fail doctest and 46 architecture probes. Added compile
 probes reject mixed Profile/Workspace IDs, Repository/Observation IDs and string
 working-tree states after a valid public consumer compiles. WSL/Linux and macOS
 were not rerun for this refinement; earlier platform results apply to earlier
-snapshots. No commit, push or Maintainer ACCEPT is part of this refinement.
+snapshots. The refinement was subsequently committed as 75aa138; that commit
+does not grant Maintainer ACCEPT.
+
+## Rejection Receipt Correction (2026-09-08)
+
+- [X] T037 [US2] Preserve both sides of a rejected selection conflict in crates/local-context/src/task_context.rs, using a failing regression in crates/local-context/tests/safety.rs; verify explicit-task, Workspace and LocalDefault sources and exchanged input order without changing validation or resolution priority (FR-012–013).
+- [X] T038 Update the committed type-refinement status in README.md and specs/001-foundation-context/quickstart.md, record the focused and full verification results, and refresh specs/001-foundation-context/verification.sha256 after T037. Keep historical evidence and Maintainer acceptance separate; do not commit or push.

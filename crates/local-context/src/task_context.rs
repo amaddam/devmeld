@@ -220,7 +220,14 @@ fn normalize(
         };
         if let Some(reason) = reason {
             conflicted.insert(selection.repository().clone());
-            accepted.remove(selection.repository());
+            // Revoking an earlier preference must retain its own receipt too.
+            if let Some(previous) = accepted.remove(selection.repository()) {
+                rejected.push(RejectedSelection {
+                    source: Some(source),
+                    selection: Some(previous),
+                    reason: RejectionReason::ConflictingSelection,
+                });
+            }
             rejected.push(RejectedSelection {
                 source: Some(source),
                 selection: Some(selection.clone()),

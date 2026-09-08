@@ -12,13 +12,15 @@ four core libraries, shared identities and three core domains were committed as
 this is not a finished application.
 
 The foundation and review correction commits have recorded native Windows and
-Linux-in-WSL passes. Current type refinements add Knowledge working-tree states,
+Linux-in-WSL passes. The type refinements committed as `75aa138` add Knowledge working-tree states,
 typed rejection reasons, owner-local ObservationId/ProfileId and a named schema
-version constant. They pass the complete native Windows check with Rust/Cargo
-1.98.1: 43 core behavior tests, one compile-fail doctest, three developer-tool unit
-tests and 46 architecture/type/scope probes. This refinement has not been rerun
-on WSL/Linux or macOS. One non-blocking Clippy performance warning remains.
-See the [acceptance evidence](specs/001-foundation-context/quickstart.md#type-modeling-refinement-2026-09-07).
+version constant. A subsequent correction retains both sides of rejected selection
+conflicts without changing resolution priority. Current native Windows checks
+pass with Rust/Cargo 1.98.1: 45 core behavior tests, one compile-fail doctest, three
+developer-tool unit tests and 46 architecture/type/scope probes. These later
+changes have not been rerun on WSL/Linux or macOS. One non-blocking Clippy
+performance warning remains. See the
+[acceptance evidence](specs/001-foundation-context/quickstart.md#rejection-receipt-correction-2026-09-08).
 
 The product name is **DevMeld**; the repository name is **devmeld**. The existing
 Windows checkout directory need not be renamed to express that distinction.
@@ -50,8 +52,9 @@ The next step is Maintainer review of this foundation, not automatic acceptance
 or integration work. Cargo commands and the existing-toolchain reuse procedure are
 in the acceptance guide. WSL is not required; its Linux results supplement native
 Windows evidence. macOS has not been tested. Review corrections were committed
-as `64dfb74`; the subsequent type refinements are local changes. Publishing
-commits remains with the Maintainer.
+as `64dfb74` and the type refinements as `75aa138`. Subsequent revisions are
+identified by Git history and the acceptance evidence. Publishing commits remains
+with the Maintainer.
 
 ## Run Checks
 
