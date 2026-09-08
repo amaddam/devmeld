@@ -52,10 +52,11 @@ The reset has not been verified on Linux/WSL or macOS.
 
 ## Workflow During Redesign
 
-There is no active Feature or implementation task list. Spec Kit's installed
-skills, scripts, templates and Constitution have been retained, but the old
-active Feature pointer was removed. Do not resume an old 001/002 task sequence
-or generate a new one before the new domain and delivery boundaries are reviewed.
+The active path is [003 Durable Context Publication](specs/003-durable-context/spec.md),
+with its [plan](specs/003-durable-context/plan.md) and
+[behavior tasks](specs/003-durable-context/tasks.md). Do not resume old 001/002
+tasks. The Maintainer delegated continuation and self-verification of the reviewed
+file-based path; implementation progress and acceptance are recorded separately.
 
 Spec Kit's optional development helpers use the configured Python workflow;
 they are not runtime dependencies of DevMeld or of its generated context.

@@ -31,13 +31,11 @@ review baseline. Do not create speculative ADRs or empty documentation areas.
 
 ## Contribution Flow
 
-During the Maintainer-authorized design reset, there is no active Feature or
-implementation task list. Start from `docs/product.md` and review the proposal
-in `docs/domain-model.md`; do not resurrect the old 001/002 scope or treat the
-new proposal as an accepted crate layout. No Spec Kit generation is needed to
-record this product-wide exploration. The existing workflow assets are retained;
-whether to use the full workflow later remains a separate decision. The flow
-below applies once a concrete new Feature is ready to be specified and approved.
+The design restart now proceeds through `specs/003-durable-context/`, the
+Maintainer-authorized first durable-file implementation path. Start from
+`docs/product.md` and the two ownership boundaries in `docs/domain-model.md`;
+do not resurrect the old 001/002 scope. Spec Kit records this concrete Feature;
+its tooling is not a runtime dependency or product-wide planning prerequisite.
 
 1. Identify the owning artifact and confirm the change fits the Constitution and
    product boundary.
