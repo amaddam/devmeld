@@ -5,15 +5,15 @@ task owns small RED/GREEN/refactor cycles; setup/docs use direct verification.
 
 ## Setup
 
-- [ ] T001 Configure the three planned crates in Cargo.toml and crates/*/Cargo.toml, resolve reviewed dependencies into Cargo.lock and inspect their feature graph; blocks T002 onward.
+- [x] T001 Configure the three planned crates in Cargo.toml and crates/*/Cargo.toml, resolve reviewed dependencies into Cargo.lock and inspect their feature graph; blocks T002 onward.
 
 ## US1 — Durable files (P1)
 
 Goal: real registration → publication → offline reading, through the CLI.
 Boundary: Resource Organization and Context Publication, composed by application.
 
-- [ ] T002 [US1] Implement previewed/confirmed initialization with ownership protection using vertical TDD in crates/devmeld/tests/workflow.rs, crates/devmeld/src/main.rs, crates/devmeld/src/lib.rs and crates/devmeld/src/storage.rs; preview writes nothing and repeat init cannot adopt a context.
-- [ ] T003 [US1] Implement document registration and deterministic publication with source links using vertical TDD in crates/resources/src/lib.rs, crates/devmeld/src/declarations.rs, crates/devmeld/src/render.rs and crates/devmeld/tests/workflow.rs; include optional entry and unchanged no-op; depends on T002.
+- [x] T002 [US1] Implement previewed/confirmed initialization with ownership protection using vertical TDD in crates/devmeld/tests/workflow.rs, crates/devmeld/src/main.rs, crates/devmeld/src/lib.rs and crates/devmeld/src/storage.rs; preview writes nothing and repeat init cannot adopt a context.
+- [x] T003 [US1] Implement document registration and deterministic publication with source links using vertical TDD in crates/resources/src/lib.rs, crates/devmeld/src/declarations.rs, crates/devmeld/src/render.rs and crates/devmeld/tests/workflow.rs; include optional entry and unchanged no-op; depends on T002.
 
 ## US3 — Safe changes (P1; required before US1 is complete)
 
@@ -22,15 +22,15 @@ author changes. Independent acceptance uses real files and storage fault injecti
 
 - [ ] T004 [US3] Implement ownership, stale-basis and path-alias rejection using vertical TDD in crates/publication/src/lib.rs, crates/devmeld/src/storage.rs and crates/devmeld/tests/workflow.rs; depends on T003.
 - [ ] T005 [US3] Implement journaled interruption/recovery and cooperative locking using vertical TDD in crates/devmeld/src/storage.rs and crates/devmeld/tests/workflow.rs; verify every mutation boundary, retry and external conflicts; depends on T004.
-- [ ] T006 [US1] Implement explicit entry/output changes and unregister/sync deletion using vertical TDD in crates/devmeld/src/lib.rs and crates/devmeld/tests/workflow.rs; original sources survive and prior config commits survive sync failure; depends on T005.
+- [x] T006 [US1] Implement explicit entry/output changes and unregister/sync deletion using vertical TDD in crates/devmeld/src/lib.rs and crates/devmeld/tests/workflow.rs; original sources survive and prior config commits survive sync failure; depends on T005.
 
 ## US2 — Descriptions and access guidance (P2)
 
 Goal: custom resource facts and original tool references, without executing tools.
 Independent acceptance: service/tool fixture, schema failures and explicit changes.
 
-- [ ] T007 [US2] Implement authored descriptions and offline local attribute validation using vertical TDD in crates/devmeld/src/declarations.rs and crates/devmeld/tests/workflow.rs; custom fields accepted, invalid fields/unsupported controls rejected before writes; depends on T006.
-- [ ] T008 [US2] Implement validated access associations and grounded guidance using vertical TDD in crates/resources/src/lib.rs, crates/devmeld/src/render.rs and crates/devmeld/tests/workflow.rs; no implicit authority/availability, dangling removal rejected; depends on T007.
+- [x] T007 [US2] Implement authored descriptions and offline local attribute validation using vertical TDD in crates/devmeld/src/declarations.rs and crates/devmeld/tests/workflow.rs; custom fields accepted, invalid fields/unsupported controls rejected before writes; depends on T006.
+- [x] T008 [US2] Implement validated access associations and grounded guidance using vertical TDD in crates/resources/src/lib.rs, crates/devmeld/src/render.rs and crates/devmeld/tests/workflow.rs; no implicit authority/availability, dangling removal rejected; depends on T007.
 
 ## Cross-cutting verification
 

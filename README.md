@@ -12,9 +12,11 @@ The Maintainer authorized a design restart on 2026-09-08. The old 001/002 design
 files, four domain crates and their tests have been removed. Their old domain
 selection, APIs and test results are not requirements for the new design.
 
-Only the Rust engineering scaffold remains: the workspace, toolchain settings
-and developer-only `tools/xtask`. There is no product library, CLI, background
-service, resource connector or context generator implemented yet.
+The first replacement implementation is in `003-durable-context`: native Rust
+commands maintain registration/access associations and publish durable Markdown.
+The two domain crates have no third-party dependencies; filesystem, JSON and
+schema adapters belong to the application. There is no background service,
+resource connector, tool executor or runtime query API.
 
 ## Read First
 
@@ -44,11 +46,11 @@ cargo xtask check
 
 This runs formatting, compiler checking, conservative Clippy and Cargo tests
 using native Rust process APIs. No PowerShell, Bash or Python is required.
-The remaining scaffold has no third-party dependencies.
+The application dependencies are recorded in the workspace lockfile. Bootstrap
+once with `cargo fetch --locked`; subsequent checks/builds use the local cache.
 
-After the reset this passed on native Windows, with zero product tests.
-That is scaffold verification, not evidence that a product feature works.
-The reset has not been verified on Linux/WSL or macOS.
+See [003 evidence](specs/003-durable-context/acceptance.md) for actual test results,
+remaining checks and platform limitations. Old foundation tests are historical.
 
 ## Workflow During Redesign
 
