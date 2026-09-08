@@ -28,12 +28,12 @@ the owning decision before coding.
 - Keep core product behavior independent of a particular Agent Client,
   Capability Provider, workflow tool, storage engine, or user interface. Put
   integration-specific behavior behind explicit contracts and adapters.
-- Preserve the distinction between portable source data, Local Bindings,
+- Preserve the distinction between portable source data, machine-local locations and observations,
   rebuildable derived state, and generated artifacts. Do not turn a cache or
   machine path into an undeclared source of truth.
 - Represent ambiguity, missing evidence, stale state, and conflicts explicitly.
   Do not choose a convenient default when it could return context for the wrong
-  Checkout or silently change user-managed content.
+  source or silently change user-managed content.
 
 ## Runtime and Automated Quality Gates
 
