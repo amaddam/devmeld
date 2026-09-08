@@ -38,10 +38,10 @@ the owning decision before coding.
 ## Runtime and Automated Quality Gates
 
 [ADR-0003](adr/0003-rust-runtime.md) retains stable Rust, Edition 2024, and
-standard-library-first development. ADR-0002 is historical. After the domain
-reset only the developer-only Rust verification tool remains; no product crate
-or domain dependency gate is currently implemented. New domain boundaries are
-proposed in [the domain model](domain-model.md), not inherited from old 001.
+standard-library-first development. ADR-0002 is historical. The active file-based
+implementation follows [the domain model](domain-model.md) and 003's Plan, not
+old 001. `resources` and `publication` are pure domain crates; `devmeld` composes
+them with local JSON, schema, rendering and filesystem adapters.
 
 ### Toolchain and Dependencies
 
@@ -54,9 +54,9 @@ Do not silently install Rust, build tools, a second runtime, or dependencies.
 
 Use one Cargo workspace, root lockfile and target directory. Declare shared
 settings at the root and explicitly inherit them in every member. Start with
-the standard library where adequate. The remaining tools/xtask package has no
-third-party dependency; the old metadata/probe harness and its serde_json
-dependency were removed with the retired domain layout. New dependencies need
+the standard library where adequate. The domain crates currently use std only;
+application dependencies are listed in 003's Plan. `tools/xtask` reuses the
+workspace's serde_json version to inspect Cargo metadata. New dependencies need
 a concrete requirement; inspect existing declarations before adding one.
 No blanket ban on third-party libraries is intended, and no shared-kernel or
 test-only domain edge is preapproved for the new model.
@@ -117,11 +117,12 @@ Platform details such as rejecting Windows junctions may be handled locally
 behind cfg, without changing the common check entry point.
 
 With the pinned Rust toolchain and native linker already available, run
-`cargo xtask check`. The remaining scaffold needs no third-party dependency
-fetch. Future reviewed dependencies may require an explicit bootstrap step.
+`cargo xtask check`. Bootstrap reviewed lockfile dependencies with
+`cargo fetch --locked` before offline checks on a fresh environment.
 The entrypoint executes this equivalent sequence on the current native platform:
 
 ```text
+cargo xtask boundaries
 cargo fmt --all -- --check
 cargo check --workspace --all-targets --locked --offline
 cargo clippy --workspace --all-targets --locked --offline
@@ -135,9 +136,9 @@ includes doctests; if selecting `--all-targets`, run doctests separately.
 Offline assumes required dependencies and toolchains already exist; Cargo
 offline does not stop rustup from trying to acquire a missing toolchain.
 
-The reset was verified on native Windows only. The remaining tool reports zero
-tests; no product behavior has been implemented or accepted. Linux/WSL and macOS
-remain unverified for this reset. Old platform evidence applies to old code only.
+Record platform and test evidence in the active Feature's acceptance document.
+The old reset's zero-test result and old 001 platform evidence do not establish
+current behavior. A local check does not imply another OS or Agent client passed.
 
 Spec Kit's selected workflow helpers use `.specify/scripts/python` and an
 existing Python 3 interpreter. Both integration settings select `script: py`.
@@ -151,9 +152,10 @@ execute a shell or depend on a PowerShell script to perform its work.
 ### Dependency Direction Checks
 
 The old four-crate scope checker and its probes have been removed. Do not
-restore that package inventory as a requirement for the new product.
-After real domain boundaries and code exist, add only the dependency checks
-needed to protect the reviewed design, with valid and forbidden examples.
+restore that package inventory as a requirement for the new product. The current
+gate protects the two implemented std-only domain crates; it does not prohibit
+future application adapters or prescribe a folder count. Add or change checks
+only for reviewed boundaries, with valid and forbidden examples.
 The relevant technical design owns allowed normal/build/dev edges.
 Check all declarations, including optional, renamed and target-specific ones;
 do not only inspect currently activated features or the current host's graph.
@@ -162,7 +164,8 @@ guessing. Treat metadata IDs as opaque.
 
 Cargo metadata does not expose workspace lint inheritance. Review the member
 manifests explicitly; add focused compiler probes if an effective policy needs
-automated verification. No such architecture harness currently exists.
+automated verification. Current probes cover declared dependency edges and the
+private ResourceId constructor, not every future type or policy.
 This does not prove every Clippy setting or forbid all future local lint overrides.
 
 Prove the real gate using isolated copies/fixtures containing forbidden edges

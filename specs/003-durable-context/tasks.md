@@ -20,8 +20,8 @@ Boundary: Resource Organization and Context Publication, composed by application
 Goal: stale/conflicting writes fail; interruption can be recovered without losing
 author changes. Independent acceptance uses real files and storage fault injection.
 
-- [ ] T004 [US3] Implement ownership, stale-basis and path-alias rejection using vertical TDD in crates/publication/src/lib.rs, crates/devmeld/src/storage.rs and crates/devmeld/tests/workflow.rs; depends on T003.
-- [ ] T005 [US3] Implement journaled interruption/recovery and cooperative locking using vertical TDD in crates/devmeld/src/storage.rs and crates/devmeld/tests/workflow.rs; verify every mutation boundary, retry and external conflicts; depends on T004.
+- [x] T004 [US3] Implement ownership, stale-basis and path-alias rejection using vertical TDD in crates/publication/src/lib.rs, crates/devmeld/src/storage.rs and crates/devmeld/tests/workflow.rs; depends on T003.
+- [x] T005 [US3] Implement journaled interruption/recovery and cooperative locking using vertical TDD in crates/devmeld/src/storage.rs and crates/devmeld/tests/workflow.rs; verify every mutation boundary, retry and external conflicts; depends on T004.
 - [x] T006 [US1] Implement explicit entry/output changes and unregister/sync deletion using vertical TDD in crates/devmeld/src/lib.rs and crates/devmeld/tests/workflow.rs; original sources survive and prior config commits survive sync failure; depends on T005.
 
 ## US2 — Descriptions and access guidance (P2)
@@ -34,9 +34,9 @@ Independent acceptance: service/tool fixture, schema failures and explicit chang
 
 ## Cross-cutting verification
 
-- [ ] T009 Verify pure-domain dependencies with valid/forbidden probes in tools/xtask/src/main.rs; run the check with each manifest change, then the completed workspace.
-- [ ] T010 Review and update README.md and specs/003-durable-context/quickstart.md against real commands, and record actual behavior evidence in specs/003-durable-context/acceptance.md.
-- [ ] T011 Run cargo xtask check on Windows and isolated WSL Linux, full CLI fixtures and git diff --check; record outcomes/unverified platforms in specs/003-durable-context/acceptance.md and preserve local Git checkpoints.
+- [x] T009 Verify pure-domain dependencies with valid/forbidden probes in tools/xtask/src/main.rs and tools/xtask/src/boundaries.rs; run the check with each manifest change, then the completed workspace.
+- [x] T010 Review and update README.md and specs/003-durable-context/quickstart.md against real commands, and record actual behavior evidence in specs/003-durable-context/acceptance.md.
+- [x] T011 Run cargo xtask check on Windows and isolated WSL Linux, full CLI fixtures and git diff --check; record outcomes/unverified platforms in specs/003-durable-context/acceptance.md and preserve local Git checkpoints.
 
 ## Dependencies / parallel opportunities
 

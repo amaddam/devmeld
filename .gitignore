@@ -18,3 +18,7 @@ __pycache__/
 # Local scratch files
 *.tmp
 *.log
+
+# Reproducible example output, not authored fixture data
+/examples/team-context/.devmeld/
+/examples/sample-project/CONTEXT.md

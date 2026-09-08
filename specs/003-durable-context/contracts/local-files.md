@@ -76,5 +76,14 @@ effects, preserves external conflicts and is restartable.
 Restore bytes/existence, not all ACLs, timestamps or extended attributes. Required
 native filesystem operations may fail explicitly; no delete-and-retry fallback.
 No cross-file atomic visibility, hostile-editor isolation or power-loss guarantee.
-Read at most 8 MiB per file and capture at most 128 MiB per operation. No recursive
-source discovery or directory deletion.
+Read at most 8 MiB per resource/output file. Internal records and captured
+before/after data are bounded at 128 MiB; oversized operations fail. Records
+encode managed UTF-8 text as text, not JSON byte arrays. Initial pending journals
+are published only after their complete contents are staged. Commit staging
+identity is recorded so a partial commit record remains safely removable.
+
+Failure or interruption during pre-journal preparation may leave unique staging files/empty
+directories without changing targets; no automatic orphan adoption or recursive
+cleanup. Malformed/external recovery data is reported, not guessed away. Relative
+Markdown links must share a filesystem root (cross-Windows-drive links fail).
+No recursive source discovery or directory deletion.

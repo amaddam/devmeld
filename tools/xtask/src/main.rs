@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+mod boundaries;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -30,6 +31,7 @@ fn run() -> Result<()> {
     let root = root.canonicalize()?;
     match operation.to_str() {
         Some("check") => {
+            boundaries::check(&root)?;
             for arguments in [
                 vec!["fmt", "--all", "--", "--check"],
                 vec![
@@ -58,10 +60,11 @@ fn run() -> Result<()> {
         }
         Some("help" | "--help" | "-h") => {
             println!(
-                "cargo xtask <check> [--root <workspace>]\nRuns fmt, check, clippy and test with the existing Rust toolchain, without a shell or Python. No domain architecture gate is configured during the design reset."
+                "cargo xtask <check|boundaries> [--root <workspace>]\nRuns domain dependency checks, fmt, check, clippy and test with existing Rust tools, without a shell or Python."
             );
             Ok(())
         }
+        Some("boundaries") => boundaries::check(&root),
         _ => Err("unknown xtask operation; run cargo xtask help".into()),
     }
 }

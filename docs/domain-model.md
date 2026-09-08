@@ -1,6 +1,6 @@
 # DevMeld 领域设计草案
 
-- 状态：Maintainer 已同意按此方向继续细化；具体格式、实现范围和 crate 布局尚未批准。
+- 状态：Maintainer 已授权按此方向继续首批文件链路实现与自检；具体范围和技术契约见 [003](../specs/003-durable-context/plan.md)。
 - 依据：[Product](product.md)；不继承旧 001 的领域数量、包名、API 或完成状态。
 - 本轮建议：两个领域边界，接入指引作为资源组织内部的规则模块。
 - 本稿明确事实归属与变化边界，不创建代码、公共协议或新的 Feature 编号。
@@ -206,10 +206,11 @@ Agent 接收问题，通过入口与导航自行选择资源。生成器不接�
 不恢复 Profile、任务级 Active Checkout 或 query-time Scope Match 作为全局前置条件。
 资源来源与局部观察若有真实需要，再在对应场景建模。
 
-当前继续把同一组样例具体化为[输入与生成结果的对照](context-walkthrough.md)：
-明确最小描述与关联格式、第一种入口、输出位置和受管修改方式，
-并补齐同步失败、冲突与恢复约定。随后再确定首批实现与测试范围。
+同一组样例已具体化为[输入与生成结果的对照](context-walkthrough.md)，
+首批行为、格式和测试范围由 [003 Spec](../specs/003-durable-context/spec.md)
+与 Plan 承接；这里不重复持有具体字段和代码布局。
 不用先生成覆盖全部未来能力的 contracts、计划和任务。
 领域先行指先确定规则归属，并非先造齐未来所有内存对象。
 
-当前仍是设计阶段。Rust 与已有工程约束保留，但这里不批准新代码、crate 布局或交付验收。
+实现证据见 [003 acceptance](../specs/003-durable-context/acceptance.md)。
+本领域说明不因实现测试通过而自动批准未来扩展、公共协议或 Maintainer 验收。

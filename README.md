@@ -21,8 +21,8 @@ resource connector, tool executor or runtime query API.
 ## Read First
 
 1. [Product](docs/product.md): the confirmed artifact-first product direction.
-2. [Domain proposal](docs/domain-model.md): proposed ownership boundaries, for
-   review before implementation; not a predetermined crate layout.
+2. [Domain model](docs/domain-model.md): the two reviewed ownership boundaries;
+   concrete implementation choices are recorded in the active Feature.
 3. [Engineering](docs/engineering.md) and [Contributing](CONTRIBUTING.md):
    implementation practices and decision ownership.
 4. [Discussion record](docs/notes/2026-09-08-context-generation-and-consumption.md):
@@ -51,6 +51,17 @@ once with `cargo fetch --locked`; subsequent checks/builds use the local cache.
 
 See [003 evidence](specs/003-durable-context/acceptance.md) for actual test results,
 remaining checks and platform limitations. Old foundation tests are historical.
+
+## Try the File-Based Path
+
+Follow the [runnable example](examples/README.md). Initialize, register documents
+and service/tool descriptions, associate them, preview and explicitly synchronize.
+Then follow the generated entry without keeping DevMeld running.
+
+Commands default to read-only preview; `--apply` asks for confirmation. Sources
+remain authored files. Do not edit generated output; interrupted operations have
+an explicit `recover` path. No tool execution, network connection or installation
+is performed by this feature.
 
 ## Workflow During Redesign
 

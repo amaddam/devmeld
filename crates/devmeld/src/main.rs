@@ -1,10 +1,16 @@
 use std::io::{self, Write};
 
 fn run() -> devmeld::Result<()> {
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .map_err(|_| devmeld::error("command arguments must be Unicode"))
+        })
+        .collect::<devmeld::Result<_>>()?;
     if args.is_empty() || args == ["--help"] {
         println!(
-            "devmeld --context PATH init|resource|access|entry|output|sync|recover [--apply]\nCommands preview by default. --apply asks for explicit confirmation."
+            "devmeld --context PATH COMMAND [--apply]\n\nCommands:\n  init [--output PATH] [--entry PATH]\n  resource add ID --document PATH\n  resource add ID --description PATH [--schema PATH]\n  resource remove ID\n  access add RESOURCE TOOL\n  access remove RESOURCE TOOL\n  entry add PATH\n  entry remove PATH\n  output PATH\n  sync\n  recover\n\nPaths resolve from the selected existing context root.\nCommands preview by default; --apply prints the preview then asks you to type apply.\nGenerated files remain readable without DevMeld running. No tools are executed or installed."
         );
         return Ok(());
     }

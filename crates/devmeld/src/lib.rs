@@ -101,22 +101,9 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
         }
         [command, action, id] if command == "resource" && action == "remove" => {
             let mut config = declarations::read_config(&mut plan)?;
-            if config
-                .access
-                .iter()
-                .any(|a| &a.resource == id || &a.tool == id)
-            {
-                return Err(error(
-                    "remove access associations explicitly before removing this resource",
-                ));
-            }
-            let count = config.resources.len();
             declarations::membership(&config)?
                 .unregister(&devmeld_resources::ResourceId::new(id.clone())?)?;
             config.resources.retain(|r| &r.id != id);
-            if config.resources.len() == count {
-                return Err(error("resource not registered"));
-            }
             plan.set(
                 plan.root().join(".devmeld/context.json"),
                 Some(declarations::encode(&config)?),

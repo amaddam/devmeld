@@ -24,7 +24,8 @@ local Git history. This does not ratify the Constitution or a permanent public A
 - Testing: Rust unit and real binary/filesystem tests; `cargo xtask check`.
 - Target platforms: normal local Windows and Linux filesystems; isolated WSL
   Linux is acceptable. macOS remains unverified unless actually executed.
-- Performance/constraints: 8 MiB per file, 128 MiB captured operation data;
+- Performance/constraints: 8 MiB per source/output, 128 MiB captured operation data
+  and internal records;
   no hung-filesystem latency or atomic multi-file/power-loss guarantee.
 - Scope: manual whole-context synchronization and ordinary-file entry only.
 
@@ -53,8 +54,11 @@ crates/
     src/render.rs            # deterministic Markdown presentation
     src/storage.rs           # paths, bounded IO, ownership and recovery
     tests/workflow.rs        # real binary/filesystem behavior
-tools/xtask/                 # developer checks only
+tools/xtask/                 # developer checks and real Cargo boundary probes
 ```
+
+`tools/xtask/src/boundaries.rs` reuses serde_json to check Cargo metadata; this is
+developer-only and does not add a runtime quality-control framework.
 
 No shared kernel, per-resource domain or empty application/port layer. Domain
 crates use only std and never depend on each other or the application. Cargo

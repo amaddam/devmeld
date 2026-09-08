@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["endpoint", "environment"],
+  "properties": {
+    "endpoint": { "type": "string", "minLength": 1 },
+    "environment": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": { "type": "string" }
+}

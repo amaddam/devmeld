@@ -4,6 +4,9 @@ After one reviewed dependency fetch, build with
 `cargo build --package devmeld --locked --offline`. Full gate: `cargo xtask check`.
 Use the native binary; no Python or shell-specific runtime helper.
 
+The [checked-in example inputs and commands](../../examples/README.md) provide a
+reproducible starting point. They are authored fixtures, not generated output.
+
 In an isolated context, create a document, service/tool JSON descriptions, tool
 instructions and dependency declaration. Include a Unicode/spaced path.
 
