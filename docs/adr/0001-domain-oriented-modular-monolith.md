@@ -5,6 +5,15 @@
 - Scope: DevMeld application architecture; initial realization in Domain Foundation
 - Supersedes: none
 
+## Applicability after the 2026-09-08 reset
+
+The general domain-oriented modular-monolith approach is retained. The former
+five-domain map, three-core implementation scope and concrete crate inventory
+were retired by the Maintainer's [foundation reset](../notes/2026-09-08-foundation-reset.md).
+References below to that foundation describe the original decision context;
+they do not prescribe the new product model. The [new domain proposal](../domain-model.md)
+requires review before implementation. Retaining this ADR does not preserve old APIs.
+
 ## Decision Record
 
 The Maintainer approved this architecture decision (Gate 1) on 2026-09-02.
@@ -26,10 +35,11 @@ project identity, local Checkout facts, and explainable context. Organizing the
 core around individual workflows or global technical layers would make those
 rules easier to duplicate or bypass as features grow.
 
-The [foundation design](../../specs/001-foundation-context/data-model.md) maps
-five domains. Its [implementation scope](../../specs/001-foundation-context/spec.md)
-contains only Project Catalog, Local Context Resolution, and Context Knowledge.
-Managed Materialization and Capability Integration remain design only.
+The original foundation design mapped five domains, with Project Catalog,
+Local Context Resolution and Context Knowledge in its implementation scope.
+Managed Materialization and Capability Integration were design only in that
+retired scope. The original files under `specs/001-foundation-context/` were
+removed during the reset; committed versions remain in Git history.
 
 ## Decision
 
@@ -58,8 +68,9 @@ boundaries, not separate services, databases, or processes.
    service, or global `models/` / `services/` layer is introduced by default.
 
 The dependency directions are authoritative; the number of folders is not.
-The detailed first-code layout and conditional packages remain in the
-[Technical Plan](../../specs/001-foundation-context/plan.md).
+The original first-code layout was recorded in the now-retired
+`specs/001-foundation-context/plan.md`. New package boundaries require a new
+reviewed design rather than inheriting that layout.
 
 ## Alternatives Considered
 

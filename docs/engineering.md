@@ -1,6 +1,6 @@
 # DevMeld Engineering Guide
 
-- Status: initial engineering baseline
+- Status: engineering conventions retained through the 2026-09-08 domain reset
 - Audience: contributors and maintainers implementing DevMeld
 - Purpose: define implementation and quality practices without duplicating product behavior or contribution policy
 
@@ -37,9 +37,11 @@ the owning decision before coding.
 
 ## Runtime and Automated Quality Gates
 
-[ADR-0003](adr/0003-rust-runtime.md) accepts stable Rust, Edition 2024, and
-standard-library-first core development. ADR-0002 is historical. Feature 001
-now provides four core libraries and the developer-only Rust verification tool below.
+[ADR-0003](adr/0003-rust-runtime.md) retains stable Rust, Edition 2024, and
+standard-library-first development. ADR-0002 is historical. After the domain
+reset only the developer-only Rust verification tool remains; no product crate
+or domain dependency gate is currently implemented. New domain boundaries are
+proposed in [the domain model](domain-model.md), not inherited from old 001.
 
 ### Toolchain and Dependencies
 
@@ -51,14 +53,13 @@ An operational version pin is updateable, not a permanent architecture rule.
 Do not silently install Rust, build tools, a second runtime, or dependencies.
 
 Use one Cargo workspace, root lockfile and target directory. Declare shared
-settings at the root and explicitly inherit them in every member. Keep initial
-production and test dependencies standard-library-only apart from the admitted
-workspace identity crate and specifically allowed test-only domain edges.
-The approved developer-only tools/xtask package uses serde_json for Cargo JSON
-metadata/diagnostics. Its dependency closure stays outside all four core crates;
-do not turn this exception into permission for arbitrary product dependencies.
-Later dependencies need a concrete requirement; inspect existing declarations
-before adding one. No blanket ban on third-party libraries is intended.
+settings at the root and explicitly inherit them in every member. Start with
+the standard library where adequate. The remaining tools/xtask package has no
+third-party dependency; the old metadata/probe harness and its serde_json
+dependency were removed with the retired domain layout. New dependencies need
+a concrete requirement; inspect existing declarations before adding one.
+No blanket ban on third-party libraries is intended, and no shared-kernel or
+test-only domain edge is preapproved for the new model.
 
 ### Rust Modeling Style
 
@@ -91,8 +92,9 @@ before adding one. No blanket ban on third-party libraries is intended.
 
 Use compiler checking, default rustfmt, Clippy, and Cargo's built-in tests:
 
-- Rust compiler errors are gates. `unsafe_code = "forbid"` applies to the current
-  pure-core crates, not claims about the standard library or future dependencies.
+- Rust compiler errors are gates. The retained `unsafe_code = "forbid"` policy
+  applies to handwritten workspace code that inherits it, not claims about
+  the standard library or future dependencies.
 - Clippy `correctness`: deny; `suspicious` and `perf`: warn.
 - Clippy `style`, `complexity`, `pedantic`, `nursery`, and `restriction`:
   allow initially. Use group priority `-1` so narrow justified overrides can
@@ -114,25 +116,28 @@ for PowerShell/Bash/cmd, hard-code drive letters, or assume an executable suffix
 Platform details such as rejecting Windows junctions may be handled locally
 behind cfg, without changing the common check entry point.
 
-After installing the pinned Rust toolchain and native linker, fetch the reviewed
-locked dependencies once with `cargo fetch --locked`. Then on Windows, macOS or
-Linux run `cargo xtask check`. It executes this equivalent sequence:
+With the pinned Rust toolchain and native linker already available, run
+`cargo xtask check`. The remaining scaffold needs no third-party dependency
+fetch. Future reviewed dependencies may require an explicit bootstrap step.
+The entrypoint executes this equivalent sequence on the current native platform:
 
 ```text
 cargo fmt --all -- --check
 cargo check --workspace --all-targets --locked --offline
 cargo clippy --workspace --all-targets --locked --offline
 cargo test --workspace --locked --offline
-cargo xtask architecture
-cargo xtask test-architecture
 ```
 
 The xtask alias is defined in .cargo/config.toml and runs with --locked --offline.
-It requires neither PowerShell/Bash nor Python. Checks fail on nonzero native-command exit,
-invalid metadata or an unexpected probe result. The default Cargo test command
+It requires neither PowerShell/Bash nor Python. Checks fail on nonzero native-command exit.
+The default Cargo test command
 includes doctests; if selecting `--all-targets`, run doctests separately.
 Offline assumes required dependencies and toolchains already exist; Cargo
 offline does not stop rustup from trying to acquire a missing toolchain.
+
+The reset was verified on native Windows only. The remaining tool reports zero
+tests; no product behavior has been implemented or accepted. Linux/WSL and macOS
+remain unverified for this reset. Old platform evidence applies to old code only.
 
 Spec Kit's selected workflow helpers use `.specify/scripts/python` and an
 existing Python 3 interpreter. Both integration settings select `script: py`.
@@ -145,17 +150,20 @@ execute a shell or depend on a PowerShell script to perform its work.
 
 ### Dependency Direction Checks
 
-After real domain crates exist, inspect Cargo dependency declarations and test
-compiler visibility. The Feature Plan owns allowed normal/build/dev edges.
+The old four-crate scope checker and its probes have been removed. Do not
+restore that package inventory as a requirement for the new product.
+After real domain boundaries and code exist, add only the dependency checks
+needed to protect the reviewed design, with valid and forbidden examples.
+The relevant technical design owns allowed normal/build/dev edges.
 Check all declarations, including optional, renamed and target-specific ones;
 do not only inspect currently activated features or the current host's graph.
 Use Cargo metadata JSON, not hand-written TOML parsing or source-text import
 guessing. Treat metadata IDs as opaque.
 
 Cargo metadata does not expose workspace lint inheritance. Review the member
-manifests explicitly; the architecture harness additionally compiles an unsafe
-probe in each copied member to verify its effective unsafe policy. This does
-not prove every Clippy setting or forbid all future local lint overrides.
+manifests explicitly; add focused compiler probes if an effective policy needs
+automated verification. No such architecture harness currently exists.
+This does not prove every Clippy setting or forbid all future local lint overrides.
 
 Prove the real gate using isolated copies/fixtures containing forbidden edges
 and private-import attempts, with valid controls. Test-only dependencies do not
@@ -237,9 +245,9 @@ observed when it was not. Report the focused command and relevant RED/GREEN
 outcome with the task's evidence, without creating separate evidence artifacts
 for every cycle. Full checks and Feature acceptance remain required as applicable.
 
-Apply this convention to subsequent new behavior and fixes. Do not rewrite
-completed Foundation tasks or retroactively claim they were developed with TDD.
-Spec Kit's project-owned templates and command sources implement this convention;
+Apply this convention to subsequent new behavior and fixes. Historical test
+passes are not evidence for the new domain model. Spec Kit's retained
+project-owned templates and command sources express this convention;
 see [workflow maintenance](../CONTRIBUTING.md#spec-kit-customizations).
 
 ## Testing and Evidence
@@ -249,8 +257,8 @@ outcomes rather than internal structure alone.
 
 - Unit tests cover focused rules and failure cases.
 - Contract tests cover public machine contracts and generated artifact shapes.
-- Integration tests cover Active Checkout resolution, persisted or restored
-  state, source attribution, adapters, and Managed Surface writes.
+- Integration tests cover the actually implemented source reading, validation,
+  synchronization, source attribution, adapters and Managed Surface writes.
 - End-to-end acceptance tests cover each approved user scenario through the
   smallest complete vertical slice.
 - A claim that DevMeld improves context accuracy, traceability, or navigation

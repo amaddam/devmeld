@@ -1,239 +1,148 @@
 # DevMeld Product
 
-- Status: early product baseline
-- Audience: users, contributors, maintainers, and Agent Clients working on DevMeld
-- Purpose: explain what DevMeld is, the value it provides, and the product boundaries implementations must preserve
+- 状态：设计重置后的产品基线，记录 Maintainer 在本轮确认的方向；不代表能力已经实现。
+- 用途：定义 DevMeld 是什么、负责什么，以及哪些事实属于谁。
+- 领域职责草案见 [Domain Model](domain-model.md)；格式、接口和首批交付范围尚待设计与评审。
+- 原 001/002 的模型与实现已撤下，不再作为本基线必须兼容的约束。
 
 ## What DevMeld Is
 
-DevMeld is a local-first project context layer for software development.
+DevMeld 是本地优先的项目上下文整理、生成与同步工具。
+人或 AI 提供资源与配置，DevMeld 按明确规则生成磁盘上的导航和接入指引；
+Agent 接收用户问题，从入口逐步找到相关资源，自行决定当前任务需要读取或使用什么。
 
-It connects local code checkouts, project knowledge, developer-specific context,
-and external capabilities so that Coding Agents can retrieve relevant,
-traceable context without loading an entire project into one prompt.
+DevMeld 拥有上下文的组织与受管产物维护，不接管开发工作流或 Agent 的执行。
+正常消费依赖已生成内容及其可访问的来源，而不是一个在线的 DevMeld 进程。
+可选的自动更新任务不构成阅读依赖。
 
-The central product boundary is:
+## Generation, Consumption and Maintenance
 
-> **DevMeld owns context, not workflow or execution.**
+1. 人或 AI 维护真实资源、描述、工具与配置，不由模板编造团队事实。
+2. DevMeld 读取明确配置的输入，按适用规则校验、组织并生成上下文产物。
+3. 初始化时可选择在项目中建立一个小入口。
+4. Agent 在会话开始时通过所选机制读到入口，或由用户指定入口，沿引用按需读取。
+5. 需要更新受管状态或重新生成时，人、Agent 或已配置的调度机制调用 DevMeld。
 
-DevMeld helps answer what an Agent needs to know about the current project. It
-does not prescribe how a feature must be developed, replace the Coding Agent,
-or take over the execution of business-code changes.
+Agent 不需要先知道这些内容来自 DevMeld，也不必每次提问都调用它。
+停止 DevMeld 后已有内容仍可读，但不能假定未同步的内容已经反映后续变化。
+可选的运行时辅助能力可以另行设计，不能取代这条独立文件消费路径。
 
-## Who It Is For
+## One Context Boundary
 
-DevMeld is intended for developers and teams who:
+一套 DevMeld 共同组织一组资源，可以包含多个仓库或项目。
+同一套上下文内先不增加按项目、按入口或按问题筛选资源的 Profile 层。
+需要分开的资源由两套独立配置与上下文管理，不要求两个常驻进程。
 
-- work across one or more related repositories;
-- have useful knowledge distributed across code, Markdown, tools, and people;
-- want Coding Agents to locate the right project context with less manual prompting;
-- need project knowledge to remain inspectable by people;
-- want project context to survive changes of machine, editor, or Agent Client.
+“放在一起”指共同组织，不要求搬移所有源文件或把全部内容复制到一个目录。
+不同入口载体通向同一套上下文，不因此拥有不同的资源集合。
+分开配置不等于操作系统级访问隔离，也不授权扫描其他上下文。
 
-The first target user already has two or three local Git checkouts and wants to
-connect them to a small project knowledge Vault without documenting the entire
-system first.
+## Resource Information and Access Guidance
 
-## How It Fits with Other Development Tools
+资源可以是文档、仓库、服务信息、脚本、工具说明、Skill 或其他团队定义的内容。
+这里只定义产品含义，不要求共同基类、固定字段全集或每种资源一个领域实体。
 
-AI-assisted development is separated into three replaceable planes:
+服务地址、环境、用途等描述由人或 AI 维护。对于标准化资源，DevMeld 可以提供
+约定格式并执行校验；校验通过不等于已经验证服务连通、凭据有效或工具可调用。
 
-```text
-Workflow Plane
-Spec Kit / OpenSpec / team workflow
-              │
-              ▼
-Context Plane
-DevMeld
-              │
-              ▼
-Execution Plane
-Codex / Claude Code / IDE Agent
-```
+DevMeld 根据明确的配置与规则，组织资源与接入方式、已有工具、使用说明之间的关系。
+交付给 Agent 的不只是地址清单，还包括找到和使用资源所需的指引。
+索引是交付方式之一，不将未来所有产物形式永久固定为一种索引格式。
 
-These planes describe replaceable responsibilities, not mandatory sequential
-stages.
+团队可以提供工具、脚本和连接说明作为输入。工具本体保留自己的来源与维护归属：
+系统工具留在安装位置，项目脚本可留在仓库，共享工具可以有独立来源。
+DevMeld 不因组织接入指引就必须代替 Agent 连接服务、执行工具或安装依赖。
 
-- Workflow tools decide how work moves through specification, planning, tasks,
-  implementation, and review.
-- DevMeld provides project identity, current code context, knowledge, evidence,
-  relationships, and available capabilities.
-- Agent Clients read and modify code, run commands and tests, and execute the
-  development loop.
+## Ownership and Source of Truth
 
-Using DevMeld must not require a project to adopt a particular workflow tool or
-Agent Client.
-
-## Core Product Concepts
-
-| Concept | Meaning |
+| 内容 | 维护与修改方式 |
 | --- | --- |
-| Workspace | A logical DevMeld work area connecting a primary Vault, optional additional knowledge sources, Context Profiles, and project resources |
-| Vault | A portable, human-readable project knowledge source maintained independently of DevMeld |
-| Context Profile | A named selection of Repositories, Resources, and capabilities for a particular working context |
-| Repository | The stable identity of a logical Git repository, independent of a machine path or branch |
-| Checkout | A concrete clone or Git worktree on the current machine |
-| Active Checkout | The single Checkout selected for a Repository in the current task context |
-| Local Binding | Machine-specific mappings such as Vault, Checkout, developer, and client locations |
-| Resource | A product term for project content that can be selected, related, and queried; it does not require a shared implementation base class |
-| Relation | A typed, directed relationship between two stable project objects |
-| Evidence | Traceable support for a piece of knowledge or a relation |
-| Scope | The repository, checkout, environment, version, or working context in which knowledge applies or was observed |
-| Capability Provider | An external system or package that provides a capability |
-| Agent Client | A client that consumes context and performs development work |
-| Managed Surface | Files, configuration nodes, or controlled regions that DevMeld or a Capability Provider is authorized to maintain |
+| 人或 AI 编写的资源描述、知识、笔记、工具源文件 | 按各自规则与授权直接维护；被索引不改变其归属 |
+| 明确由 DevMeld 管理的配置、关联或注册状态 | 通过 DevMeld 的相应功能修改；具体受管边界须在实现前定义 |
+| DevMeld 生成的索引、导航、入口及分发副本 | 修改拥有事实的输入或生成规则，再同步生成，不手工修改产物 |
+| 本地环境观察与可重建缓存 | 记录来源、范围和时效；不替代原始声明或外部系统事实 |
 
-Knowledge is a product term. This document does not require a standalone
-Knowledge entity, a common inheritance tree, or a particular database schema.
+同一内容不得成为多份分别手工维护的事实源。生成副本应能追溯到可编辑来源。
+便携内容与机器上的路径、环境观察应区分，不把本机位置固定成资源身份。
+Git 状态可以是某些资源的观察事实，但不是所有资源必须经过的查询入口。
 
-## Repository and Checkout Rules
+源知识可以说明来源、证据、适用范围与不确定性；生成索引不等于重新评审全部知识。
+不要求 DevMeld 用 AI 推断业务事实，也不要求每份笔记先满足一套通用审核状态机。
+既有事实未变化时，不能为了迎合 Agent 行为而由生成器擅自改写知识。
 
-A Context Profile refers to logical Repositories. Before reading or indexing
-code, DevMeld resolves each Repository to one Active Checkout for the current
-task.
+## Templates and Extension
 
-Resolution may use an explicit task selection, the current working directory or
-client workspace, and machine-local bindings. If multiple candidates remain,
-DevMeld must report the ambiguity instead of silently mixing results from
-multiple Checkouts.
+DevMeld 可以提供常用资源的可选模板、说明、示例和 AI 维护提示词。
+模板提供结构和使用方式，真实信息由团队补充。人和 AI 都可以参与编写输入；
+生成过程不因此成为每次都由 AI 自由发挥的过程。
 
-Code query results remain traceable to their Repository, Checkout, branch,
-commit, and working-tree state. The actual Git Checkout is the source of truth
-for current code and Git state.
+新增资源描述通常应能通过配置与模板完成，不要求修改核心代码。
+新增自动采集、解析、转换等处理能力则需要单独设计其实现与授权；
+配置中的文字不会自动赋予程序新的执行能力。
 
-## Data and Source-of-Truth Boundaries
+格式规则应由相关资源描述约定拥有，不把某种协议白名单当成所有资源的通用限制。
+具体扩展协议、字段、模板格式和可执行扩展机制尚未定案；
+不预设任意代码插件框架、通用连接器或完整包管理系统。
 
-DevMeld separates four kinds of data:
+## Deterministic Generation and Synchronization
 
-1. **Portable source data**: code, Vault content, project configuration, and
-   connected knowledge or capability sources.
-2. **Local Bindings**: paths and selections that are true only on the current
-   machine.
-3. **Rebuildable derived state**: search indexes, extracted relationships,
-   cached observations, and other data that can be recreated from its sources.
-4. **Generated artifacts**: lightweight instructions, Skills, manifests, and
-   client-specific context entry points.
+相同输入事实、配置、模板或扩展规则及生成器版本，应得到相同的生成结果。
+运行记录与时间信息如何表达由具体设计决定，不应造成无意义的知识或输出变化。
+生成器维护派生产物，不借同步接管或改写人或 AI 的源知识。
 
-The Vault is the source of truth for DevMeld-managed project catalog entries,
-explicit configuration, and human-maintained relationships. It does not replace:
+更新方式可选、可配置，包括手动指定资源更新和后台定时更新。
+触发方式与更新范围是两个维度，应遵循同一套生成、校验及所有权规则。
+新增或移除资源后须同步相应索引；移除索引条目不是删除源文件的授权。
+指定范围更新也应保持受影响导航和指引的一致性。
 
-- the current Checkout as the source of truth for code behavior;
-- Git as the source of truth for branch, commit, and working-tree state;
-- an external system as the source of truth for its own facts.
+调度方式、默认周期、增量算法、冲突与失败处理尚需具体设计。
+不要求先做文件监听、常驻服务或复杂依赖图。旧产物只能代表其已有生成依据。
 
-Observed or inferred context must retain enough provenance for a person or Agent
-to understand where it came from.
+## Project Entry
 
-## Knowledge and Query Semantics
+初始化时提供建立入口的选项，例如：
 
-Queryable knowledge can carry independent dimensions:
+- 在项目指引文件中加入引用或小段索引。
+- 通过 Skill 提供入口。
+- 生成普通文件，由用户指定或由既有指引引用。
 
-- **Source Type**: whether it was declared, observed, or inferred;
-- **Evidence**: why the conclusion is supported;
-- **Scope**: where and when the knowledge applies or was observed;
-- **Review Status**: whether a maintainer or approved process has accepted it;
-- **Validity Status**: whether its supporting basis is still current.
-
-Scope Match is calculated for the current query. Knowledge can be accepted and
-current while still being out of scope for one particular query. An out-of-scope
-result does not become stale merely because it was queried from another context.
-
-Review automation may evolve over time, but public context contracts must keep
-these meanings distinct rather than collapsing them into one status.
+入口是项目的小索引，不是 DevMeld 产品介绍，也不是 API 或进程地址。
+通用上下文必须能从入口沿引用逐步找到；不要求一次加载全部内容或预先知道所有路径。
+只创建普通文件并不能证明 Agent 会自动发现它，具体接入机制须真实验证。
+不同入口形式并非都必须在第一次交付中实现。
 
 ## Tool and Dependency Guidance
 
-**Decision**: Accepted by the Maintainer on 2026-09-07 as cross-feature product
-behavior.
+保留先前已接受的工具与依赖指导边界，不恢复旧领域包或查询模型作为前提：
 
-DevMeld provides evidence-backed context about tools, dependencies, scripts,
-and runtimes applicable to a task. This helps Agent Clients reuse available
-options while keeping their choices explainable.
-
-An applicable explicit user or project selection controls the choice. If the
-required option is unavailable, incompatible, or conflicts with an applicable
-constraint, guidance reports the reason and must not silently substitute it.
-
-Without an explicit selection, prefer an eligible existing option requiring no
-new dependency, environment, or installation change. Among such options,
-project-managed options have the strongest reuse preference. If no project
-option is suitable, prefer an existing local/system option verified callable,
-compatible, and authorized in the current project/task scope before proposing
-a change. An option must not be excluded merely because it is system-managed.
-Machine-wide presence alone does not establish current-task eligibility.
-
-Project manifests, lockfiles, maintained scripts, and configuration remain the
-sources of truth for project declarations. DevMeld must not create a competing
-dependency registry. Declared, discovered, verified usable, compatible, and
-authorized are distinct facts. Observations retain their source, scope,
-freshness, and relevant compatibility evidence; missing or stale evidence
-remains unknown. Local availability is not a portable project guarantee and
-must be reverified when the machine or scope changes.
-
-Selection Authority and Change Authority are separate. A request to use a tool
-authorizes its selection, but does not by itself authorize installation,
-dependency changes, environment creation, or system modification. Any required
-change remains a separate proposal explaining the unmet need and affected
-surface, with its own applicable authorization from an explicit instruction or
-project policy. Existing authorization may cover the change within its stated
-scope; a tool selection cannot supply missing change authority. An option is
-not ready merely because a change is authorized: fresh evidence must establish
-its availability after the change.
-
-Agent Clients retain responsibility for invocation, installation, environment
-changes, and enforcement. DevMeld supplies guidance and evidence, and must not
-claim that guidance alone enforces client behavior. Guidance must not expose
-credential values; it may identify a required credential kind or approved
-reference. A command, library, or script does not become a Capability Provider
-merely because it is a candidate tool option.
+- 适用的用户或项目明确选择应被尊重；不可用或不兼容时说明原因，不静默替换。
+- 无明确选择时优先复用无需新增依赖、环境或安装的现有合格方案。
+  项目已有方案优先；没有合适项目方案时，当前范围内已验证可调用、兼容且获授权的
+  本地或系统工具也应成为候选，不能仅因不是项目管理的工具就排除。
+- 项目声明、发现结果、验证结果、兼容性和授权是不同事实。
+  机器上存在某工具不代表当前任务可用，过去的验证也不是永久保证。
+- 项目清单、锁文件与维护中的脚本仍拥有其依赖声明，不建立第二份依赖事实源。
+- 选择某个工具不等于授权安装、修改依赖、创建环境或修改系统。
+  有变更授权也不等于变更已成功或工具已验证可用。
+- Agent 或相应执行工具负责真正调用及环境修改；指引不能声称强制控制 Agent。
+- 生成指引不暴露凭据值，可以指出所需凭据种类或获准的引用。
 
 ## Managed Writes
 
-DevMeld writes only within an authorized Managed Surface.
+受管写入限定在明确授权的文件或片段，可检查、可追溯，并保留安全恢复所需的信息。
+不能因接入一个项目入口就覆盖整个已有指引文件，也不能静默接管其他人的内容。
+生成产物应标明维护边界、可编辑来源和正确修改方式；提示词不是绝对防篡改机制。
+冲突不得被隐式合并、采用或作为扩大写入范围的理由。
 
-Generated or managed changes must be inspectable before application and
-traceable afterward. Existing human-maintained or externally managed content
-must not be silently overwritten, adopted, or merged. Overlapping Managed
-Surfaces must produce a visible conflict rather than an automatic guess.
+## Non-Goals and Open Design
 
-Security and automation have useful defaults, but users and maintainers can
-select policies appropriate to their context. Connected content and external
-capabilities cannot grant themselves additional permissions.
+DevMeld 不是 IDE、Agent 聊天运行时、工作流引擎、必需的在线查询服务，
+也不默认成为安装器、命令执行代理、数据库管理器或恶意仓库沙箱。
+它不要求用户项目采用 Rust、Spec Kit、特定 Agent 或 DevMeld 自身的开发规范。
 
-## Non-Goals
+本轮不冻结文件布局、资源 Schema、入口文件名、传输协议、领域数量或 crate 布局。
+原来的 Context Profile、任务级 Active Checkout 和 query-time Scope Match
+不再是新设计的必经链路。若具体资源处理确实需要其中某种局部能力，应重新论证。
 
-DevMeld is not:
-
-- an IDE or code editor;
-- a replacement for Obsidian or Git;
-- a general Agent runtime or chat client;
-- a required hosted SaaS platform;
-- a feature, task, or specification management system;
-- a development workflow engine;
-- a tool that copies all project knowledge into one prompt;
-- a system that makes a project unusable when DevMeld is removed.
-
-## Product Evolution
-
-DevMeld should prove value through a small local-first, cross-repository context
-scenario before expanding to additional Agent Clients, Capability Providers, or
-automation.
-
-This document contains the product boundary and shared vocabulary contributors
-need in the repository. Feature-specific behavior and scope belong in Feature
-Specs. Coding and delivery guidance belongs in the engineering and contribution
-guides.
-
-Exploratory discussion may happen outside the repository and does not need to be
-copied verbatim. Once a product or architecture decision is accepted, its durable
-outcome must be written back to the artifact that owns it:
-
-- update this document for a cross-feature product boundary or product term;
-- update the relevant Feature Spec for accepted feature behavior or scope;
-- add an ADR for an accepted architecture decision with lasting trade-offs.
-
-Technical Plans may record provisional implementation choices, but they do not
-replace the product baseline, an approved Feature Spec, or an ADR for an accepted
-cross-cutting architecture decision. The product boundary changes only when
-implementation, real usage, or benchmark evidence shows that the current model
-cannot express or usefully serve an approved scenario.
+产品语义由本文拥有；[领域草案](domain-model.md) 用于讨论职责，不是实现授权。
+后续先评审领域与具体交付范围，再形成必要的 Feature 行为、契约和验证方案。

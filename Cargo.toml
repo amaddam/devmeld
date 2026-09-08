@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/shared-kernel", "crates/catalog", "crates/local-context", "crates/knowledge", "tools/xtask"]
-default-members = ["crates/shared-kernel", "crates/catalog", "crates/local-context", "crates/knowledge"]
+members = ["tools/xtask"]
+default-members = ["tools/xtask"]
 resolver = "3"
 
 [workspace.package]

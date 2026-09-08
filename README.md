@@ -1,82 +1,65 @@
 # DevMeld
 
-DevMeld is a local-first project context layer for software development.
-It owns context, not workflow or execution.
+DevMeld organizes resources and access guidance into durable, readable project
+context. Agents follow a small project entry to the resources they need;
+ordinary reading does not require DevMeld to be running.
+
+The product name is **DevMeld**; the repository name is **devmeld**.
 
 ## Current State
 
-The Maintainer accepted Rust as the main implementation language on 2026-09-07.
-The previous Python implementation was removed during the design reset. The
-four core libraries, shared identities and three core domains were committed as
-`4da191195b3edafefb84d6f2896f0e56fc74e400`. Maintainer acceptance is pending;
-this is not a finished application.
+The Maintainer authorized a design restart on 2026-09-08. The old 001/002 design
+files, four domain crates and their tests have been removed. Their old domain
+selection, APIs and test results are not requirements for the new design.
 
-The foundation and review correction commits have recorded native Windows and
-Linux-in-WSL passes. The type refinements committed as `75aa138` add Knowledge working-tree states,
-typed rejection reasons, owner-local ObservationId/ProfileId and a named schema
-version constant. A subsequent correction retains both sides of rejected selection
-conflicts without changing resolution priority. Current native Windows checks
-pass with Rust/Cargo 1.98.1: 45 core behavior tests, one compile-fail doctest, three
-developer-tool unit tests and 46 architecture/type/scope probes. These later
-changes have not been rerun on WSL/Linux or macOS. One non-blocking Clippy
-performance warning remains. See the
-[acceptance evidence](specs/001-foundation-context/quickstart.md#rejection-receipt-correction-2026-09-08).
+Only the Rust engineering scaffold remains: the workspace, toolchain settings
+and developer-only `tools/xtask`. There is no product library, CLI, background
+service, resource connector or context generator implemented yet.
 
-The product name is **DevMeld**; the repository name is **devmeld**. The existing
-Windows checkout directory need not be renamed to express that distinction.
+## Read First
 
-## Read in This Order
+1. [Product](docs/product.md): the confirmed artifact-first product direction.
+2. [Domain proposal](docs/domain-model.md): proposed ownership boundaries, for
+   review before implementation; not a predetermined crate layout.
+3. [Engineering](docs/engineering.md) and [Contributing](CONTRIBUTING.md):
+   implementation practices and decision ownership.
+4. [Discussion record](docs/notes/2026-09-08-context-generation-and-consumption.md):
+   confirmed intent, rejected directions and remaining decisions.
+5. [Reset record](docs/notes/2026-09-08-foundation-reset.md):
+   what was removed, what remains, verification and workflow assessment.
 
-1. [Product](docs/product.md): what DevMeld means and where its boundaries are.
-2. [Architecture ADR](docs/adr/0001-domain-oriented-modular-monolith.md) and
-   [Rust runtime ADR](docs/adr/0003-rust-runtime.md): current accepted decisions.
-3. [Foundation Spec](specs/001-foundation-context/spec.md) and
-   [Domain Model](specs/001-foundation-context/data-model.md): complete scope and owners.
-4. [Rust Design](specs/001-foundation-context/rust-design.md) and
-   [Plan](specs/001-foundation-context/plan.md): type boundaries and planned workspace.
-5. [Engineering](docs/engineering.md), [Tasks](specs/001-foundation-context/tasks.md)
-   and [Acceptance Guide](specs/001-foundation-context/quickstart.md): how to implement and verify.
-
-Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[Constitution](.specify/memory/constitution.md). The Constitution is still a draft;
-choosing Rust does not ratify it.
-
-## First Implementation Boundary
-
-Only Project Catalog, Local Context Resolution and Context Knowledge, plus two
-shared identity values. Managed Materialization and Capability Integration
-(including Tool Guidance implementation) remain design only. No production CLI,
-UI, database, provider adapter or public protocol is in Feature 001.
-
-The next step is Maintainer review of this foundation, not automatic acceptance
-or integration work. Cargo commands and the existing-toolchain reuse procedure are
-in the acceptance guide. WSL is not required; its Linux results supplement native
-Windows evidence. macOS has not been tested. Review corrections were committed
-as `64dfb74` and the type refinements as `75aa138`. Subsequent revisions are
-identified by Git history and the acceptance evidence. Publishing commits remains
-with the Maintainer.
+The [Constitution](.specify/memory/constitution.md) remains a draft.
+[ADR-0001](docs/adr/0001-domain-oriented-modular-monolith.md) retains general
+domain-oriented modular-monolith principles, not the retired domain map.
+[ADR-0003](docs/adr/0003-rust-runtime.md) retains the Rust runtime decision;
+its old foundation layout is historical.
 
 ## Run Checks
 
-With the pinned Rust toolchain, rustfmt, Clippy and the platform's native linker
-available, run from the repository root:
+With the existing pinned Rust toolchain, rustfmt, Clippy and native linker:
 
 ```text
-cargo fetch --locked
 cargo xtask check
 ```
 
-The first command bootstraps the approved locked developer-tool dependencies.
-Subsequent checks run locked/offline. The same entrypoint uses native Rust APIs
-on each OS; no PowerShell, Bash or Python is required for project checks.
-`tools/xtask` is a developer-only package, not a product CLI or domain.
-Its only direct third-party dependency is `serde_json`; the four core libraries
-still have no third-party dependencies. See [Engineering](docs/engineering.md#cross-platform-check-entry-point).
+This runs formatting, compiler checking, conservative Clippy and Cargo tests
+using native Rust process APIs. No PowerShell, Bash or Python is required.
+The remaining scaffold has no third-party dependencies.
 
-Spec Kit selects `.specify/scripts/python/` for workflow execution (`script: py`).
-Official integration refreshes may also install PowerShell auxiliary scripts;
-their presence does not switch the selected workflow or make PowerShell required.
-Use an existing Python interpreter when invoking Spec Kit, not when building or
-checking the Rust project.
-These scripts do not make Python a DevMeld runtime dependency. The old runtime decision
-is retained as [superseded ADR-0002](docs/adr/0002-initial-python-runtime.md).
+After the reset this passed on native Windows, with zero product tests.
+That is scaffold verification, not evidence that a product feature works.
+The reset has not been verified on Linux/WSL or macOS.
+
+## Workflow During Redesign
+
+There is no active Feature or implementation task list. Spec Kit's installed
+skills, scripts, templates and Constitution have been retained, but the old
+active Feature pointer was removed. Do not resume an old 001/002 task sequence
+or generate a new one before the new domain and delivery boundaries are reviewed.
+
+Spec Kit's optional development helpers use the configured Python workflow;
+they are not runtime dependencies of DevMeld or of its generated context.
+Whether to keep using the full Spec Kit workflow remains a separate decision.
+
+Restart and design snapshots are recorded in local Git history. Remote publishing
+remains with the Maintainer.

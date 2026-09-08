@@ -1,9 +1,7 @@
-//! Developer-only verification. Never linked into a DevMeld core library.
-mod architecture;
-mod probes;
+//! Cross-platform developer checks. This is not a product entrypoint.
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Command;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -11,19 +9,6 @@ fn cargo(root: &Path, arguments: &[&str]) -> Command {
     let mut command = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
     command.current_dir(root).args(arguments);
     command
-}
-
-fn successful(output: Output, purpose: &str) -> Result<Output> {
-    if !output.status.success() {
-        return Err(format!(
-            "{purpose}: {}\n{}\n{}",
-            output.status,
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-    Ok(output)
 }
 
 fn run() -> Result<()> {
@@ -44,8 +29,6 @@ fn run() -> Result<()> {
     }
     let root = root.canonicalize()?;
     match operation.to_str() {
-        Some("architecture") => architecture::check(&root),
-        Some("test-architecture") => probes::run(&root),
         Some("check") => {
             for arguments in [
                 vec!["fmt", "--all", "--", "--check"],
@@ -71,12 +54,11 @@ fn run() -> Result<()> {
                     return Err(format!("Cargo gate failed: {status}").into());
                 }
             }
-            architecture::check(&root)?;
-            probes::run(&root)
+            Ok(())
         }
         Some("help" | "--help" | "-h") => {
             println!(
-                "cargo xtask <check|architecture|test-architecture> [--root <workspace>]\ncheck runs all quality gates; requires the pinned Rust toolchain and fetched locked dependencies, not a shell or Python."
+                "cargo xtask <check> [--root <workspace>]\nRuns fmt, check, clippy and test with the existing Rust toolchain, without a shell or Python. No domain architecture gate is configured during the design reset."
             );
             Ok(())
         }

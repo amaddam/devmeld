@@ -5,6 +5,15 @@
 - Scope: DevMeld implementation language, native development baseline, and reset of Feature 001 implementation
 - Supersedes: [ADR-0002](0002-initial-python-runtime.md)
 
+## Applicability after the 2026-09-08 reset
+
+The Rust runtime, native-toolchain and conservative-quality decisions remain.
+The Maintainer's [foundation reset](../notes/2026-09-08-foundation-reset.md) retired
+the old four crates, tests and 001/002 designs. The former domain map and exact
+layout in item 5, and the one-time migration instructions in items 7-8 below,
+are historical, not commands for the new design. No nightly runtime, alternative
+language, replacement package layout or new implementation is approved here.
+
 ## Decision Record
 
 The Maintainer accepted Rust as DevMeld's main implementation language on
@@ -13,10 +22,10 @@ to documentation/planning in the Windows checkout. This is an engineering
 decision accepting trade-offs, not a claim that comparative benchmarks or a
 complete Rust implementation have passed.
 
-[ADR-0001](0001-domain-oriented-modular-monolith.md) remains the architecture
-baseline. The Constitution and Product behavior are unchanged. Gate 3 remains
-deferred; this decision does not authorize Capability selection, Tool Guidance
-implementation, or either supporting domain.
+[ADR-0001](0001-domain-oriented-modular-monolith.md) retained the architecture
+baseline at the time of this runtime decision. That decision did not change
+the Constitution or Product behavior, resolve Gate 3, or authorize supporting
+domain implementation. The later product reset is separate and is described above.
 
 ## Context and Rationale
 
@@ -55,8 +64,8 @@ performance superiority is asserted.
    code-size quotas, or blanket bans on cloning and test fixture expectations.
 5. Realize the existing three core boundaries with a Cargo workspace and a
    minimal shared kernel. These are library compilation boundaries, not separate
-   services or distributables. The [Plan](../../specs/001-foundation-context/plan.md)
-   owns exact members and test-only edges. Do not add facade, application, port,
+   services or distributables. The original `specs/001-foundation-context/plan.md`
+   owned exact members and test-only edges; that layout is now retired. Do not add facade, application, port,
    adapter, entrypoint, or supporting-domain packages merely to complete a tree.
 6. Enforce actual crate dependency directions after code exists using Cargo
    metadata and a small project check, plus compiler visibility probes. No
