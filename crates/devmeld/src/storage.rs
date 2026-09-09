@@ -157,6 +157,97 @@ mod tests {
         }
     }
 
+    #[test]
+    fn legacy_inheritance_choices_are_fixed_and_reads_noops_and_defaults_do_not_normalize_nodes() {
+        let f = Fixture::new();
+        fs::write(f.0.join("notes.md"), "source").unwrap();
+        let value = serde_json::json!({
+            "format_version": 0,
+            "groups": ["team", {"path": "team/db", "annotations": {"fields": {"environment": "test"}}}],
+            "resources": [{"id": "old", "path": "team/db/notes", "document": "notes.md"}],
+            "access": [], "defaults": {"inherit": true, "propagate": false},
+            "publication": {"directory": ".devmeld/output", "entries": []}
+        });
+        let bytes = crate::declarations::encode(&value).unwrap();
+        let path = f.0.join(".devmeld/context.json");
+        let mut setup = Plan::new(f.0.clone()).unwrap();
+        setup.set(path.clone(), Some(bytes.clone())).unwrap();
+        setup.apply().unwrap();
+        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        let prepare = |args: &[&str]| {
+            crate::prepare(
+                &f.0,
+                &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            )
+            .unwrap()
+        };
+        let show = |kind: &str, address: &str| {
+            crate::inspect_in(&f.0, None, &[kind.into(), "show".into(), address.into()])
+                .unwrap()
+                .unwrap()
+        };
+        assert!(
+            show("group", "team/db")
+                .contains("Saved inheritance choices: inherit: false, propagate: true")
+        );
+        assert!(!show("resource", "team/db/notes").contains("environment: test"));
+        for args in [
+            vec!["group", "update", "team/db", "--no-inherit", "--propagate"],
+            vec!["resource", "update", "team/db/notes", "--no-inherit"],
+            vec!["config", "set", "defaults.inherit", "true"],
+        ] {
+            let plan = prepare(&args);
+            assert!(plan.is_empty());
+            plan.apply().unwrap();
+        }
+        prepare(&["resource", "update", "team/db/notes", "--inherit"]);
+        prepare(&["sync"]).apply().unwrap();
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), modified);
+        prepare(&["config", "set", "defaults.propagate", "true"])
+            .apply()
+            .unwrap();
+        let changed: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(changed["groups"], value["groups"]);
+        assert_eq!(changed["resources"], value["resources"]);
+        assert!(prepare(&["sync"]).is_empty());
+        prepare(&["resource", "update", "team/db/notes", "--inherit"])
+            .apply()
+            .unwrap();
+        assert!(show("resource", "team/db/notes").contains("environment: test (Origin: team/db)"));
+        prepare(&["sync"]).apply().unwrap();
+        assert!(f.0.join(".devmeld/output/r-old.md").exists());
+        assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
+    }
+
+    #[test]
+    fn flat_v0_records_remain_readable_without_rewriting_identity_or_configuration() {
+        let f = Fixture::new();
+        fs::write(f.0.join("notes.md"), "original source").unwrap();
+        let bytes = br#"{"format_version":0,"resources":[{"id":"resource-1","document":"notes.md"}],"access":[],"publication":{"directory":".devmeld/output","entries":[]}}"#.to_vec();
+        let path = f.0.join(".devmeld/context.json");
+        // An owned pre-005 record, not adoption of an outside-edited configuration.
+        let mut setup = Plan::new(f.0.clone()).unwrap();
+        setup.set(path.clone(), Some(bytes.clone())).unwrap();
+        setup.apply().unwrap();
+        let preview = crate::prepare(&f.0, &["sync".into()]).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        preview.apply().unwrap();
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert!(f.0.join(".devmeld/output/r-resource-1.md").exists());
+        assert!(crate::prepare(&f.0, &["sync".into()]).unwrap().is_empty());
+        let add = ["resource", "add", "notes.md", "--as", "knowledge/new"];
+        crate::prepare(&f.0, &add.map(String::from))
+            .unwrap()
+            .apply()
+            .unwrap();
+        let config: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(config["resources"][0]["id"], "resource-1");
+        assert!(config["resources"][0].get("path").is_none());
+        assert_eq!(config["resources"][1]["id"], "resource-2");
+        assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"original source");
+    }
+
     #[cfg(windows)]
     #[test]
     #[ignore = "requires DEVMELD_TEST_OTHER_ROOT on a second local Windows drive"]
@@ -189,7 +280,7 @@ mod tests {
             .apply()
             .unwrap();
             fs::write(f.0.join("source.md"), "original knowledge").unwrap();
-            prepare(&["resource", "add", "notes", "--document", "source.md"])
+            prepare(&["resource", "add", "source.md", "--as", "notes"])
                 .apply()
                 .unwrap();
             prepare(&["sync"]).apply().unwrap();
@@ -200,7 +291,7 @@ mod tests {
             prepare(&["language", "zh-CN"]).apply().unwrap();
             let paths = [
                 f.0.join(".devmeld/output/index.md"),
-                f.0.join(".devmeld/output/r-notes.md"),
+                f.0.join(".devmeld/output/r-resource-1.md"),
                 f.0.join("ENTRY.md"),
                 other_entry,
                 f.0.join(".devmeld/context.json"),
@@ -229,7 +320,7 @@ mod tests {
                 before
             );
             assert!(!new_output.join("index.md").exists());
-            assert!(!new_output.join("r-notes.md").exists());
+            assert!(!new_output.join("r-resource-1.md").exists());
             assert_eq!(
                 fs::read_to_string(f.0.join("source.md")).unwrap(),
                 "original knowledge"
@@ -253,7 +344,7 @@ mod tests {
                 .apply()
                 .unwrap();
             fs::write(f.0.join("doc.md"), "ssh / http").unwrap();
-            prepare(&["resource", "add", "doc", "--document", "doc.md"])
+            prepare(&["resource", "add", "doc.md", "--as", "doc"])
                 .apply()
                 .unwrap();
             prepare(&["sync"]).apply().unwrap();
@@ -261,7 +352,7 @@ mod tests {
             let english_config = fs::read(&config_path).unwrap();
             let files = [
                 ".devmeld/output/index.md",
-                ".devmeld/output/r-doc.md",
+                ".devmeld/output/r-resource-1.md",
                 "project/CONTEXT.md",
             ];
             let english: Vec<_> = files
@@ -918,6 +1009,7 @@ struct Journal {
 
 /// An inspectable captured operation; apply rechecks its inputs before writing.
 pub struct Plan {
+    fresh_context: bool,
     root: PathBuf,
     basis: BTreeMap<PathBuf, Option<Observed>>,
     changes: BTreeMap<PathBuf, Mutation>,
@@ -974,6 +1066,7 @@ impl Plan {
     }
     fn empty(root: PathBuf) -> Self {
         Self {
+            fresh_context: false,
             receipt: Receipt::new(root.clone()),
             root,
             basis: BTreeMap::new(),
@@ -1002,6 +1095,13 @@ impl Plan {
     }
     pub(crate) fn root(&self) -> &Path {
         &self.root
+    }
+    /// The selected storage boundary, shown before any requested changes.
+    pub fn context_root(&self) -> &Path {
+        &self.root
+    }
+    pub(crate) fn require_fresh_context(&mut self) {
+        self.fresh_context = true;
     }
     pub(crate) fn owned_paths(&self) -> impl Iterator<Item = &PathBuf> {
         self.receipt.surfaces.keys()
@@ -1383,6 +1483,16 @@ impl Plan {
         }
         let state_dir = self.root.join(".devmeld/state");
         safe_components(&state_dir)?;
+        if self.fresh_context {
+            fs::create_dir_all(&self.root)?;
+            // Claim a previously absent marker atomically. Never adopt a directory
+            // created by somebody else after the first-use preview.
+            fs::create_dir(self.root.join(".devmeld")).map_err(|e| {
+                error(format!(
+                    "cannot create fresh context; refusing adoption: {e}"
+                ))
+            })?;
+        }
         fs::create_dir_all(&state_dir)?;
         let lock_path = state_dir.join("lock");
         safe_components(&lock_path)?;

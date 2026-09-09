@@ -1,4 +1,8 @@
 use crate::{Result, error, language::OutputLanguage, storage::Plan};
+use devmeld_resources::{
+    ResourceId,
+    organization::{InheritanceDefaults, LocalAnnotations, Organization, OrganizationPath},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -8,17 +12,135 @@ pub(crate) struct Config {
     pub resources: Vec<Registration>,
     pub access: Vec<Access>,
     pub publication: Publication,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<GroupRecord>,
+    #[serde(default = "first_identity", skip_serializing_if = "is_first_identity")]
+    pub next_resource_id: u64,
+    #[serde(default, skip_serializing_if = "DefaultRecord::is_default")]
+    pub defaults: DefaultRecord,
+}
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DefaultRecord {
+    pub inherit: bool,
+    pub propagate: bool,
+}
+impl Default for DefaultRecord {
+    fn default() -> Self {
+        let defaults = InheritanceDefaults::default();
+        Self {
+            inherit: defaults.inherit(),
+            propagate: defaults.propagate(),
+        }
+    }
+}
+impl DefaultRecord {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Registration {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub document: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attributes_schema: Option<String>,
+    #[serde(default, skip_serializing_if = "AnnotationRecord::is_empty")]
+    pub annotations: AnnotationRecord,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inherit: Option<bool>,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AnnotationRecord {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    fields: std::collections::BTreeMap<String, String>,
+}
+
+impl AnnotationRecord {
+    fn is_empty(&self) -> bool {
+        self.description.is_none() && self.tags.is_empty() && self.fields.is_empty()
+    }
+    fn decode(&self) -> Result<LocalAnnotations> {
+        Ok(LocalAnnotations::new(
+            self.description.clone(),
+            self.tags.clone(),
+            self.fields.clone().into_iter().collect(),
+        )?)
+    }
+    fn from_annotations(value: &LocalAnnotations) -> Self {
+        Self {
+            description: value.description().map(str::to_owned),
+            tags: value.tags().cloned().collect(),
+            fields: value.fields().clone(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum GroupRecord {
+    Path(String),
+    Annotated(GroupDetails),
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GroupDetails {
+    path: String,
+    #[serde(default)]
+    annotations: AnnotationRecord,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    inherit: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    propagate: Option<bool>,
+}
+
+impl GroupRecord {
+    fn path(&self) -> &str {
+        match self {
+            Self::Path(path) => path,
+            Self::Annotated(group) => &group.path,
+        }
+    }
+    fn annotations(&self) -> Result<LocalAnnotations> {
+        match self {
+            Self::Path(_) => Ok(LocalAnnotations::default()),
+            Self::Annotated(group) => group.annotations.decode(),
+        }
+    }
+    fn choices(&self) -> (bool, bool) {
+        match self {
+            Self::Path(_) => (false, true),
+            Self::Annotated(group) => (
+                group.inherit.unwrap_or(false),
+                group.propagate.unwrap_or(true),
+            ),
+        }
+    }
+    fn from_node(path: &OrganizationPath, organization: &Organization) -> Result<Self> {
+        Ok(Self::Annotated(GroupDetails {
+            path: path.as_str().into(),
+            annotations: AnnotationRecord::from_annotations(
+                organization
+                    .annotations(path)
+                    .ok_or_else(|| error("missing group annotations"))?,
+            ),
+            inherit: organization.inherits(path),
+            propagate: organization.propagates(path),
+        }))
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -47,11 +169,119 @@ impl Default for Config {
             format_version: 0,
             resources: vec![],
             access: vec![],
+            groups: vec![],
+            next_resource_id: 1,
+            defaults: DefaultRecord::default(),
             publication: Publication {
                 directory: ".devmeld/output".into(),
                 entries: vec![],
                 language: OutputLanguage::default(),
             },
+        }
+    }
+}
+
+fn first_identity() -> u64 {
+    1
+}
+fn is_first_identity(value: &u64) -> bool {
+    *value == 1
+}
+
+impl Registration {
+    pub(crate) fn address(&self) -> &str {
+        self.path.as_deref().unwrap_or(&self.id)
+    }
+}
+
+impl Config {
+    pub(crate) fn update_organization(&mut self, organization: &Organization) -> Result<()> {
+        for registration in &mut self.resources {
+            let id = ResourceId::new(registration.id.clone())?;
+            let path = organization
+                .path_for(&id)
+                .ok_or_else(|| error("organization lost a registered identity"))?;
+            if registration.address() != path.as_str() {
+                registration.path = Some(path.as_str().to_owned());
+            }
+            registration.annotations = AnnotationRecord::from_annotations(
+                organization
+                    .annotations(path)
+                    .ok_or_else(|| error("missing resource annotations"))?,
+            );
+            registration.inherit = organization.inherits(path);
+        }
+        self.groups = organization
+            .groups()
+            .map(|path| GroupRecord::from_node(path, organization))
+            .collect::<Result<_>>()?;
+        Ok(())
+    }
+
+    pub(crate) fn organization(&self) -> Result<Organization> {
+        if self.next_resource_id == 0 {
+            return Err(error("invalid resource identity counter"));
+        }
+        let groups = self
+            .groups
+            .iter()
+            .map(|value| OrganizationPath::new(value.path()))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let resources = self
+            .resources
+            .iter()
+            .map(|r| {
+                Ok((
+                    OrganizationPath::new(r.address())?,
+                    ResourceId::new(r.id.clone())?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut organization = Organization::from_parts(groups, resources)?;
+        for group in &self.groups {
+            let path = OrganizationPath::new(group.path())?;
+            organization.set_annotations(&path, group.annotations()?)?;
+            let (inherit, propagate) = group.choices();
+            organization.set_inherit(&path, inherit)?;
+            organization.set_propagate(&path, propagate)?;
+        }
+        for resource in &self.resources {
+            organization.set_annotations(
+                &OrganizationPath::new(resource.address())?,
+                resource.annotations.decode()?,
+            )?;
+            organization.set_inherit(
+                &OrganizationPath::new(resource.address())?,
+                resource.inherit.unwrap_or(false),
+            )?;
+        }
+        // Restore saved nodes before applying creation policy. Older absent choices
+        // have fixed meaning, never the context's subsequently changed defaults.
+        organization.set_defaults(InheritanceDefaults::new(
+            self.defaults.inherit,
+            self.defaults.propagate,
+        ));
+        Ok(organization)
+    }
+
+    pub(crate) fn resource_id(&self, address: &str) -> Result<ResourceId> {
+        let organization = self.organization()?;
+        organization
+            .resource_at(&OrganizationPath::new(address)?)
+            .cloned()
+            .ok_or_else(|| error(format!("resource not registered: {address}")))
+    }
+
+    pub(crate) fn allocate_identity(&mut self) -> Result<String> {
+        loop {
+            let id = format!("resource-{}", self.next_resource_id);
+            self.next_resource_id = self
+                .next_resource_id
+                .checked_add(1)
+                .ok_or_else(|| error("resource identity counter exhausted"))?;
+            if !self.resources.iter().any(|resource| resource.id == id) {
+                return Ok(id);
+            }
         }
     }
 }
@@ -90,6 +320,7 @@ pub(crate) fn read_config(plan: &mut Plan) -> Result<Config> {
     }
     validate_surfaces(plan, &config)?;
     membership(&config)?;
+    config.organization()?;
     plan.require_owned_config()?;
     Ok(config)
 }
@@ -200,7 +431,10 @@ pub(crate) fn load_resources(
                 references,
             )?
         } else {
-            devmeld_resources::Resource::document(id, path)?
+            let title = OrganizationPath::new(registration.address())?
+                .leaf()
+                .to_owned();
+            devmeld_resources::Resource::document(id, path, title)?
         };
         resources.add(resource)?;
     }

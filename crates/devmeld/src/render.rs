@@ -27,6 +27,97 @@ struct FileLink {
     local_path: Option<String>,
 }
 
+pub(crate) fn node_annotations(
+    organization: &devmeld_resources::organization::Organization,
+    path: &devmeld_resources::organization::OrganizationPath,
+    messages: &Messages,
+) -> Result<String> {
+    let local = organization
+        .annotations(path)
+        .ok_or_else(|| error("missing node annotations"))?;
+    let mut result = annotations(local, messages);
+    let inherit = organization
+        .inherits(path)
+        .ok_or_else(|| error("missing inheritance choice"))?;
+    result.push_str(&format!(
+        "{}: inherit: {inherit}",
+        messages.inheritance_choices
+    ));
+    if let Some(propagate) = organization.propagates(path) {
+        result.push_str(&format!(", propagate: {propagate}"));
+    }
+    result.push_str("\n\n");
+    if inherit {
+        let effective = organization.effective_annotations(path)?;
+        result.push_str(&format!("{}:\n", messages.effective_annotations));
+        if effective.is_empty() {
+            result.push_str(&format!("{}\n", messages.no_effective_annotations));
+        }
+        if !effective.tags().is_empty() {
+            result.push_str(&format!("- {}:\n", messages.annotation_tags));
+            for (tag, origins) in effective.tags() {
+                let origins = origins
+                    .iter()
+                    .map(|origin| text(origin.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                result.push_str(&format!(
+                    "  - {} ({}: {origins})\n",
+                    text(tag),
+                    messages.annotation_origin
+                ));
+            }
+        }
+        if !effective.fields().is_empty() {
+            result.push_str(&format!("- {}:\n", messages.annotation_fields));
+            for (key, field) in effective.fields() {
+                result.push_str(&format!(
+                    "  - {}: {} ({}: {})\n",
+                    text(key),
+                    text(field.value()),
+                    messages.annotation_origin,
+                    text(field.origin().as_str())
+                ));
+            }
+        }
+        result.push('\n');
+    }
+    Ok(result)
+}
+
+pub(crate) fn annotations(
+    value: &devmeld_resources::organization::LocalAnnotations,
+    messages: &Messages,
+) -> String {
+    if value.is_empty() {
+        return String::new();
+    }
+    let mut result = format!("{}:\n", messages.context_annotations);
+    if let Some(description) = value.description() {
+        result.push_str(&format!(
+            "- {}: {}\n",
+            messages.annotation_description,
+            text(description)
+        ));
+    }
+    let tags = value.tags().map(|tag| text(tag)).collect::<Vec<_>>();
+    if !tags.is_empty() {
+        result.push_str(&format!(
+            "- {}: {}\n",
+            messages.annotation_tags,
+            tags.join(", ")
+        ));
+    }
+    if !value.fields().is_empty() {
+        result.push_str(&format!("- {}:\n", messages.annotation_fields));
+        for (key, value) in value.fields() {
+            result.push_str(&format!("  - {}: {}\n", text(key), text(value)));
+        }
+    }
+    result.push('\n');
+    result
+}
+
 impl FileLink {
     fn markdown(&self, label: &str, messages: &Messages) -> String {
         let mut result = format!("[{}]({})", text(label), self.destination);
@@ -191,15 +282,33 @@ pub(crate) fn publication(
         "# {}\n\n{}\n\n",
         messages.context_heading, messages.navigation_notice
     );
-    for resource in resources.iter() {
+    let organization = config.organization()?;
+    let mut by_group = BTreeMap::<_, String>::new();
+    for (address, identity) in organization.resources() {
+        let resource = resources
+            .get(identity)
+            .ok_or_else(|| error("missing organized resource"))?;
         let id = resource.id().as_str();
         let page = directory.join(format!("r-{id}.md"));
         let summary = resource.summary().unwrap_or(messages.original_document);
-        navigation.push_str(&format!(
-            "- {} — {}\n",
-            link(&index, &page)?.markdown(resource.title(), messages),
-            text(summary)
-        ));
+        let label = if address.parent().is_some() {
+            address.as_str()
+        } else {
+            resource.title()
+        };
+        by_group
+            .entry(address.parent())
+            .or_default()
+            .push_str(&format!(
+                "- {} — {}\n",
+                link(&index, &page)?.markdown(label, messages),
+                text(summary)
+            ));
+        let metadata = node_annotations(&organization, address, messages)?;
+        let items = by_group.entry(address.parent()).or_default();
+        for line in metadata.lines() {
+            items.push_str(&format!("  {line}\n"));
+        }
         let mut content = format!(
             "# {}\n\n{}\n\n{}\n\n{}\n\n{}\n",
             text(resource.title()),
@@ -208,10 +317,14 @@ pub(crate) fn publication(
             link(&page, resource.source())?.markdown(messages.original_source, messages),
             link(&page, &config_path)?.markdown(messages.managed_registration, messages)
         );
+        if !resource.attributes().is_empty() {
+            content.push_str(&format!("\n## {}\n", messages.source_attributes));
+        }
         for (key, value) in resource.attributes() {
             content.push_str(&format!("\n- {}: {}", text(key), text(value)));
         }
         content.push_str("\n\n");
+        content.push_str(&metadata);
         for (label, target) in resource.references() {
             content.push_str(&format!(
                 "- {}\n",
@@ -230,16 +343,37 @@ pub(crate) fn publication(
             content.push_str(messages.access_guidance);
             content.push_str("\n\n");
             for tool in tools {
+                let address = config
+                    .resources
+                    .iter()
+                    .find(|r| r.id == tool)
+                    .ok_or_else(|| error("missing associated resource"))?
+                    .address();
                 content.push_str(&format!(
                     "- {}\n",
                     link(&page, &directory.join(format!("r-{tool}.md")))?.markdown(
-                        &format!("{}: {tool}", messages.associated_resource),
+                        &format!("{}: {address}", messages.associated_resource),
                         messages
                     )
                 ));
             }
         }
         files.insert(page, content.into_bytes());
+    }
+    if let Some(items) = by_group.remove(&None) {
+        navigation.push_str(&items);
+    }
+    for group in organization.groups() {
+        let level = (group.as_str().split('/').count() + 1).min(6);
+        navigation.push_str(&format!(
+            "\n{} {}\n\n",
+            "#".repeat(level),
+            text(group.as_str())
+        ));
+        navigation.push_str(&node_annotations(&organization, group, messages)?);
+        if let Some(items) = by_group.remove(&Some(group.clone())) {
+            navigation.push_str(&items);
+        }
     }
     navigation.push_str(&format!(
         "\n{}\n",

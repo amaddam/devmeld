@@ -10,11 +10,11 @@
 并选择未占用的输出/入口路径。原始知识不必复制；旧产物仍可阅读。
 
 ```text
-cargo run -p devmeld --locked --offline -- --context examples/team-context init --entry ../sample-project/CONTEXT.md --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add notes --document knowledge/notes.md --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add service --description resources/service.json --schema templates/service.schema.json --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add http-guide --description resources/http-guide.json --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context access add service http-guide --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/knowledge/notes.md --as knowledge/notes --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/resources/service.json --as services/http --kind description --schema examples/team-context/templates/service.schema.json --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/resources/http-guide.json --as tools/http-guide --kind description --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context access add services/http tools/http-guide --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context entry add examples/sample-project/CONTEXT.md --apply
 cargo run -p devmeld --locked --offline -- --context examples/team-context sync --apply
 ```
 
@@ -50,8 +50,7 @@ devmeld --context PATH sync --apply
 ## 选择生成语言
 
 每套上下文使用一种生成语言，支持 `en`（默认）和 `zh-CN`。
-首次初始化时，可在上述 `init` 命令中添加 `--language zh-CN`。
-已有上下文按以下方式切换：
+首次成功登记会创建上下文，无需独立执行 `init`。按以下方式切换生成语言：
 
 ```text
 cargo run -p devmeld --locked --offline -- --context examples/team-context language zh-CN --apply
@@ -74,11 +73,12 @@ CLI 帮助和错误信息暂不本地化。
 再注册并同步（同样需要预览确认）：
 
 ```text
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add shared-notes --document "D:/knowledge/团队 notes.md" --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add "D:/knowledge/团队 notes.md" --as knowledge/shared-notes --apply
 cargo run -p devmeld --locked --offline -- --context examples/team-context sync --apply
 ```
 
-命令中的路径相对于 `--context`；绝对路径则直接指定本机位置。
+命令中的源文件、Schema、入口和输出路径相对于执行命令时的目录；绝对路径直接指定本机位置。
+`--as` 使用独立的逻辑分类地址，不会移动原始文件；缺少的父组会自动建立。
 描述文件内 `references[].path` 的相对路径基准是该描述文件的目录，
 也可填写本机绝对路径。Windows JSON 中建议写 `D:/knowledge/notes.md`，
 若使用反斜杠，需要按 JSON 语法转义。

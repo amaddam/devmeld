@@ -1,5 +1,7 @@
 use std::io::{self, Write};
 
+mod cli;
+
 fn run() -> devmeld::Result<()> {
     let mut args: Vec<String> = std::env::args_os()
         .skip(1)
@@ -8,27 +10,49 @@ fn run() -> devmeld::Result<()> {
                 .map_err(|_| devmeld::error("command arguments must be Unicode"))
         })
         .collect::<devmeld::Result<_>>()?;
-    if args.is_empty() || args == ["--help"] {
-        println!(
-            "devmeld --context PATH COMMAND [--apply]\n\nCommands:\n  init [--output PATH] [--entry PATH] [--language en|zh-CN]\n  resource add ID --document PATH\n  resource add ID --description PATH [--schema PATH]\n  resource remove ID\n  access add RESOURCE TOOL\n  access remove RESOURCE TOOL\n  entry add PATH\n  entry remove PATH\n  output PATH\n  language en|zh-CN\n  sync\n  recover\n\nPaths resolve from the selected existing context root.\nCommands preview by default; --apply prints the preview then asks you to type apply.\nOutput language defaults to en; language changes configuration, then sync publishes it.\nOnly generated wording is localized; authored content, technical names and commands are unchanged.\nGenerated files remain readable without DevMeld running. No tools are executed or installed."
-        );
-        println!(
-            "Shared entries: init also accepts --instruction-entry PATH; entry add accepts --kind file|instructions.\nEntry commands change registration only; sync attaches, updates or detaches the insertion.\nAll new contexts use maintenance format v0. Older records are rejected without migration."
-        );
+    if let Some(help) = cli::help(&args)? {
+        print!("{help}");
         return Ok(());
     }
-    let apply = if args.last().is_some_and(|a| a == "--apply") {
-        args.pop();
-        true
-    } else {
-        false
+    let apply = match args.last().map(String::as_str) {
+        Some("--apply") => {
+            args.pop();
+            true
+        }
+        Some("--dry-run") => {
+            args.pop();
+            false
+        }
+        _ => false,
     };
-    if args.len() < 3 || args[0] != "--context" {
+    if args
+        .iter()
+        .any(|a| matches!(a.as_str(), "--apply" | "--dry-run"))
+    {
         return Err(devmeld::error(
-            "expected --context PATH COMMAND; see --help",
+            "use one terminal --apply OR --dry-run option; see --help",
         ));
     }
-    let plan = devmeld::prepare(std::path::Path::new(&args[1]), &args[2..])?;
+    let (explicit, command) = if args.first().is_some_and(|a| a == "--context") {
+        if args.len() < 3 || args[1].starts_with('-') {
+            return Err(devmeld::error(
+                "expected --context PATH COMMAND; see --help",
+            ));
+        }
+        (Some(std::path::Path::new(&args[1])), &args[2..])
+    } else {
+        (None, args.as_slice())
+    };
+    let cwd = std::env::current_dir()?;
+    if let Some(report) = devmeld::inspect_in(&cwd, explicit, command)? {
+        if apply {
+            return Err(devmeld::error("read-only commands do not accept --apply"));
+        }
+        print!("{report}");
+        return Ok(());
+    }
+    let plan = devmeld::prepare_in(&cwd, explicit, command)?;
+    println!("Context: {}", plan.context_root().display());
     print!("{}", plan.preview());
     if apply && plan.is_empty() {
         plan.apply()?;
@@ -42,6 +66,11 @@ fn run() -> devmeld::Result<()> {
         }
         plan.apply()?;
         println!("Applied.");
+        if !matches!(command, [name] if name == "sync" || name == "recover") {
+            println!(
+                "Configuration saved; publication may be pending. Run sync to inspect and publish."
+            );
+        }
     }
     Ok(())
 }

@@ -1,21 +1,54 @@
-//! Thin application coordination for explicitly selected local contexts.
+//! Thin application coordination for local context management.
+mod annotation_args;
+mod context;
 mod declarations;
+mod inspection;
 mod instructions;
 mod language;
 mod render;
 mod storage;
 
+pub use inspection::inspect_in;
 pub use storage::Plan;
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub fn error(message: impl Into<String>) -> Box<dyn std::error::Error> {
     std::io::Error::other(message.into()).into()
 }
 
+/// Select a context for a human invocation without creating directories.
+pub fn prepare_in(
+    cwd: &std::path::Path,
+    explicit: Option<&std::path::Path>,
+    args: &[String],
+) -> Result<Plan> {
+    let root = context::select(cwd, explicit)?;
+    if explicit.is_none()
+        && matches!(args, [command, ..] if command == "init")
+        && context::marker_exists(&root)?
+    {
+        return Err(error(
+            "context marker already exists; refusing implicit reinitialization. After recovery, explicitly select --context PATH to retry init",
+        ));
+    }
+    let args = context::operands(cwd, &root, args)?;
+    prepare(&root, &args)
+}
+
 pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
     storage::local_path(root)?;
-    let root = root.canonicalize()?;
-    if !root.is_dir() {
-        return Err(error("context root must be an existing directory"));
+    let root = storage::resolve(
+        &std::env::current_dir()?,
+        root.to_str()
+            .ok_or_else(|| error("non-Unicode context path"))?,
+    )?;
+    let creating = matches!(args, [command, ..] if command == "init")
+        || matches!(args, [command, action, _, ..] if matches!(command.as_str(), "resource" | "group") && action == "add");
+    if root.try_exists()? {
+        if !root.is_dir() {
+            return Err(error("context root must be a directory"));
+        }
+    } else if !creating {
+        return Err(error("context not initialized; add a resource or run init"));
     }
     if args == ["recover"] {
         let mut plan = Plan::recovery(root)?;
@@ -34,7 +67,11 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
         }
         return Ok(plan);
     }
+    let existing = context::marker_exists(&root)?;
     let mut plan = Plan::new(root)?;
+    if creating && !existing {
+        plan.require_fresh_context();
+    }
     match args {
         [command, options @ ..] if command == "init" => {
             let path = plan.root().join(".devmeld/context.json");
@@ -79,43 +116,187 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
             declarations::validate_surfaces(&plan, &config)?;
             plan.set(path, Some(declarations::encode(&config)?))?;
         }
-        [command, action, id, options @ ..] if command == "resource" && action == "add" => {
-            let mut config = declarations::read_config(&mut plan)?;
-            let mut registration = declarations::Registration {
-                id: id.clone(),
-                document: None,
-                description: None,
-                attributes_schema: None,
+        [command, action, source, options @ ..] if command == "resource" && action == "add" => {
+            let mut config = if existing {
+                declarations::read_config(&mut plan)?
+            } else {
+                declarations::Config::default()
             };
-            for pair in options.chunks(2) {
+            let mut address = None;
+            let mut kind = None;
+            let mut schema = None;
+            let node = annotation_args::parse(options)?;
+            for pair in node.remaining.chunks(2) {
                 match pair {
-                    [flag, value] if flag == "--document" && registration.document.is_none() => {
-                        registration.document = Some(value.clone())
+                    [flag, value] if flag == "--as" && address.is_none() => {
+                        address = Some(value.clone());
                     }
                     [flag, value]
-                        if flag == "--description" && registration.description.is_none() =>
+                        if flag == "--kind"
+                            && kind.is_none()
+                            && matches!(value.as_str(), "document" | "description") =>
                     {
-                        registration.description = Some(value.clone())
+                        kind = Some(value.as_str());
                     }
-                    [flag, value]
-                        if flag == "--schema" && registration.attributes_schema.is_none() =>
-                    {
-                        registration.attributes_schema = Some(value.clone())
+                    [flag, value] if flag == "--schema" && schema.is_none() => {
+                        schema = Some(value.clone());
                     }
                     _ => {
                         return Err(error(
-                            "resource add expects --document PATH OR --description PATH [--schema PATH]",
+                            "resource add SOURCE accepts --as PATH, --kind document|description and --schema PATH",
                         ));
                     }
                 }
             }
+            let address = match address {
+                Some(address) => address,
+                None => std::path::Path::new(source)
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .ok_or_else(|| error("cannot derive a resource address; use --as PATH"))?
+                    .to_owned(),
+            };
+            let address = devmeld_resources::organization::OrganizationPath::new(address)?;
+            let mut organization = config.organization()?;
+            let id = config.allocate_identity()?;
+            organization.register(
+                devmeld_resources::ResourceId::new(id.clone())?,
+                address.clone(),
+            )?;
+            node.apply_choices(&mut organization, &address)?;
+            organization.set_annotations(&address, node.annotations.for_creation()?)?;
+            let description = kind == Some("description");
+            if schema.is_some() && !description {
+                return Err(error("--schema requires --kind description"));
+            }
+            let registration = declarations::Registration {
+                id,
+                path: Some(address.as_str().to_owned()),
+                document: (!description).then(|| source.clone()),
+                description: description.then(|| source.clone()),
+                attributes_schema: schema,
+                annotations: Default::default(),
+                inherit: None,
+            };
             config.resources.push(registration);
+            config.update_organization(&organization)?;
             declarations::load_resources(&mut plan, &config)?;
             config.resources.sort_by(|a, b| a.id.cmp(&b.id));
             plan.set(
                 plan.root().join(".devmeld/context.json"),
                 Some(declarations::encode(&config)?),
             )?;
+        }
+        [command, action, address, options @ ..]
+            if command == "group"
+                && (action == "add" || (action == "remove" && options.is_empty())) =>
+        {
+            let mut config = if !existing && action == "add" {
+                declarations::Config::default()
+            } else {
+                declarations::read_config(&mut plan)?
+            };
+            let mut organization = config.organization()?;
+            let address = devmeld_resources::organization::OrganizationPath::new(address.clone())?;
+            if action == "add" {
+                let node = annotation_args::parse(options)?;
+                if !node.remaining.is_empty() {
+                    return Err(error(
+                        "unsupported group annotation option; see group add --help",
+                    ));
+                }
+                organization.add_group(address.clone())?;
+                node.apply_choices(&mut organization, &address)?;
+                organization.set_annotations(&address, node.annotations.for_creation()?)?;
+            } else {
+                organization.remove_group(&address)?;
+            }
+            config.update_organization(&organization)?;
+            plan.set(
+                plan.root().join(".devmeld/context.json"),
+                Some(declarations::encode(&config)?),
+            )?;
+        }
+        [command, action, address, options @ ..]
+            if matches!(command.as_str(), "resource" | "group") && action == "update" =>
+        {
+            if options.is_empty() {
+                return Err(error(
+                    "update requires annotation or inheritance options; see --help",
+                ));
+            }
+            let node = annotation_args::parse(options)?;
+            if !node.remaining.is_empty() {
+                return Err(error(
+                    "update accepts only context annotation and inheritance options, not source/identity changes",
+                ));
+            }
+            let mut config = declarations::read_config(&mut plan)?;
+            let mut organization = config.organization()?;
+            let address = devmeld_resources::organization::OrganizationPath::new(address.clone())?;
+            if command == "resource" {
+                config.resource_id(address.as_str())?;
+            } else if !organization.groups().any(|path| path == &address) {
+                return Err(error("group not registered"));
+            }
+            let original = organization.clone();
+            let annotations = organization
+                .annotations(&address)
+                .ok_or_else(|| error("organization node not registered"))?;
+            let changed = node.annotations.apply(annotations)?;
+            organization.set_annotations(&address, changed)?;
+            node.apply_choices(&mut organization, &address)?;
+            if organization != original {
+                config.update_organization(&organization)?;
+                plan.set(
+                    plan.root().join(".devmeld/context.json"),
+                    Some(declarations::encode(&config)?),
+                )?;
+            }
+        }
+        [command, action, key, value] if command == "config" && action == "set" => {
+            let value = match value.as_str() {
+                "true" => true,
+                "false" => false,
+                _ => return Err(error("inheritance default must be true or false")),
+            };
+            let mut config = declarations::read_config(&mut plan)?;
+            let selected = match key.as_str() {
+                "defaults.inherit" => &mut config.defaults.inherit,
+                "defaults.propagate" => &mut config.defaults.propagate,
+                _ => {
+                    return Err(error(
+                        "config set accepts defaults.inherit or defaults.propagate",
+                    ));
+                }
+            };
+            if *selected != value {
+                *selected = value;
+                plan.set(
+                    plan.root().join(".devmeld/context.json"),
+                    Some(declarations::encode(&config)?),
+                )?;
+            }
+        }
+        [command, action, from, to]
+            if matches!(command.as_str(), "resource" | "group") && action == "move" =>
+        {
+            let mut config = declarations::read_config(&mut plan)?;
+            let mut organization = config.organization()?;
+            let from = devmeld_resources::organization::OrganizationPath::new(from.clone())?;
+            let to = devmeld_resources::organization::OrganizationPath::new(to.clone())?;
+            if command == "resource" {
+                organization.move_resource(&from, to.clone())?;
+            } else {
+                organization.move_group(&from, to.clone())?;
+            }
+            if from != to {
+                config.update_organization(&organization)?;
+                plan.set(
+                    plan.root().join(".devmeld/context.json"),
+                    Some(declarations::encode(&config)?),
+                )?;
+            }
         }
         [command] if command == "sync" => {
             let config = declarations::read_config(&mut plan)?;
@@ -154,11 +335,11 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
                 plan.withdraw(path)?;
             }
         }
-        [command, action, id] if command == "resource" && action == "remove" => {
+        [command, action, address] if command == "resource" && action == "remove" => {
             let mut config = declarations::read_config(&mut plan)?;
-            declarations::membership(&config)?
-                .unregister(&devmeld_resources::ResourceId::new(id.clone())?)?;
-            config.resources.retain(|r| &r.id != id);
+            let id = config.resource_id(address)?;
+            declarations::membership(&config)?.unregister(&id)?;
+            config.resources.retain(|r| r.id != id.as_str());
             plan.set(
                 plan.root().join(".devmeld/context.json"),
                 Some(declarations::encode(&config)?),
@@ -229,21 +410,21 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
         [command, action, resource, tool] if command == "access" => {
             let mut config = declarations::read_config(&mut plan)?;
             let mut membership = declarations::membership(&config)?;
-            let resource_id = devmeld_resources::ResourceId::new(resource.clone())?;
-            let tool_id = devmeld_resources::ResourceId::new(tool.clone())?;
+            let resource_id = config.resource_id(resource)?;
+            let tool_id = config.resource_id(tool)?;
             match action.as_str() {
                 "add" => {
-                    membership.associate(resource_id, tool_id)?;
+                    membership.associate(resource_id.clone(), tool_id.clone())?;
                     config.access.push(declarations::Access {
-                        resource: resource.clone(),
-                        tool: tool.clone(),
+                        resource: resource_id.as_str().into(),
+                        tool: tool_id.as_str().into(),
                     });
                 }
                 "remove" => {
-                    membership.dissociate(resource_id, tool_id)?;
-                    config
-                        .access
-                        .retain(|a| &a.resource != resource || &a.tool != tool);
+                    membership.dissociate(resource_id.clone(), tool_id.clone())?;
+                    config.access.retain(|a| {
+                        a.resource != resource_id.as_str() || a.tool != tool_id.as_str()
+                    });
                 }
                 _ => return Err(error("access expects add or remove")),
             }

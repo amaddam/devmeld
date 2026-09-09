@@ -2,140 +2,213 @@
 
 [English](README.md) | 简体中文
 
-DevMeld 将资源和访问指引组织成持久化、可直接阅读的项目上下文。
-Agent 从项目中的一个小入口出发，按需找到所需资源；
-日常读取这些内容时，不需要保持 DevMeld 运行。
+DevMeld 是一个本地优先的项目上下文工具。它将团队维护的文档、资源描述和接入指引
+组织成可直接阅读的 Markdown 索引。Agent 从项目中的一个小入口找到相关来源，
+读取时不需要保持 DevMeld 运行。
 
-产品名称为 **DevMeld**，仓库名称为 **devmeld**。
+登记资源 → 生成索引 → 接入项目入口 → Agent 读取原始资料
 
-## 当前状态
+**开发状态：**尚未定版的 v0，适合本地试用，格式可能继续调整。
 
-项目维护者（Maintainer）于 2026-09-08 批准重新设计。
-旧的 001/002 设计文档、四个领域 crate 及其测试已移除。
-旧的领域划分、API 和测试结果不再作为新设计必须遵循的要求。
+## 可以做什么
 
-重新设计后的首个实现位于 `003-durable-context`：通过原生 Rust 命令维护资源注册、
-访问指引关联，并发布持久化 Markdown 文件。
-两个领域 crate 均不依赖第三方库；文件系统、JSON 和 Schema 适配器位于应用层。
-当前没有后台服务、资源连接器、工具执行器或运行时查询 API。
+- 整理已有文档、服务和工具描述，无需搬移原始文件。
+- 将资源与接入说明、工具文档关联起来；可使用本地 JSON Schema 校验描述属性。
+- 生成普通 Markdown 入口，或在指定的项目说明文件中维护一小段入口。
+- 生成英文或简体中文导航，支持本机 Windows 跨盘链接。
 
-## 建议先读
+DevMeld 根据明确的输入生成上下文，不通过 AI 改写知识，也不代替 Agent 回答问题、
+连接服务或执行列出的工具。
 
-1. [产品说明](docs/product.md)：已确认的、以持久化产物为核心的产品方向。
-2. [领域模型](docs/domain-model.md)：已审查的两个领域及其职责边界；
-   具体实现选择记录在当前 Feature 文档中。
-3. [工程规范](docs/engineering.md)与[贡献指南](CONTRIBUTING.md)：
-   实现实践与各类决策的归属。
-4. [讨论记录](docs/notes/2026-09-08-context-generation-and-consumption.md)：
-   已确认的意图、已否定的方向和仍待决定的事项。
-5. [重置记录](docs/notes/2026-09-08-foundation-reset.md)：
-   移除与保留的内容、验证情况和工作流程评估。
+## 快速开始
 
-[Constitution（治理原则）](.specify/memory/constitution.md)仍为草案。
-[ADR-0001](docs/adr/0001-domain-oriented-modular-monolith.md)保留通用的
-面向领域的模块化单体原则，不再要求沿用已废弃的领域划分。
-[ADR-0003](docs/adr/0003-rust-runtime.md)保留使用 Rust 的运行时决策；
-其中旧的基础代码布局仅作为历史记录。
+### 1. 从源码构建
 
-## 运行检查
-
-准备好项目锁定版本的 Rust 工具链、rustfmt、Clippy 和本机链接器后，运行：
+安装 Rust 后，在仓库根目录执行。工具链由
+[rust-toolchain.toml](rust-toolchain.toml) 指定，构建还需要本机链接器。
 
 ```text
-cargo xtask check
+cargo build --release --locked -p devmeld
 ```
 
-该命令通过 Rust 原生进程 API 执行格式检查、编译检查、采用宽松规则的 Clippy 检查
-和 Cargo 测试，不需要 PowerShell、Bash 或 Python。
-应用依赖记录在工作区锁文件中。首次使用 `cargo fetch --locked` 获取依赖，
-后续检查和构建使用本地缓存。
+Linux/macOS 的可执行文件为 `target/release/devmeld`，Windows 为
+`target/release/devmeld.exe`。下文用 `devmeld` 代指它：执行时使用实际路径，
+或将其所在目录加入 PATH。不需要安装 Agent Client 或启动后台服务。
 
-实际测试结果、待验证事项和平台限制见 [003 验证记录](specs/003-durable-context/acceptance.md)。
-旧基础实现的测试结果仅作为历史记录。
+### 2. 登记文档并生成上下文
 
-## 试用基于文件的上下文
-
-按照[可运行示例](examples/README.md)，完成初始化，注册文档与服务、工具描述，
-建立关联，预览并显式同步。之后即可从生成的入口查阅上下文，
-无需让 DevMeld 持续运行。
-
-命令默认只进行只读预览；使用 `--apply` 时会要求确认。
-源文件仍由人或 Agent 编写和维护，请勿直接修改生成产物。
-操作中断后可通过显式的 `recover` 流程恢复。
-当前 Feature 不执行工具、不连接网络，也不进行安装。
-
-### 生成内容的语言
-
-每套上下文可选择英文（`en`，默认）或简体中文（`zh-CN`）。
-新上下文通过 `init --language zh-CN` 指定；已有上下文使用：
+在需要保存上下文的项目目录中执行，无需先运行 `init`。
+选择一份已有的本地文档，将下面的 `<文档绝对路径>` 替换为实际位置，例如
+`C:/knowledge/notes.md` 或 `/home/me/knowledge/notes.md`。
 
 ```text
-devmeld --context PATH language zh-CN --apply
-devmeld --context PATH sync --apply
+devmeld resource add "<文档绝对路径>" --as knowledge/notes --apply
+devmeld sync --apply
 ```
 
-每条命令均需检查预览并输入 `apply` 确认。第一条保存语言设置，
-第二条更新索引、资源页和入口。通过 `language en` 可切回英文。
-当前配置未设置语言时使用英文，不随系统语言变化。
+每条命令先显示预览，输入 `apply` 才确认写入；去掉 `--apply` 或使用 `--dry-run` 则只预览。
+登记命令只保存配置，`sync` 才生成文件。目前仍保留这套确认方式，简化交互尚在后续实现中。
 
-仅 DevMeld 生成的固定说明文字参与本地化。用户内容、ssh、http、curl
-等技术名称，以及命令、字段名、ID 和链接保持原样。
-此设置不翻译源文件，也不规定 Agent 的回复语言；CLI 帮助和诊断仍使用英文。
-直接从当前仓库运行的完整命令见[示例](examples/README.md)。
+打开 `.devmeld/output/index.md`，沿资源页找到原始文档。
+也可以将这个索引文件指定给有本地读取权限的 Agent。
+生成完成后 DevMeld 即可退出，读取时不再调用它。
 
-### 项目说明文件中的入口
+命令会显示实际使用的上下文位置：优先使用 `--context PATH`；未指定时，
+查找当前目录及其上层最近的 `.devmeld`；没有时，首次确认登记才在当前目录创建。
+发现损坏或不完整的记录会报错，不会跳过它另建一份。
+如需独立试用，可在两条命令中都加上 `--context "<新的上下文目录>"`；
+该位置只在有效操作确认写入时创建。
 
-明确指定一个普通 UTF-8 项目说明文件，不进行自动发现：
+源文件、Schema、入口、输出的相对路径以执行命令时的目录为基准。
+`knowledge/notes` 是逻辑分类地址，不是源文件夹或内部 ID；缺少的父组会自动建立。
+原始文档保留在原处，不会被修改。
+
+## 日常使用
+
+### 查看命令用法
+
+无需初始化或选择上下文，就可以逐层查看帮助；这些命令不会创建文件：
 
 ```text
-devmeld --context PATH entry add /path/to/project/AGENTS.md --kind instructions --apply
-devmeld --context PATH sync --apply
+devmeld --help
+devmeld resource --help
+devmeld resource add --help
+devmeld entry add --help
 ```
 
-新上下文也可通过 `init --instruction-entry PATH` 登记。
-登记命令只修改配置，确认 `sync` 后才插入小段导航；片段之外的作者内容保持原样。
-使用 `entry remove PATH` 后再次同步，只移除片段，即使宿主文件变空也不会删除它。
-原有 `--entry` 和默认的 `entry add` 仍表示整份文件由 DevMeld 生成。
+也可以使用简写 `-h`。帮助只展示当前已经实现的命令。
 
-当前处于**未定版的 v0 开发阶段**，本次是设计演进，不是第二个产品版本发布。
-内部草稿标记不代表稳定格式承诺，索引和资源正文不加版本标签。
-不兼容的早期开发记录会原样保留并拒绝维护，不自动迁移；请使用独立的新路径，
-不要删除或修改旧记录的格式标记来绕过检查。
-实际验证的平台和客户端配置见 [004 验证记录](specs/004-project-entry-integration/acceptance.md)；
-文件名正确不等于 Agent 已自动发现入口。
+### 查看和整理资源
 
-### 不同目录与磁盘上的本地文件
+完成快速开始、登记了 `knowledge/notes` 后，可以继续：
 
-源文件保留在原位置，可用本机绝对路径注册，例如
-`resource add notes --document "D:/knowledge/notes.md"`。
-资源、输出与普通入口文件可以位于不同的本地 Windows 磁盘。
-同盘使用相对于当前 Markdown 文件的链接；跨盘使用 `file:///D:/...`，
-并附可直接识别的本地绝对路径。空格、中文、`#`、`%` 等字符会正确编码。
+```text
+devmeld group list
+devmeld group show knowledge
+devmeld resource list knowledge
+devmeld resource show knowledge/notes
+devmeld group add database --apply
+devmeld resource move knowledge/notes database/notes --apply
+devmeld group move database reference/database --apply
+devmeld group remove knowledge --apply
+devmeld sync --apply
+```
 
-当前只处理本机上下文。远程服务地址可保存在资源描述的属性中，
-但不会作为索引被拉取或展开，也不做跨机器路径映射。
-部分 Markdown 阅读器禁止打开文件链接，此时可通过有权限的本地读取工具
-使用旁边的路径；不需要运行 DevMeld，也不承诺所有阅读器均可点击或跨机器通用。
-完整用法见[示例](examples/README.md)。
+`list`/`show` 只读，不需要确认。按组执行 list 会列出整个子树，group show 只显示直属内容。
+resource show 展示登记的来源和接入关联，不代表来源当前可用或 Agent 已读取。
+移动目标是完整逻辑地址：同名目标会报错，不会自动合并。
+移动不搬移源文件，也不改变内部 ID 或关联；空的原分组会保留，需显式删除。
+非空组不能直接删除。最后执行 `sync` 才更新生成的导航。
+把 `--apply` 替换为 `--dry-run` 可只看修改预览。
 
-## 重新设计期间的工作流程
+### 补充说明、标签和字段
 
-当前开发路径是 [003 持久化上下文发布](specs/003-durable-context/spec.md)，
-对应[实现计划](specs/003-durable-context/plan.md)与
-[行为任务](specs/003-durable-context/tasks.md)。不要恢复执行旧的 001/002 任务。
-维护者已授权继续推进并自行验证经过审查的文件式上下文方案；
-实现进度与验收情况分别记录。
+三者是分开的上下文标注。例如，完成快速开始后、移动 `knowledge/notes` 之前：
 
-当前扩展为 [004 项目指引入口接入](specs/004-project-entry-integration/spec.md)：
-在明确选定的项目指引文件内维护小段入口，保留用户编写的其他内容。
-范围已于 2026-09-09 获得维护者确认；[Plan](specs/004-project-entry-integration/plan.md)
-采用单一当前草稿维护模型，实现与验证进度记录在
-[任务](specs/004-project-entry-integration/tasks.md)和[验证记录](specs/004-project-entry-integration/acceptance.md)中。
-不会自动迁移已有数据。
-Spec Kit 的当前 Feature 指针已指向 004。
+```text
+devmeld group update knowledge --description "团队文档" --tag backend --environment test --shared --apply
+devmeld resource update knowledge/notes --description "项目约定" --field "attention=修改配置前确认原始说明" --apply
+devmeld group show knowledge
+devmeld resource show knowledge/notes
+devmeld sync --apply
+```
 
-Spec Kit 的可选开发辅助工具使用已配置的 Python 工作流程；
-它们不是 DevMeld 或其生成上下文的运行时依赖。
-是否继续使用完整的 Spec Kit 工作流程，仍是一个独立的待决事项。
+`group add`、`resource add` 也支持这些参数。自定义字段不需要新增插件：
+`--environment test` 等价于 `--field environment=test`；`--shared`、`--no-shared`
+分别等价于 `--field shared=true`、`--field shared=false`。
+字段值均为描述文本，不代表权限或执行配置；`--tag shared` 仍是独立的标签。
 
-重启与设计快照已保留在本地 Git 历史中。远程发布仍由维护者负责。
+更新时，未指定的信息保留。需要删除时，在 update 中使用 `--clear-description`、
+`--remove-tag 标签` 或 `--remove-field 字段名`。标签去重；同一命令重复赋值同一字段会报错。
+查看和生成的导航会区分上下文标注与源文件属性，不改写原始来源。
+本级声明与继承得到的值保持区分。
+
+### 控制继承
+
+继承需要两端同时允许：父组向下传递（`propagate`），子项接收（`inherit`）。
+初始默认值是父组允许传递、子项不继承。完成快速开始后、移动 `knowledge/notes` 之前：
+
+```text
+devmeld group update knowledge --tag backend --environment test --propagate --apply
+devmeld resource update knowledge/notes --inherit --apply
+devmeld resource show knowledge/notes
+devmeld sync --apply
+```
+
+查看和生成的导航会区分本级标注与生效的继承信息，并标明来源。
+标签合并去重，同名字段由最近的本级声明覆盖；整体说明、ID、源路径和权限不继承。
+父组使用 `--no-propagate`，或子项使用 `--no-inherit`，都会切断这一层继承，
+更远祖先的信息也不能绕过。删除本级字段覆盖后，可能重新显现父组的值。
+
+在已有上下文中，可以调整两个创建默认值：
+
+```text
+devmeld config set defaults.inherit true --apply
+devmeld config set defaults.propagate false --apply
+devmeld group add tools --no-inherit --propagate --apply
+devmeld group show tools
+```
+
+默认值只影响新节点，包括自动建立的父组。创建时的显式参数只覆盖目标节点，
+更新时未指定的选项保留。修改默认值或移动节点，都不会改写已有节点保存的开关。
+父组标注发生变化后，下一次 `sync` 才更新生成文件；继承值不会复制进子项配置。
+
+### 更新上下文
+
+修改原始文档或资源描述后，再同步：
+
+```text
+devmeld sync --apply
+```
+
+通过 DevMeld 命令维护资源登记和入口，不要直接编辑受管配置或生成文件。
+输入和产物没有变化时，同步不会重写文件。
+
+### 为项目接入入口
+
+明确选择一个普通 UTF-8 项目说明文件，例如项目的 `AGENTS.md`：
+
+```text
+devmeld entry add "<项目绝对路径>/AGENTS.md" --kind instructions --apply
+devmeld sync --apply
+```
+
+DevMeld 只维护其中的生成片段，保留周围的作者内容。
+新 Agent 会话能否自动读到该文件，取决于具体客户端配置；
+也可以通过 `devmeld entry add CONTEXT.md --apply` 登记普通入口，再执行同步。
+初始化上下文本身不会隐式登记或修改项目入口。
+
+移除入口时，在同一上下文中执行（也可显式指定 `--context`）
+`entry remove "<项目绝对路径>/AGENTS.md" --apply`，再执行 `sync --apply`。
+这只移除片段，不删除项目说明文件或原始资源。
+
+### 切换生成语言
+
+```text
+devmeld language zh-CN --apply
+devmeld sync --apply
+```
+
+使用 `en` 可切回英文；未指定时默认英文。
+只切换生成的说明文字，作者内容、ssh/http/curl、命令、ID 和路径保持原样。
+CLI 帮助和错误提示目前仍为英文。
+
+## 当前限制
+
+- 仅处理本机上下文，源文件可位于不同本地磁盘。远程服务地址可保存在描述中，
+  但不会被自动连接或展开成远程索引。
+- 当前需要手动同步，没有自动发现项目、定时更新、安装或执行工具的能力。
+- 已实现逻辑分组、查看、移动、标注和可配置继承；简化的保存与确认交互、
+  发布状态查看尚未实现。
+- 不兼容的旧开发记录会原样保留并拒绝维护，不自动迁移。首次试用请选择新路径。
+  当前操作意外中断时，先用 `devmeld --context PATH recover` 查看恢复预览，
+  再通过 `--apply` 确认。
+- 各平台的实际结果见[当前 CLI 验证记录](specs/005-context-cli/acceptance.md)。
+  macOS 及其他 Agent Client 配置尚未验证。
+
+## 更多资料
+
+- [使用示例](examples/README.md)：服务和工具描述、接入关联、Schema 校验及跨盘路径。
+- [产品说明](docs/product.md)：产品概念与内容归属。
+- [贡献指南](CONTRIBUTING.md)与[工程规范](docs/engineering.md)：开发实践；
+  项目检查命令为 `cargo xtask check`。

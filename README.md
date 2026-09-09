@@ -2,146 +2,226 @@
 
 English | [简体中文](README.zh-CN.md)
 
-DevMeld organizes resources and access guidance into durable, readable project
-context. Agents follow a small project entry to the resources they need;
-ordinary reading does not require DevMeld to be running.
+DevMeld is a local-first tool for organizing project context. It turns team-maintained
+documents, resource descriptions and access guidance into a readable Markdown index.
+An Agent follows a small project entry to find relevant sources, without keeping
+DevMeld running.
 
-The product name is **DevMeld**; the repository name is **devmeld**.
+Resource registration → Published index → Project entry → Agent reads original sources
 
-## Current State
+**Development status:** unreleased v0, intended for local trials. Formats may change.
 
-The Maintainer authorized a design restart on 2026-09-08. The old 001/002 design
-files, four domain crates and their tests have been removed. Their old domain
-selection, APIs and test results are not requirements for the new design.
+## What You Can Do
 
-The first replacement implementation is in `003-durable-context`: native Rust
-commands maintain registration/access associations and publish durable Markdown.
-The two domain crates have no third-party dependencies; filesystem, JSON and
-schema adapters belong to the application. There is no background service,
-resource connector, tool executor or runtime query API.
+- Organize existing documents and structured service/tool descriptions without moving the originals.
+- Link resources to access instructions and tool documentation; optionally validate description attributes with a local JSON Schema.
+- Publish ordinary Markdown entries or maintain a small insertion in a selected project instruction file.
+- Generate English or Simplified Chinese navigation, including links across local Windows drives.
 
-## Read First
+DevMeld generates context from explicit inputs; it does not use AI to rewrite your
+knowledge, answer questions, connect to services or execute the listed tools.
 
-1. [Product](docs/product.md): the confirmed artifact-first product direction.
-2. [Domain model](docs/domain-model.md): the two reviewed ownership boundaries;
-   concrete implementation choices are recorded in the active Feature.
-3. [Engineering](docs/engineering.md) and [Contributing](CONTRIBUTING.md):
-   implementation practices and decision ownership.
-4. [Discussion record](docs/notes/2026-09-08-context-generation-and-consumption.md):
-   confirmed intent, rejected directions and remaining decisions.
-5. [Reset record](docs/notes/2026-09-08-foundation-reset.md):
-   what was removed, what remains, verification and workflow assessment.
+## Quick Start
 
-The [Constitution](.specify/memory/constitution.md) remains a draft.
-[ADR-0001](docs/adr/0001-domain-oriented-modular-monolith.md) retains general
-domain-oriented modular-monolith principles, not the retired domain map.
-[ADR-0003](docs/adr/0003-rust-runtime.md) retains the Rust runtime decision;
-its old foundation layout is historical.
+### 1. Build from source
 
-## Run Checks
-
-With the existing pinned Rust toolchain, rustfmt, Clippy and native linker:
+With Rust installed, run this from the repository root. The toolchain is specified
+in [rust-toolchain.toml](rust-toolchain.toml); a native linker is also required.
 
 ```text
-cargo xtask check
+cargo build --release --locked -p devmeld
 ```
 
-This runs formatting, compiler checking, conservative Clippy and Cargo tests
-using native Rust process APIs. No PowerShell, Bash or Python is required.
-The application dependencies are recorded in the workspace lockfile. Bootstrap
-once with `cargo fetch --locked`; subsequent checks/builds use the local cache.
+The executable is `target/release/devmeld` on Linux/macOS, or
+`target/release/devmeld.exe` on Windows. The commands below call it `devmeld`:
+use its actual path or add its directory to your PATH. This does not require
+installing an Agent Client or running a background service.
 
-See [003 evidence](specs/003-durable-context/acceptance.md) for actual test results,
-remaining checks and platform limitations. Old foundation tests are historical.
+### 2. Register a document and publish
 
-## Try the File-Based Path
-
-Follow the [runnable example](examples/README.md). Initialize, register documents
-and service/tool descriptions, associate them, preview and explicitly synchronize.
-Then follow the generated entry without keeping DevMeld running.
-
-Commands default to read-only preview; `--apply` asks for confirmation. Sources
-remain authored files. Do not edit generated output; interrupted operations have
-an explicit `recover` path. No tool execution, network connection or installation
-is performed by this feature.
-
-### Generated-output language
-
-Select English (`en`, the default) or Simplified Chinese (`zh-CN`) for one
-context. For a new context, use `init --language zh-CN`. For an existing context:
+Run from the project directory where you want to keep context. No separate `init`
+is required. Choose an existing local document and replace `<absolute-document-path>` with its
+full path, such as `C:/knowledge/notes.md` or `/home/me/knowledge/notes.md`.
 
 ```text
-devmeld --context PATH language zh-CN --apply
-devmeld --context PATH sync --apply
+devmeld resource add "<absolute-document-path>" --as knowledge/notes --apply
+devmeld sync --apply
 ```
 
-Confirm each preview with `apply`. The first command saves the language; the
-second updates the index, resource pages and entries. Use `language en` to switch
-back. Current-model configurations without this setting remain English, independently
-of the system locale.
+Each command shows a preview. Type `apply` to confirm it; omit `--apply` for
+preview only, or use `--dry-run`. Registration changes configuration; `sync` publishes the files.
+The apply-word interaction is still in place while the rest of the CLI redesign is implemented.
 
-Only generated explanatory text is localized. Authored content, ssh/http/curl,
-other technical names, commands, field names, IDs and links remain unchanged.
-This is not source translation or an instruction about the Agent's reply language.
-CLI help and diagnostics remain English. See the [example](examples/README.md)
-for commands runnable directly from this checkout.
+Open `.devmeld/output/index.md`, then follow the resource page to the
+original document. You can give that index file to an Agent with local read
+access. DevMeld can exit after publication; reading does not call it again.
 
-### Entry inside project instructions
+The command reports the selected context: explicit `--context PATH` wins;
+otherwise it reuses the nearest ancestor `.devmeld`, or creates one in the current
+directory on the first confirmed add. A corrupt or incomplete marker blocks fallback.
+For a separate trial, pass `--context "<new-context-directory>"` to both commands;
+the new location is created only when applying valid changes.
 
-Select an ordinary UTF-8 instruction file explicitly; DevMeld does not discover it:
+Native source/schema/entry/output paths resolve from the invoking directory.
+`knowledge/notes` is a logical address, not a source folder or an internal ID;
+missing parent groups are created. Original documents stay in place and are not modified.
+
+## Everyday Use
+
+### Find a command
+
+Help works without initializing or selecting a context and does not create files:
 
 ```text
-devmeld --context PATH entry add /path/to/project/AGENTS.md --kind instructions --apply
-devmeld --context PATH sync --apply
+devmeld --help
+devmeld resource --help
+devmeld resource add --help
+devmeld entry add --help
 ```
 
-For a fresh context, `init --instruction-entry PATH` registers the same entry.
-Registration changes configuration only; confirmed sync inserts the small navigation
-section. Surrounding author text is preserved. `entry remove PATH` followed by sync
-removes only the insertion and retains the host file, even if empty. `--entry` and
-default `entry add` still select an entirely generated file.
+Use `-h` as a short form. Help describes the currently implemented commands.
 
-This is unreleased **v0 development**, not a second product release. The internal
-draft marker is not a stable format guarantee; indexes/resources carry no release
-label. Incompatible old development records are left intact and rejected, not
-migrated. Use separate fresh paths rather than deleting or relabeling old records.
-See [004 verification](specs/004-project-entry-integration/acceptance.md) for the
-actually tested platforms and client setup; a filename alone does not prove discovery.
+### Inspect and reorganize resources
 
-### Local files across directories and drives
+After registering `knowledge/notes` in the quick start:
 
-Sources stay in their existing locations. Register an absolute native path when
-needed, for example `resource add notes --document "D:/knowledge/notes.md"`.
-Sources, output and ordinary entry files can be on different local Windows drives.
-Generated links are relative to the containing Markdown file when roots match;
-across drives they use `file:///D:/...` plus a readable local path. Spaces,
-Unicode and URL-reserved characters are encoded without changing the target.
+```text
+devmeld group list
+devmeld group show knowledge
+devmeld resource list knowledge
+devmeld resource show knowledge/notes
+devmeld group add database --apply
+devmeld resource move knowledge/notes database/notes --apply
+devmeld group move database reference/database --apply
+devmeld group remove knowledge --apply
+devmeld sync --apply
+```
 
-Only this machine is in scope. Remote service addresses can be authored resource
-attributes; DevMeld does not fetch remote indexes or map paths between machines.
-Some Markdown viewers block file links; use the displayed path with an authorized
-local reader. No running DevMeld process is required, and no universal viewer or
-cross-machine portability is claimed. See the [example](examples/README.md).
+`list`/`show` are read-only and need no confirmation. List with a group path includes
+its descendants; group show displays direct children. Resource show reports registered
+sources and access associations, not live availability or whether an Agent read them.
+Move destinations are exact logical addresses: existing targets are rejected, not merged.
+Moving never relocates source files or changes stable identities/associations. Empty old
+groups remain until explicitly removed; nonempty group removal is rejected. Only sync
+updates published navigation. Use `--dry-run` instead of `--apply` to preview a change.
 
-## Workflow During Redesign
+### Describe groups and resources
 
-The active path is [003 Durable Context Publication](specs/003-durable-context/spec.md),
-with its [plan](specs/003-durable-context/plan.md) and
-[behavior tasks](specs/003-durable-context/tasks.md). Do not resume old 001/002
-tasks. The Maintainer delegated continuation and self-verification of the reviewed
-file-based path; implementation progress and acceptance are recorded separately.
+Descriptions, tags and named fields are separate context annotations. For example,
+after the quick start (before moving `knowledge/notes`):
 
-The active extension is [004 Project Instruction Entry Integration](specs/004-project-entry-integration/spec.md):
-maintain a small entry inside a selected project instruction file while preserving
-its authored content. Scope was accepted on 2026-09-09; the [Plan](specs/004-project-entry-integration/plan.md)
-uses a single current draft maintenance model. Implementation and verification
-are recorded in its [tasks](specs/004-project-entry-integration/tasks.md) and
-[evidence](specs/004-project-entry-integration/acceptance.md). It does not automatically migrate existing data.
-Spec Kit's current feature pointer selects 004.
+```text
+devmeld group update knowledge --description "Team documentation" --tag backend --environment test --shared --apply
+devmeld resource update knowledge/notes --description "Project conventions" --field "attention=Check the source before changing configuration" --apply
+devmeld group show knowledge
+devmeld resource show knowledge/notes
+devmeld sync --apply
+```
 
-Spec Kit's optional development helpers use the configured Python workflow;
-they are not runtime dependencies of DevMeld or of its generated context.
-Whether to keep using the full Spec Kit workflow remains a separate decision.
+These options also work on `group add` and `resource add`. Custom fields need no
+new plugin: `--environment test` is equivalent to `--field environment=test`;
+`--shared` and `--no-shared` mean `--field shared=true` and `--field shared=false`.
+All field values are descriptive text, not permissions or execution settings.
+`--tag shared` remains an independent tag.
 
-Restart and design snapshots are recorded in local Git history. Remote publishing
-remains with the Maintainer.
+Update preserves unspecified information. Use `--clear-description`,
+`--remove-tag TAG`, or `--remove-field KEY` with update to remove it explicitly.
+Tags are unique; duplicate field assignments in one command are errors.
+Show and generated navigation distinguish context annotations from source-file
+attributes. Sources are not rewritten; local declarations and inherited values remain distinct.
+
+### Control inheritance
+
+Both sides must opt in: the parent group allows transmission (`propagate`), and
+the child receives it (`inherit`). Initially, groups transmit by default and
+children do not inherit. After the quick start, before moving `knowledge/notes`:
+
+```text
+devmeld group update knowledge --tag backend --environment test --propagate --apply
+devmeld resource update knowledge/notes --inherit --apply
+devmeld resource show knowledge/notes
+devmeld sync --apply
+```
+
+Show and generated navigation identify local annotations and the origin of effective
+inherited tags/fields. Tags combine without duplicates; the nearest local field wins.
+Overall descriptions, identities, source paths and permissions never inherit.
+`--no-propagate` on a group or `--no-inherit` on a child cuts that inheritance edge,
+including more distant ancestors. Removing a local field override may reveal its inherited value.
+
+Creation defaults are configurable in an existing context:
+
+```text
+devmeld config set defaults.inherit true --apply
+devmeld config set defaults.propagate false --apply
+devmeld group add tools --no-inherit --propagate --apply
+devmeld group show tools
+```
+
+These defaults affect new nodes only, including automatically created parents.
+Explicit flags override the target node's creation defaults; updates preserve omitted
+choices. Existing choices stay saved when defaults change or nodes move.
+Changed parent annotations take effect in generated files on the next `sync`;
+inherited values are never copied into the child's registration.
+
+### Update context
+
+Edit your original documents or descriptions, then synchronize:
+
+```text
+devmeld sync --apply
+```
+
+Use DevMeld commands to change registrations and entries; do not hand-edit managed
+configuration or generated files. Unchanged synchronization does not rewrite output.
+
+### Add an entry to a project
+
+Select an ordinary UTF-8 instruction file, such as your project's `AGENTS.md`:
+
+```text
+devmeld entry add "<absolute-project-path>/AGENTS.md" --kind instructions --apply
+devmeld sync --apply
+```
+
+Only the generated insertion is maintained; surrounding authored text is preserved.
+Whether a new Agent session discovers the file depends on that client's setup.
+Alternatively, register an ordinary entry using `devmeld entry add CONTEXT.md --apply`,
+then sync. Initialization does not register or edit a project entry implicitly.
+
+To detach, run `entry remove "<absolute-project-path>/AGENTS.md" --apply`, then
+`sync --apply`, from the same context (or with an explicit `--context`). This removes only the insertion,
+not the host file or original resources.
+
+### Choose the generated language
+
+```text
+devmeld language zh-CN --apply
+devmeld sync --apply
+```
+
+Use `en` to switch back. English is the default. Only generated explanatory text
+changes; authored content, ssh/http/curl, commands, IDs and paths stay unchanged.
+CLI help and diagnostics currently remain English.
+
+## Current Limits
+
+- Local-machine use only. Sources may be on different local drives; remote service
+  addresses can be described, but are not fetched or indexed remotely.
+- Synchronization is manual. There is no automatic project discovery, scheduler,
+  tool installation or execution.
+- Logical groups, inspection, moves, annotations and configurable inheritance are
+  implemented. The simplified save/confirmation UX and publication status remain unbuilt.
+- Older incompatible development records are preserved and rejected, not migrated.
+  Use fresh context paths for a first trial. For an interrupted current operation,
+  preview `devmeld --context PATH recover` before confirming with `--apply`.
+- See the [current CLI verification record](specs/005-context-cli/acceptance.md)
+  for platform results. macOS and additional Agent Client setups remain unverified.
+
+## More Information
+
+- [Examples](examples/README.md): service/tool descriptions, access associations,
+  schema validation and cross-drive paths.
+- [Product overview](docs/product.md): product concepts and ownership boundaries.
+- [Contributing](CONTRIBUTING.md) and [engineering guide](docs/engineering.md):
+  development practices. Run `cargo xtask check` for the project checks.

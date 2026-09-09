@@ -45,6 +45,15 @@ impl OutputLanguage {
 
 // Both sets must provide every field; no string-key lookup or silent fallback.
 pub(crate) struct Messages {
+    pub inheritance_choices: &'static str,
+    pub effective_annotations: &'static str,
+    pub no_effective_annotations: &'static str,
+    pub annotation_origin: &'static str,
+    pub context_annotations: &'static str,
+    pub annotation_description: &'static str,
+    pub annotation_tags: &'static str,
+    pub annotation_fields: &'static str,
+    pub source_attributes: &'static str,
     pub context_heading: &'static str,
     pub navigation_notice: &'static str,
     pub resource_notice: &'static str,
@@ -63,6 +72,15 @@ pub(crate) struct Messages {
 }
 
 const ENGLISH: Messages = Messages {
+    inheritance_choices: "Saved inheritance choices",
+    effective_annotations: "Effective tags and fields",
+    no_effective_annotations: "(none; only enabled parent/child edges pass tags and fields)",
+    annotation_origin: "Origin",
+    context_annotations: "Context annotations (local)",
+    annotation_description: "Description",
+    annotation_tags: "Tags",
+    annotation_fields: "Fields",
+    source_attributes: "Source-declared attributes",
     shared_maintenance: "Edit authored sources according to their owners' rules. Maintain this generated insertion, navigation and managed registration through DevMeld; do not edit them directly. Surrounding project instructions remain author-owned.",
     local_path: "Local path",
     context_heading: "Context",
@@ -81,6 +99,15 @@ const ENGLISH: Messages = Messages {
 };
 
 const SIMPLIFIED_CHINESE: Messages = Messages {
+    inheritance_choices: "已保存的继承选项",
+    effective_annotations: "生效标签和字段",
+    no_effective_annotations: "（无；仅父组允许传递且子项允许接收时，标签和字段才会传递）",
+    annotation_origin: "来源",
+    context_annotations: "上下文标注（本级）",
+    annotation_description: "说明",
+    annotation_tags: "标签",
+    annotation_fields: "字段",
+    source_attributes: "源文件声明的属性",
     shared_maintenance: "原始来源应按其所有者的规则编辑。此生成片段、索引和受管注册配置须通过 DevMeld 维护，请勿直接修改。片段之外的项目说明仍由作者维护。",
     local_path: "本地路径",
     context_heading: "上下文",

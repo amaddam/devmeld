@@ -24,6 +24,7 @@ impl Fixture {
     fn run(&self, args: &[&str], apply: bool) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_devmeld"));
         command
+            .current_dir(&self.0)
             .arg("--context")
             .arg(&self.0)
             .args(args)
@@ -80,7 +81,7 @@ fn explicit_registration_and_confirmed_sync_attach_only_a_small_entry() {
     f.ok(&["init", "--instruction-entry", "AGENTS.md"]);
     assert_eq!(f.read("AGENTS.md"), authored);
     fs::write(f.0.join("facts.md"), "Unique fixture fact.").unwrap();
-    f.ok(&["resource", "add", "facts", "--document", "facts.md"]);
+    f.ok(&["resource", "add", "facts.md", "--as", "facts"]);
     let preview = f.run(&["sync"], false);
     assert!(preview.status.success());
     assert_eq!(f.read("AGENTS.md"), authored);
@@ -91,7 +92,7 @@ fn explicit_registration_and_confirmed_sync_attach_only_a_small_entry() {
     assert!(host.contains("[context navigation](.devmeld/output/index.md)"));
     assert!(host.contains("[Managed registration](.devmeld/context.json)"));
     assert!(!host.contains("Unique fixture fact"));
-    assert!(!host.contains("r-facts.md"));
+    assert!(!host.contains("r-resource-1.md"));
     let receipt: serde_json::Value =
         serde_json::from_slice(&f.read(".devmeld/state/owned.json")).unwrap();
     let claim = &receipt["surfaces"][f.0.join("AGENTS.md").to_str().unwrap()];
@@ -254,7 +255,7 @@ fn relocated_navigation_and_language_share_sources_without_translating_authored_
         "--entry",
         "CONTEXT.md",
     ]);
-    f.ok(&["resource", "add", "ssh-http", "--document", "知识 #100%.md"]);
+    f.ok(&["resource", "add", "知识 #100%.md", "--as", "ssh-http"]);
     f.ok(&["sync"]);
     f.ok(&["output", "navigation #new"]);
     f.ok(&["language", "zh-CN"]);
@@ -262,7 +263,7 @@ fn relocated_navigation_and_language_share_sources_without_translating_authored_
     let host = String::from_utf8(f.read("project/AGENTS.md")).unwrap();
     assert!(host.contains("[上下文索引](../navigation%20%23new/index.md)"));
     assert!(host.ends_with("SSH / HTTP author rules"));
-    let page = String::from_utf8(f.read("navigation #new/r-ssh-http.md")).unwrap();
+    let page = String::from_utf8(f.read("navigation #new/r-resource-1.md")).unwrap();
     assert!(page.contains("../%E7%9F%A5%E8%AF%86%20%23100%25.md"));
     assert_eq!(f.read("知识 #100%.md"), b"SSH / HTTP facts");
     assert!(!f.0.join(".devmeld/output/index.md").exists());
@@ -291,7 +292,7 @@ fn even_noop_apply_rechecks_all_captured_inputs() {
         let f = Fixture::new();
         fs::write(f.0.join("facts.md"), "facts").unwrap();
         f.ok(&["init", "--instruction-entry", "AGENTS.md"]);
-        f.ok(&["resource", "add", "facts", "--document", "facts.md"]);
+        f.ok(&["resource", "add", "facts.md", "--as", "facts"]);
         f.ok(&["sync"]);
         let plan = f.prepare(&["sync"]).unwrap();
         assert!(plan.is_empty());
@@ -484,7 +485,7 @@ fn sources_and_obsolete_targets_remain_in_the_alias_check() {
     fs::write(f.0.join("facts.md"), "authored").unwrap();
     fs::hard_link(f.0.join("facts.md"), f.0.join("AGENTS.md")).unwrap();
     f.ok(&["init", "--instruction-entry", "AGENTS.md"]);
-    f.ok(&["resource", "add", "facts", "--document", "facts.md"]);
+    f.ok(&["resource", "add", "facts.md", "--as", "facts"]);
     assert!(!f.run(&["sync"], true).status.success());
     assert_eq!(f.read("facts.md"), b"authored");
 
@@ -548,13 +549,7 @@ fn cross_drive_instruction_entries_follow_real_sources_after_relocation_and_deta
         "--instruction-entry",
         second_host.to_str().unwrap(),
     ]);
-    f.ok(&[
-        "resource",
-        "add",
-        "notes",
-        "--document",
-        source.to_str().unwrap(),
-    ]);
+    f.ok(&["resource", "add", source.to_str().unwrap(), "--as", "notes"]);
     for (output, language) in [
         (f.0.join(".devmeld/output"), "en"),
         (second.0.join("发布 #100%"), "zh-CN"),

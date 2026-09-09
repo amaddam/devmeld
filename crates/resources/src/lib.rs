@@ -1,4 +1,6 @@
 //! Resource Organization: pure registration and access-association rules.
+pub mod organization;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::PathBuf;
@@ -68,11 +70,13 @@ pub struct Resource {
     references: Vec<(String, PathBuf)>,
 }
 impl Resource {
-    pub fn document(id: ResourceId, source: PathBuf) -> Result<Self, Error> {
+    pub fn document(id: ResourceId, source: PathBuf, title: String) -> Result<Self, Error> {
         if source.as_os_str().is_empty() {
             return Err(Error::EmptyField("source"));
         }
-        let title = id.as_str().to_owned();
+        if title.trim().is_empty() {
+            return Err(Error::EmptyField("title"));
+        }
         Ok(Self {
             id,
             source,
@@ -101,8 +105,7 @@ impl Resource {
         {
             return Err(Error::EmptyField("reference"));
         }
-        let mut resource = Self::document(id, source)?;
-        resource.title = title;
+        let mut resource = Self::document(id, source, title)?;
         resource.summary = Some(summary);
         resource.attributes = attributes;
         resource.references = references;
@@ -142,6 +145,9 @@ impl Resources {
     }
     pub fn iter(&self) -> impl Iterator<Item = &Resource> {
         self.items.values()
+    }
+    pub fn get(&self, id: &ResourceId) -> Option<&Resource> {
+        self.items.get(id)
     }
 }
 

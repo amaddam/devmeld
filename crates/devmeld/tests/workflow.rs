@@ -22,6 +22,7 @@ impl Fixture {
     fn run(&self, args: &[&str], apply: bool) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_devmeld"));
         command
+            .current_dir(&self.0)
             .arg("--context")
             .arg(&self.0)
             .args(args)
@@ -213,19 +214,15 @@ fn cross_drive_workflow_preserves_sources_and_follows_offline_links() {
         "--entry",
         entry.to_str().unwrap(),
     ]);
+    f.ok(&["resource", "add", source.to_str().unwrap(), "--as", "notes"]);
     f.ok(&[
         "resource",
         "add",
-        "notes",
-        "--document",
-        source.to_str().unwrap(),
-    ]);
-    f.ok(&[
-        "resource",
-        "add",
-        "service",
-        "--description",
         "service.json",
+        "--as",
+        "service",
+        "--kind",
+        "description",
     ]);
     let original = fs::read(&source).unwrap();
     let original_description = fs::read(&description).unwrap();
@@ -244,17 +241,17 @@ fn cross_drive_workflow_preserves_sources_and_follows_offline_links() {
     verify_targets(
         &index,
         &[
-            &output.join("r-notes.md"),
-            &output.join("r-service.md"),
+            &output.join("r-resource-1.md"),
+            &output.join("r-resource-2.md"),
             &config,
         ],
     );
-    verify_targets(&output.join("r-notes.md"), &[&source, &config]);
+    verify_targets(&output.join("r-resource-1.md"), &[&source, &config]);
     verify_targets(
-        &output.join("r-service.md"),
+        &output.join("r-resource-2.md"),
         &[&description, &config, &source],
     );
-    let page = fs::read_to_string(output.join("r-notes.md")).unwrap();
+    let page = fs::read_to_string(output.join("r-resource-1.md")).unwrap();
     assert!(page.contains("%E7%9F%A5%E8%AF%86%20%23100%25%20%28ssh%29.md"));
     assert!(page.contains("本地路径:"));
     assert!(!page.contains(r"\\?\"));
@@ -278,14 +275,14 @@ fn cross_drive_workflow_preserves_sources_and_follows_offline_links() {
     verify_targets(
         &moved.join("index.md"),
         &[
-            &moved.join("r-notes.md"),
-            &moved.join("r-service.md"),
+            &moved.join("r-resource-1.md"),
+            &moved.join("r-resource-2.md"),
             &config,
         ],
     );
-    verify_targets(&moved.join("r-notes.md"), &[&source, &config]);
+    verify_targets(&moved.join("r-resource-1.md"), &[&source, &config]);
     verify_targets(
-        &moved.join("r-service.md"),
+        &moved.join("r-resource-2.md"),
         &[&description, &config, &source],
     );
     assert!(
@@ -327,7 +324,7 @@ fn documents_publish_to_offline_entry_and_unchanged_sync_is_noop() {
     )
     .unwrap();
     f.ok(&["init", "--entry", "project/CONTEXT.md"]);
-    f.ok(&["resource", "add", "notes", "--document", "团队 notes.md"]);
+    f.ok(&["resource", "add", "团队 notes.md", "--as", "notes"]);
     assert!(!f.0.join(".devmeld/output/index.md").exists());
     f.ok(&["sync"]);
     let index = f.0.join(".devmeld/output/index.md");
@@ -336,7 +333,7 @@ fn documents_publish_to_offline_entry_and_unchanged_sync_is_noop() {
     assert!(
         String::from_utf8(first.clone())
             .unwrap()
-            .contains("r-notes.md")
+            .contains("r-resource-1.md")
     );
     assert!(
         fs::read_to_string(f.0.join("project/CONTEXT.md"))
@@ -344,7 +341,7 @@ fn documents_publish_to_offline_entry_and_unchanged_sync_is_noop() {
             .contains("../.devmeld/output/index.md")
     );
     assert!(
-        fs::read_to_string(f.0.join(".devmeld/output/r-notes.md"))
+        fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md"))
             .unwrap()
             .contains("%20notes.md")
     );
@@ -384,7 +381,7 @@ fn chinese_publication_localizes_generated_text_without_changing_document_or_lin
     );
     assert!(!f.0.join(".devmeld").exists());
     f.ok(&init);
-    f.ok(&["resource", "add", "ssh-http", "--document", "ssh http.md"]);
+    f.ok(&["resource", "add", "ssh http.md", "--as", "ssh-http"]);
     let preview = f.run(&["sync"], false);
     assert!(preview.status.success());
     assert!(String::from_utf8_lossy(&preview.stdout).contains("# 上下文"));
@@ -393,8 +390,8 @@ fn chinese_publication_localizes_generated_text_without_changing_document_or_lin
     let index = fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap();
     assert!(index.starts_with("# 上下文\n"));
     assert!(index.contains("最近一次成功同步"));
-    assert!(index.contains("[ssh-http](r-ssh-http.md) — 原始文档"));
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-ssh-http.md")).unwrap();
+    assert!(index.contains("[ssh-http](r-resource-1.md) — 原始文档"));
+    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
     assert!(page.contains("[原始来源](../../ssh%20http.md)"));
     assert!(page.contains("[受管注册配置](../context.json)"));
     let entry = fs::read_to_string(f.0.join("project/CONTEXT.md")).unwrap();
@@ -402,7 +399,7 @@ fn chinese_publication_localizes_generated_text_without_changing_document_or_lin
     assert!(entry.contains("[上下文索引](../.devmeld/output/index.md)"));
     for file in [
         ".devmeld/output/index.md",
-        ".devmeld/output/r-ssh-http.md",
+        ".devmeld/output/r-resource-1.md",
         "project/CONTEXT.md",
     ] {
         f.assert_local_links(file);
@@ -435,11 +432,21 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
     f.ok(&[
         "resource",
         "add",
-        "service",
-        "--description",
         "service.json",
+        "--as",
+        "service",
+        "--kind",
+        "description",
     ]);
-    f.ok(&["resource", "add", "curl", "--description", "tool.json"]);
+    f.ok(&[
+        "resource",
+        "add",
+        "tool.json",
+        "--as",
+        "curl",
+        "--kind",
+        "description",
+    ]);
     f.ok(&["access", "add", "service", "curl"]);
     f.ok(&["sync"]);
     let config_path = f.0.join(".devmeld/context.json");
@@ -448,8 +455,8 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
     assert!(old_config["publication"].get("language").is_none());
     let files = [
         ".devmeld/output/index.md",
-        ".devmeld/output/r-service.md",
-        ".devmeld/output/r-curl.md",
+        ".devmeld/output/r-resource-1.md",
+        ".devmeld/output/r-resource-2.md",
         "project/CONTEXT.md",
         "other/ENTRY.md",
     ];
@@ -487,7 +494,7 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
         );
     }
     f.ok(&["sync"]);
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-service.md")).unwrap();
+    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
     for unchanged in [
         "# ssh / http API",
         "Original document",
@@ -504,7 +511,7 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
         );
     }
     assert!(page.contains("## 接入指引"));
-    assert!(page.contains("[关联资源: curl](r-curl.md)"));
+    assert!(page.contains("[关联资源: curl](r-resource-2.md)"));
     assert!(page.contains("不代表排他性选择或已验证的可用性"));
     assert!(page.contains("不得静默替换"));
     assert!(page.contains("优先项目管理的方案"));
@@ -512,7 +519,7 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
     assert!(page.contains("选择工具不等于授权安装"));
     assert!(page.contains("执行超出当前任务授权的操作"));
     assert!(
-        fs::read_to_string(f.0.join(".devmeld/output/r-curl.md"))
+        fs::read_to_string(f.0.join(".devmeld/output/r-resource-2.md"))
             .unwrap()
             .contains("curl for http; ssh 使用独立授权。")
     );
@@ -620,7 +627,7 @@ fn invalid_output_languages_are_rejected_without_mutating_context() {
 }
 
 #[test]
-fn language_defaults_ignore_host_locale_and_keep_legacy_english_output_bytes() {
+fn language_defaults_ignore_host_locale_and_keep_deterministic_english_output_bytes() {
     for options in [
         vec!["init", "--entry", "project/CONTEXT.md"],
         vec!["init", "--language", "en", "--entry", "project/CONTEXT.md"],
@@ -639,7 +646,7 @@ fn language_defaults_ignore_host_locale_and_keep_legacy_english_output_bytes() {
         assert!(!String::from_utf8_lossy(&init.stdout).contains("zh-CN"));
         f.ok(&options);
         fs::write(f.0.join("doc.md"), "ssh and http").unwrap();
-        f.ok(&["resource", "add", "doc", "--document", "doc.md"]);
+        f.ok(&["resource", "add", "doc.md", "--as", "doc"]);
         let sync = Command::new(env!("CARGO_BIN_EXE_devmeld"))
             .arg("--context")
             .arg(&f.0)
@@ -654,11 +661,11 @@ fn language_defaults_ignore_host_locale_and_keep_legacy_english_output_bytes() {
         f.ok(&["sync"]);
         assert_eq!(
             fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap(),
-            "# Context\n\nGenerated by DevMeld. Read these files without running DevMeld.\nOnly reflects the last successful synchronization. Do not edit generated files.\n\n- [doc](r-doc.md) — Original document\n\n[Managed registration](../context.json)\n"
+            "# Context\n\nGenerated by DevMeld. Read these files without running DevMeld.\nOnly reflects the last successful synchronization. Do not edit generated files.\n\n- [doc](r-resource-1.md) — Original document\n  Saved inheritance choices: inherit: false\n  \n\n[Managed registration](../context.json)\n"
         );
         assert_eq!(
-            fs::read_to_string(f.0.join(".devmeld/output/r-doc.md")).unwrap(),
-            "# doc\n\nOriginal document\n\nGenerated by DevMeld; update the original source or use DevMeld to change registration.\n\n[Original source](../../doc.md)\n\n[Managed registration](../context.json)\n\n\n"
+            fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap(),
+            "# doc\n\nOriginal document\n\nGenerated by DevMeld; update the original source or use DevMeld to change registration.\n\n[Original source](../../doc.md)\n\n[Managed registration](../context.json)\n\n\nSaved inheritance choices: inherit: false\n\n"
         );
         assert_eq!(
             fs::read_to_string(f.0.join("project/CONTEXT.md")).unwrap(),
@@ -728,9 +735,9 @@ fn publication_cannot_overwrite_a_registered_source_even_if_it_owned_the_file_be
     f.ok(&[
         "resource",
         "add",
-        "alias",
-        "--document",
         ".devmeld/output/index.md",
+        "--as",
+        "alias",
     ]);
     let before = fs::read(f.0.join(".devmeld/output/index.md")).unwrap();
     let output = f.run(&["sync"], true);
@@ -761,7 +768,7 @@ fn stale_preview_and_external_edits_preserve_external_bytes() {
     let f = Fixture::new();
     f.ok(&["init"]);
     fs::write(f.0.join("doc.md"), "first").unwrap();
-    f.ok(&["resource", "add", "doc", "--document", "doc.md"]);
+    f.ok(&["resource", "add", "doc.md", "--as", "doc"]);
     let plan = devmeld::prepare(&f.0, &["sync".into()]).unwrap();
     fs::write(f.0.join("doc.md"), "second").unwrap();
     assert!(plan.apply().unwrap_err().to_string().contains("stale"));
@@ -780,7 +787,7 @@ fn registration_entry_and_output_changes_unpublish_only_owned_files() {
     let f = Fixture::new();
     fs::write(f.0.join("notes.md"), "original").unwrap();
     f.ok(&["init", "--entry", "project/CONTEXT.md"]);
-    f.ok(&["resource", "add", "notes", "--document", "notes.md"]);
+    f.ok(&["resource", "add", "notes.md", "--as", "notes"]);
     f.ok(&["sync"]);
     f.ok(&["entry", "remove", "project/CONTEXT.md"]);
     f.ok(&["entry", "add", "other/CONTEXT.md"]);
@@ -788,7 +795,7 @@ fn registration_entry_and_output_changes_unpublish_only_owned_files() {
     f.ok(&["sync"]);
     assert!(!f.0.join("project/CONTEXT.md").exists());
     assert!(!f.0.join(".devmeld/output/index.md").exists());
-    assert!(f.0.join("published/r-notes.md").exists());
+    assert!(f.0.join("published/r-resource-1.md").exists());
     assert!(f.0.join("other/CONTEXT.md").exists());
     f.ok(&["resource", "remove", "notes"]);
     let config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
@@ -810,14 +817,16 @@ fn descriptions_validate_custom_attributes_offline_without_changing_old_output()
     f.ok(&[
         "resource",
         "add",
-        "service",
-        "--description",
         "service.json",
+        "--as",
+        "service",
+        "--kind",
+        "description",
         "--schema",
         "schema.json",
     ]);
     f.ok(&["sync"]);
-    let page = f.0.join(".devmeld/output/r-service.md");
+    let page = f.0.join(".devmeld/output/r-resource-1.md");
     let before = fs::read(&page).unwrap();
     let text = String::from_utf8(before.clone()).unwrap();
     assert!(
@@ -851,7 +860,7 @@ fn help_explains_command_options_and_missing_confirmation_is_read_only() {
         .output()
         .unwrap();
     assert!(help.status.success());
-    assert!(String::from_utf8_lossy(&help.stdout).contains("--description PATH"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("--kind document|description"));
     assert!(String::from_utf8_lossy(&help.stdout).contains("--language en|zh-CN"));
     assert!(String::from_utf8_lossy(&help.stdout).contains("language en|zh-CN"));
     assert!(String::from_utf8_lossy(&help.stdout).contains("then sync"));
@@ -869,18 +878,18 @@ fn help_explains_command_options_and_missing_confirmation_is_read_only() {
 }
 
 #[test]
-fn invalid_ids_envelopes_versions_and_oversize_sources_are_explicit_errors() {
+fn invalid_addresses_envelopes_versions_and_oversize_sources_are_explicit_errors() {
     let f = Fixture::new();
     f.ok(&["init"]);
     fs::write(f.0.join("doc.md"), "original").unwrap();
     assert!(
-        !f.run(&["resource", "add", "Bad ID", "--document", "doc.md"], true)
+        !f.run(&["resource", "add", "doc.md", "--as", "../bad"], true)
             .status
             .success()
     );
-    f.ok(&["resource", "add", "doc", "--document", "doc.md"]);
+    f.ok(&["resource", "add", "doc.md", "--as", "doc"]);
     assert!(
-        !f.run(&["resource", "add", "doc", "--document", "doc.md"], true)
+        !f.run(&["resource", "add", "doc.md", "--as", "doc"], true)
             .status
             .success()
     );
@@ -891,7 +900,15 @@ fn invalid_ids_envelopes_versions_and_oversize_sources_are_explicit_errors() {
     .unwrap();
     assert!(
         !f.run(
-            &["resource", "add", "bad", "--description", "bad.json"],
+            &[
+                "resource",
+                "add",
+                "bad.json",
+                "--as",
+                "bad",
+                "--kind",
+                "description"
+            ],
             true
         )
         .status
@@ -899,12 +916,9 @@ fn invalid_ids_envelopes_versions_and_oversize_sources_are_explicit_errors() {
     );
     fs::write(f.0.join("large.md"), vec![b'x'; 8 * 1024 * 1024 + 1]).unwrap();
     assert!(
-        !f.run(
-            &["resource", "add", "large", "--document", "large.md"],
-            true
-        )
-        .status
-        .success()
+        !f.run(&["resource", "add", "large.md", "--as", "large"], true)
+            .status
+            .success()
     );
     let config_path = f.0.join(".devmeld/context.json");
     let mut config: serde_json::Value =
@@ -961,33 +975,43 @@ fn access_guidance_links_existing_tools_without_granting_execution_authority() {
     .unwrap();
     fs::write(f.0.join("tool.json"), r#"{"title":"Existing tool","summary":"Use according to team instructions","references":[{"label":"Script","path":"tool.py"},{"label":"Dependencies","path":"pyproject.toml"}]}"#).unwrap();
     f.ok(&["init", "--entry", "project/CONTEXT.md"]);
-    f.ok(&["resource", "add", "notes", "--document", "notes.md"]);
+    f.ok(&["resource", "add", "notes.md", "--as", "notes"]);
     f.ok(&[
         "resource",
         "add",
-        "service",
-        "--description",
         "service.json",
+        "--as",
+        "service",
+        "--kind",
+        "description",
     ]);
-    f.ok(&["resource", "add", "tool", "--description", "tool.json"]);
+    f.ok(&[
+        "resource",
+        "add",
+        "tool.json",
+        "--as",
+        "tool",
+        "--kind",
+        "description",
+    ]);
     f.ok(&["access", "add", "service", "tool"]);
     f.ok(&["sync"]);
     for file in [
         "project/CONTEXT.md",
         ".devmeld/output/index.md",
-        ".devmeld/output/r-notes.md",
-        ".devmeld/output/r-service.md",
-        ".devmeld/output/r-tool.md",
+        ".devmeld/output/r-resource-1.md",
+        ".devmeld/output/r-resource-2.md",
+        ".devmeld/output/r-resource-3.md",
     ] {
         f.assert_local_links(file);
     }
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-service.md")).unwrap();
+    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-2.md")).unwrap();
     assert!(
-        page.contains("r-tool.md")
+        page.contains("r-resource-3.md")
             && page.contains("does not authorize")
             && page.contains("verified local/system")
     );
-    let tool_page = fs::read_to_string(f.0.join(".devmeld/output/r-tool.md")).unwrap();
+    let tool_page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-3.md")).unwrap();
     assert!(tool_page.contains("tool.py") && tool_page.contains("pyproject.toml"));
     assert!(
         !f.run(&["resource", "remove", "tool"], true)
@@ -1002,7 +1026,7 @@ fn access_guidance_links_existing_tools_without_granting_execution_authority() {
     f.ok(&["access", "remove", "service", "tool"]);
     f.ok(&["resource", "remove", "tool"]);
     f.ok(&["sync"]);
-    assert!(!f.0.join(".devmeld/output/r-tool.md").exists());
+    assert!(!f.0.join(".devmeld/output/r-resource-3.md").exists());
     assert!(f.0.join("tool.py").exists());
     assert!(f.0.join("pyproject.toml").exists());
 }
@@ -1026,9 +1050,11 @@ fn schema_controls_reject_remote_and_unknown_semantics_but_not_literal_data() {
             &[
                 "resource",
                 "add",
-                "custom",
-                "--description",
                 "description.json",
+                "--as",
+                "custom",
+                "--kind",
+                "description",
                 "--schema",
                 "schema.json",
             ],
@@ -1047,15 +1073,17 @@ fn schema_controls_reject_remote_and_unknown_semantics_but_not_literal_data() {
     f.ok(&[
         "resource",
         "add",
-        "custom",
-        "--description",
         "description.json",
+        "--as",
+        "custom",
+        "--kind",
+        "description",
         "--schema",
         "schema.json",
     ]);
     f.ok(&["sync"]);
     assert!(
-        fs::read_to_string(f.0.join(".devmeld/output/r-custom.md"))
+        fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md"))
             .unwrap()
             .contains("a literal value")
     );
@@ -1068,7 +1096,7 @@ fn hardlinked_sources_and_missing_ownership_do_not_authorize_republication() {
     f.ok(&["sync"]);
     let index = f.0.join(".devmeld/output/index.md");
     fs::hard_link(&index, f.0.join("alias.md")).unwrap();
-    f.ok(&["resource", "add", "alias", "--document", "alias.md"]);
+    f.ok(&["resource", "add", "alias.md", "--as", "alias"]);
     assert!(!f.run(&["sync"], true).status.success());
     f.ok(&["resource", "remove", "alias"]);
     let before = fs::read(&index).unwrap();
