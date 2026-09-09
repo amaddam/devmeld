@@ -38,9 +38,17 @@ Independent acceptance: service/tool fixture, schema failures and explicit chang
 - [x] T010 Review and update README.md and specs/003-durable-context/quickstart.md against real commands, and record actual behavior evidence in specs/003-durable-context/acceptance.md.
 - [x] T011 Run cargo xtask check on Windows and isolated WSL Linux, full CLI fixtures and git diff --check; record outcomes/unverified platforms in specs/003-durable-context/acceptance.md and preserve local Git checkpoints.
 
+## Follow-up — Output language (2026-09-09)
+
+- [x] T012 [US1] Implement English/Chinese output selection through managed init/language commands and shared rendering, using small RED/GREEN cycles in crates/devmeld/tests/workflow.rs; preserve legacy English bytes, authored data and technical terms, stable links, previews/no-op/conflict/recovery behavior. Keep message text in the application and domain rules language-independent. Update usage/acceptance evidence and run native Windows and isolated Linux checks; depends on T011.
+
+## Follow-up — Local cross-drive links (2026-09-09)
+
+- [x] T013 [US1] Support local cross-drive source/reference/configuration and entry links in application rendering using vertical TDD. Preserve same-root bytes and encode native paths correctly; supply readable absolute paths for file-URI fallback, reject remote/ambiguous indexing inputs, and keep remote addresses as authored data. Verify real two-drive CLI publication/relocation, unchanged sources, no-op/conflict and interrupted recovery. Update usage and acceptance evidence; run Windows and isolated Linux checks. Depends on T012; no new domain, dependency or remote index mechanism.
+
 ## Dependencies / parallel opportunities
 
-T001 → T002 → T003 → T004 → T005 → T006 → T007 → T008 → T010 → T011.
+T001 → T002 → T003 → T004 → T005 → T006 → T007 → T008 → T010 → T011 → T012 → T013.
 T009 starts when manifests exist and reruns at completion. No independent whole
 implementation task is marked parallel: these slices share composition/storage
 and integration tests. This applies to US1, US2 and US3 alike.

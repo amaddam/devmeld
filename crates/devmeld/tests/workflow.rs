@@ -8,7 +8,10 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
+        Self::new_in(&std::env::temp_dir())
+    }
+    fn new_in(parent: &std::path::Path) -> Self {
+        let path = parent.join(format!(
             "devmeld-test-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
@@ -30,7 +33,11 @@ impl Fixture {
         }
         let mut child = command.spawn().unwrap();
         if apply {
-            child.stdin.take().unwrap().write_all(b"apply\n").unwrap();
+            if let Err(error) = child.stdin.take().unwrap().write_all(b"apply\n") {
+                // A no-op or rejected command can exit without requesting confirmation.
+                // Still collect and assert its actual exit status/output below.
+                assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
+            }
         }
         child.wait_with_output().unwrap()
     }
@@ -78,6 +85,220 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+#[test]
+fn new_contexts_use_one_current_ownership_format() {
+    let f = Fixture::new();
+    f.ok(&["init", "--entry", "CONTEXT.md"]);
+    f.ok(&["sync"]);
+    let config: serde_json::Value =
+        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap();
+    let receipt: serde_json::Value =
+        serde_json::from_slice(&fs::read(f.0.join(".devmeld/state/owned.json")).unwrap()).unwrap();
+    assert_eq!(config["format_version"], 0);
+    assert_eq!(receipt["format_version"], 0);
+    assert_eq!(
+        receipt["context_root"],
+        f.0.canonicalize().unwrap().to_str().unwrap()
+    );
+    let surfaces = receipt["surfaces"].as_object().unwrap();
+    assert_eq!(surfaces.len(), 3);
+    assert!(surfaces.values().all(|claim| claim["kind"] == "whole_file"));
+    assert!(f.ok(&["sync"]).status.success());
+}
+
+#[test]
+fn unsupported_records_are_rejected_even_by_recover_without_creating_state() {
+    fn tree(root: &std::path::Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+        let mut files = std::collections::BTreeMap::new();
+        for entry in fs::read_dir(root).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                files.extend(tree(&path));
+            } else {
+                files.insert(path.clone(), fs::read(path).unwrap());
+            }
+        }
+        files
+    }
+    for record in ["context.json", "state/owned.json", "state/pending.json"] {
+        for version in [1, 999] {
+            let f = Fixture::new();
+            let path = f.0.join(".devmeld").join(record);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, format!("{{\"format_version\":{version}}}")).unwrap();
+            let before = tree(&f.0);
+            for args in [
+                vec!["init"],
+                vec!["sync"],
+                vec!["recover"],
+                vec!["language", "en"],
+            ] {
+                let result = f.run(&args, true);
+                assert!(
+                    !result.status.success(),
+                    "accepted {record} v{version}: {args:?}"
+                );
+                assert_eq!(tree(&f.0), before);
+            }
+        }
+    }
+}
+
+// Opt-in: ordinary test runs need not have a second disk. The explicit run must
+// supply an existing local directory on a different drive, never silently skip.
+#[cfg(windows)]
+#[test]
+#[ignore = "requires DEVMELD_TEST_OTHER_ROOT on a second local Windows drive"]
+fn cross_drive_workflow_preserves_sources_and_follows_offline_links() {
+    fn targets(path: &std::path::Path) -> Vec<PathBuf> {
+        fs::read_to_string(path)
+            .unwrap()
+            .split("](")
+            .skip(1)
+            .map(|suffix| {
+                let href = suffix.split(')').next().unwrap();
+                let local = href.strip_prefix("file:///").unwrap_or(href);
+                let mut decoded = Vec::new();
+                let mut bytes = local.as_bytes().iter().copied();
+                while let Some(byte) = bytes.next() {
+                    if byte == b'%' {
+                        let hex = [bytes.next().unwrap(), bytes.next().unwrap()];
+                        decoded.push(
+                            u8::from_str_radix(std::str::from_utf8(&hex).unwrap(), 16).unwrap(),
+                        );
+                    } else {
+                        decoded.push(byte);
+                    }
+                }
+                path.parent()
+                    .unwrap()
+                    .join(String::from_utf8(decoded).unwrap())
+                    .canonicalize()
+                    .unwrap()
+            })
+            .collect()
+    }
+    fn verify_targets(path: &std::path::Path, expected: &[&std::path::Path]) {
+        assert_eq!(
+            targets(path),
+            expected
+                .iter()
+                .map(|p| p.canonicalize().unwrap())
+                .collect::<Vec<_>>()
+        );
+    }
+    let f = Fixture::new();
+    let second = Fixture::new_in(&PathBuf::from(
+        std::env::var_os("DEVMELD_TEST_OTHER_ROOT")
+            .expect("set the second local-drive test directory"),
+    ));
+    assert_ne!(
+        f.0.canonicalize().unwrap().components().next(),
+        second.0.canonicalize().unwrap().components().next(),
+        "test requires two distinct drive roots"
+    );
+    let source = second.0.join("知识 #100% (ssh).md");
+    fs::write(&source, "# ssh / http\nOriginal; not a publication copy.\n").unwrap();
+    let description = f.0.join("service.json");
+    let authored = serde_json::json!({"title":"API", "summary":"http access", "attributes":{"endpoint":"https://remote.invalid/index.md"}, "references":[{"label":"团队说明", "path":source}]});
+    fs::write(&description, serde_json::to_vec_pretty(&authored).unwrap()).unwrap();
+    let config = f.0.join(".devmeld/context.json");
+    let entry = second.0.join("project/入口.md");
+    f.ok(&[
+        "init",
+        "--language",
+        "zh-CN",
+        "--entry",
+        entry.to_str().unwrap(),
+    ]);
+    f.ok(&[
+        "resource",
+        "add",
+        "notes",
+        "--document",
+        source.to_str().unwrap(),
+    ]);
+    f.ok(&[
+        "resource",
+        "add",
+        "service",
+        "--description",
+        "service.json",
+    ]);
+    let original = fs::read(&source).unwrap();
+    let original_description = fs::read(&description).unwrap();
+    let preview = f.run(&["sync"], false);
+    assert!(
+        preview.status.success(),
+        "{}",
+        String::from_utf8_lossy(&preview.stderr)
+    );
+    assert!(!entry.exists());
+    assert!(String::from_utf8_lossy(&preview.stdout).contains("file:///"));
+    f.ok(&["sync"]);
+    let output = f.0.join(".devmeld/output");
+    let index = output.join("index.md");
+    verify_targets(&entry, &[&index]);
+    verify_targets(
+        &index,
+        &[
+            &output.join("r-notes.md"),
+            &output.join("r-service.md"),
+            &config,
+        ],
+    );
+    verify_targets(&output.join("r-notes.md"), &[&source, &config]);
+    verify_targets(
+        &output.join("r-service.md"),
+        &[&description, &config, &source],
+    );
+    let page = fs::read_to_string(output.join("r-notes.md")).unwrap();
+    assert!(page.contains("%E7%9F%A5%E8%AF%86%20%23100%25%20%28ssh%29.md"));
+    assert!(page.contains("本地路径:"));
+    assert!(!page.contains(r"\\?\"));
+    let before = fs::read(&entry).unwrap();
+    let modified = fs::metadata(&entry).unwrap().modified().unwrap();
+    assert!(String::from_utf8_lossy(&f.ok(&["sync"]).stdout).contains("0 changed target(s)"));
+    assert_eq!(fs::read(&entry).unwrap(), before);
+    assert_eq!(fs::metadata(&entry).unwrap().modified().unwrap(), modified);
+
+    // Relocate output to the other drive; configuration and original description
+    // now need file URIs, while the old remote-drive source becomes relative.
+    let moved = second.0.join("published #100%");
+    let first_entry = f.0.join("ENTRY.md");
+    f.ok(&["entry", "add", "ENTRY.md"]);
+    f.ok(&["output", moved.to_str().unwrap()]);
+    f.ok(&["language", "en"]);
+    f.ok(&["sync"]);
+    assert!(!index.exists());
+    verify_targets(&entry, &[&moved.join("index.md")]);
+    verify_targets(&first_entry, &[&moved.join("index.md")]);
+    verify_targets(
+        &moved.join("index.md"),
+        &[
+            &moved.join("r-notes.md"),
+            &moved.join("r-service.md"),
+            &config,
+        ],
+    );
+    verify_targets(&moved.join("r-notes.md"), &[&source, &config]);
+    verify_targets(
+        &moved.join("r-service.md"),
+        &[&description, &config, &source],
+    );
+    assert!(
+        fs::read_to_string(&first_entry)
+            .unwrap()
+            .contains("Local path:")
+    );
+    assert!(String::from_utf8_lossy(&f.ok(&["sync"]).stdout).contains("0 changed target(s)"));
+    fs::write(&entry, "external edit").unwrap();
+    assert!(!f.run(&["sync"], true).status.success());
+    assert_eq!(fs::read_to_string(&entry).unwrap(), "external edit");
+    assert_eq!(fs::read(&source).unwrap(), original);
+    assert_eq!(fs::read(&description).unwrap(), original_description);
 }
 
 #[test]
@@ -140,6 +361,362 @@ fn documents_publish_to_offline_entry_and_unchanged_sync_is_noop() {
     assert_eq!(
         fs::read_to_string(f.0.join("团队 notes.md")).unwrap(),
         "# Original knowledge\nNever rewrite me.\n"
+    );
+}
+
+#[test]
+fn chinese_publication_localizes_generated_text_without_changing_document_or_links() {
+    let f = Fixture::new();
+    let source = "# ssh / http\nUse curl and JSON; 原始内容。\n";
+    fs::write(f.0.join("ssh http.md"), source).unwrap();
+    let init = [
+        "init",
+        "--language",
+        "zh-CN",
+        "--entry",
+        "project/CONTEXT.md",
+    ];
+    let preview = f.run(&init, false);
+    assert!(
+        preview.status.success(),
+        "{}",
+        String::from_utf8_lossy(&preview.stderr)
+    );
+    assert!(!f.0.join(".devmeld").exists());
+    f.ok(&init);
+    f.ok(&["resource", "add", "ssh-http", "--document", "ssh http.md"]);
+    let preview = f.run(&["sync"], false);
+    assert!(preview.status.success());
+    assert!(String::from_utf8_lossy(&preview.stdout).contains("# 上下文"));
+    assert!(!f.0.join(".devmeld/output").exists());
+    f.ok(&["sync"]);
+    let index = fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap();
+    assert!(index.starts_with("# 上下文\n"));
+    assert!(index.contains("最近一次成功同步"));
+    assert!(index.contains("[ssh-http](r-ssh-http.md) — 原始文档"));
+    let page = fs::read_to_string(f.0.join(".devmeld/output/r-ssh-http.md")).unwrap();
+    assert!(page.contains("[原始来源](../../ssh%20http.md)"));
+    assert!(page.contains("[受管注册配置](../context.json)"));
+    let entry = fs::read_to_string(f.0.join("project/CONTEXT.md")).unwrap();
+    assert!(entry.starts_with("# 项目上下文\n"));
+    assert!(entry.contains("[上下文索引](../.devmeld/output/index.md)"));
+    for file in [
+        ".devmeld/output/index.md",
+        ".devmeld/output/r-ssh-http.md",
+        "project/CONTEXT.md",
+    ] {
+        f.assert_local_links(file);
+        let path = f.0.join(file);
+        let before = fs::read(&path).unwrap();
+        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        let repeat = f.ok(&["sync"]);
+        assert!(String::from_utf8_lossy(&repeat.stdout).contains("0 changed target(s)"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), modified);
+    }
+    assert_eq!(fs::read_to_string(f.0.join("ssh http.md")).unwrap(), source);
+}
+
+#[test]
+fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() {
+    let f = Fixture::new();
+    let service = r#"{"title":"ssh / http API","summary":"Original document","attributes":{"protocol":"ssh","transport":"http","command":"curl --head http://local.invalid","多语言":"i18n","format":"JSON"},"references":[{"label":"ssh / http CLI","path":"ssh-http.md"}]}"#;
+    let tool = r#"{"title":"curl","summary":"curl for http; ssh 使用独立授权。"}"#;
+    fs::write(f.0.join("service.json"), service).unwrap();
+    fs::write(f.0.join("tool.json"), tool).unwrap();
+    fs::write(f.0.join("ssh-http.md"), "ssh / http instructions").unwrap();
+    f.ok(&[
+        "init",
+        "--entry",
+        "project/CONTEXT.md",
+        "--entry",
+        "other/ENTRY.md",
+    ]);
+    f.ok(&[
+        "resource",
+        "add",
+        "service",
+        "--description",
+        "service.json",
+    ]);
+    f.ok(&["resource", "add", "curl", "--description", "tool.json"]);
+    f.ok(&["access", "add", "service", "curl"]);
+    f.ok(&["sync"]);
+    let config_path = f.0.join(".devmeld/context.json");
+    let english_config = fs::read(&config_path).unwrap();
+    let old_config: serde_json::Value = serde_json::from_slice(&english_config).unwrap();
+    assert!(old_config["publication"].get("language").is_none());
+    let files = [
+        ".devmeld/output/index.md",
+        ".devmeld/output/r-service.md",
+        ".devmeld/output/r-curl.md",
+        "project/CONTEXT.md",
+        "other/ENTRY.md",
+    ];
+    let english: Vec<_> = files
+        .iter()
+        .map(|path| fs::read(f.0.join(path)).unwrap())
+        .collect();
+    let preview = f.run(&["language", "zh-CN"], false);
+    assert!(
+        preview.status.success(),
+        "{}",
+        String::from_utf8_lossy(&preview.stderr)
+    );
+    assert!(String::from_utf8_lossy(&preview.stdout).contains("zh-CN"));
+    assert_eq!(fs::read(&config_path).unwrap(), english_config);
+    let cancelled = Command::new(env!("CARGO_BIN_EXE_devmeld"))
+        .arg("--context")
+        .arg(&f.0)
+        .args(["language", "zh-CN", "--apply"])
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(!cancelled.status.success());
+    assert!(String::from_utf8_lossy(&cancelled.stderr).contains("cancelled"));
+    assert_eq!(fs::read(&config_path).unwrap(), english_config);
+    f.ok(&["language", "zh-CN"]);
+    let config: serde_json::Value =
+        serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    assert_eq!(config["publication"]["language"], "zh-CN");
+    for (file, before) in files.iter().zip(&english) {
+        assert_eq!(
+            fs::read(f.0.join(file)).unwrap(),
+            *before,
+            "language must not implicitly sync"
+        );
+    }
+    f.ok(&["sync"]);
+    let page = fs::read_to_string(f.0.join(".devmeld/output/r-service.md")).unwrap();
+    for unchanged in [
+        "# ssh / http API",
+        "Original document",
+        "protocol: ssh",
+        "transport: http",
+        "curl --head http://local.invalid",
+        "多语言: i18n",
+        "format: JSON",
+        "[ssh / http CLI](../../ssh-http.md)",
+    ] {
+        assert!(
+            page.contains(unchanged),
+            "authored text changed: {unchanged}"
+        );
+    }
+    assert!(page.contains("## 接入指引"));
+    assert!(page.contains("[关联资源: curl](r-curl.md)"));
+    assert!(page.contains("不代表排他性选择或已验证的可用性"));
+    assert!(page.contains("不得静默替换"));
+    assert!(page.contains("优先项目管理的方案"));
+    assert!(page.contains("已验证可调用、兼容且获授权的本地或系统方案"));
+    assert!(page.contains("选择工具不等于授权安装"));
+    assert!(page.contains("执行超出当前任务授权的操作"));
+    assert!(
+        fs::read_to_string(f.0.join(".devmeld/output/r-curl.md"))
+            .unwrap()
+            .contains("curl for http; ssh 使用独立授权。")
+    );
+    for file in files {
+        f.assert_local_links(file);
+    }
+    for entry in ["project/CONTEXT.md", "other/ENTRY.md"] {
+        assert!(
+            fs::read_to_string(f.0.join(entry))
+                .unwrap()
+                .starts_with("# 项目上下文\n")
+        );
+    }
+    assert!(
+        String::from_utf8_lossy(&f.ok(&["language", "zh-CN"]).stdout)
+            .contains("0 changed target(s)")
+    );
+    f.ok(&["language", "en"]);
+    f.ok(&["sync"]);
+    assert_eq!(fs::read(&config_path).unwrap(), english_config);
+    for (file, before) in files.iter().zip(&english) {
+        assert_eq!(fs::read(f.0.join(file)).unwrap(), *before);
+    }
+    assert!(String::from_utf8_lossy(&f.ok(&["sync"]).stdout).contains("0 changed target(s)"));
+    assert_eq!(
+        fs::read_to_string(f.0.join("service.json")).unwrap(),
+        service
+    );
+    assert_eq!(fs::read_to_string(f.0.join("tool.json")).unwrap(), tool);
+    assert_eq!(
+        fs::read_to_string(f.0.join("ssh-http.md")).unwrap(),
+        "ssh / http instructions"
+    );
+}
+
+#[test]
+fn invalid_output_languages_are_rejected_without_mutating_context() {
+    let empty = Fixture::new();
+    for code in ["zh", "zh-cn", "en-US", "fr", "", "EN"] {
+        let output = empty.run(&["init", "--language", code], false);
+        assert!(!output.status.success(), "accepted {code:?}");
+        assert!(String::from_utf8_lossy(&output.stderr).contains("expected en or zh-CN"));
+        assert_eq!(fs::read_dir(&empty.0).unwrap().count(), 0);
+    }
+    for args in [
+        vec!["init", "--language"],
+        vec!["init", "--language", "en", "--language", "zh-CN"],
+    ] {
+        assert!(!empty.run(&args, false).status.success());
+        assert_eq!(fs::read_dir(&empty.0).unwrap().count(), 0);
+    }
+    let f = Fixture::new();
+    f.ok(&["init"]);
+    f.ok(&["sync"]);
+    let config_path = f.0.join(".devmeld/context.json");
+    let before = fs::read(&config_path).unwrap();
+    let index = fs::read(f.0.join(".devmeld/output/index.md")).unwrap();
+    let receipt = fs::read(f.0.join(".devmeld/state/owned.json")).unwrap();
+    for args in [
+        vec!["language", "fr"],
+        vec!["language"],
+        vec!["language", "en", "zh-CN"],
+        vec!["sync", "--language", "zh-CN"],
+    ] {
+        assert!(!f.run(&args, false).status.success());
+        assert_eq!(fs::read(&config_path).unwrap(), before);
+        assert_eq!(
+            fs::read(f.0.join(".devmeld/output/index.md")).unwrap(),
+            index
+        );
+    }
+    for invalid in [
+        "null",
+        "42",
+        "true",
+        "[]",
+        r#""zh""#,
+        r#"{"en":null}"#,
+        r#"{"zh-CN":null}"#,
+    ] {
+        let malformed = format!(
+            r#"{{"format_version":0,"resources":[],"access":[],"publication":{{"directory":".devmeld/output","entries":[],"language":{invalid}}}}}"#
+        );
+        fs::write(&config_path, &malformed).unwrap();
+        let output = f.run(&["sync"], false);
+        assert!(
+            !output.status.success(),
+            "accepted configuration language {invalid}"
+        );
+        assert!(String::from_utf8_lossy(&output.stderr).contains("context.json"));
+        assert_eq!(fs::read_to_string(&config_path).unwrap(), malformed);
+        assert_eq!(
+            fs::read(f.0.join(".devmeld/output/index.md")).unwrap(),
+            index
+        );
+        assert_eq!(
+            fs::read(f.0.join(".devmeld/state/owned.json")).unwrap(),
+            receipt
+        );
+    }
+    fs::write(&config_path, r#"{"format_version":0,"resources":[],"access":[],"publication":{"directory":".devmeld/output","entries":[],"language":"en","language":"zh-CN"}}"#).unwrap();
+    let duplicate = f.run(&["sync"], false);
+    assert!(!duplicate.status.success());
+    assert!(String::from_utf8_lossy(&duplicate.stderr).contains("duplicate field"));
+}
+
+#[test]
+fn language_defaults_ignore_host_locale_and_keep_legacy_english_output_bytes() {
+    for options in [
+        vec!["init", "--entry", "project/CONTEXT.md"],
+        vec!["init", "--language", "en", "--entry", "project/CONTEXT.md"],
+    ] {
+        let f = Fixture::new();
+        let init = Command::new(env!("CARGO_BIN_EXE_devmeld"))
+            .arg("--context")
+            .arg(&f.0)
+            .args(&options)
+            .env("LANG", "zh_CN.UTF-8")
+            .env("LC_ALL", "zh_CN.UTF-8")
+            .env("LANGUAGE", "zh_CN")
+            .output()
+            .unwrap();
+        assert!(init.status.success());
+        assert!(!String::from_utf8_lossy(&init.stdout).contains("zh-CN"));
+        f.ok(&options);
+        fs::write(f.0.join("doc.md"), "ssh and http").unwrap();
+        f.ok(&["resource", "add", "doc", "--document", "doc.md"]);
+        let sync = Command::new(env!("CARGO_BIN_EXE_devmeld"))
+            .arg("--context")
+            .arg(&f.0)
+            .arg("sync")
+            .env("LANG", "zh_CN.UTF-8")
+            .env("LC_ALL", "zh_CN.UTF-8")
+            .env("LANGUAGE", "zh_CN")
+            .output()
+            .unwrap();
+        assert!(sync.status.success());
+        assert!(String::from_utf8_lossy(&sync.stdout).contains("# Context\n"));
+        f.ok(&["sync"]);
+        assert_eq!(
+            fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap(),
+            "# Context\n\nGenerated by DevMeld. Read these files without running DevMeld.\nOnly reflects the last successful synchronization. Do not edit generated files.\n\n- [doc](r-doc.md) — Original document\n\n[Managed registration](../context.json)\n"
+        );
+        assert_eq!(
+            fs::read_to_string(f.0.join(".devmeld/output/r-doc.md")).unwrap(),
+            "# doc\n\nOriginal document\n\nGenerated by DevMeld; update the original source or use DevMeld to change registration.\n\n[Original source](../../doc.md)\n\n[Managed registration](../context.json)\n\n\n"
+        );
+        assert_eq!(
+            fs::read_to_string(f.0.join("project/CONTEXT.md")).unwrap(),
+            "# Project context\n\nGenerated by DevMeld. Follow [context navigation](../.devmeld/output/index.md) and choose relevant resources.\nNo running DevMeld process is needed. Do not edit this generated entry.\n"
+        );
+        let config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+        assert!(!String::from_utf8_lossy(&config).contains("language"));
+        assert!(
+            String::from_utf8_lossy(&f.ok(&["language", "en"]).stdout)
+                .contains("0 changed target(s)")
+        );
+        assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), config);
+        f.ok(&["language", "zh-CN"]);
+        let sync = Command::new(env!("CARGO_BIN_EXE_devmeld"))
+            .arg("--context")
+            .arg(&f.0)
+            .arg("sync")
+            .env("LANG", "en_US.UTF-8")
+            .env("LC_ALL", "en_US.UTF-8")
+            .output()
+            .unwrap();
+        assert!(sync.status.success());
+        assert!(String::from_utf8_lossy(&sync.stdout).contains("# 上下文\n"));
+    }
+}
+
+#[test]
+fn language_changes_reject_stale_preview_and_preserve_external_publication_edits() {
+    let f = Fixture::new();
+    f.ok(&["init", "--entry", "project/CONTEXT.md"]);
+    f.ok(&["sync"]);
+    let stale = devmeld::prepare(&f.0, &["language".into(), "zh-CN".into()]).unwrap();
+    f.ok(&["entry", "add", "other/ENTRY.md"]);
+    let config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+    assert!(stale.apply().unwrap_err().to_string().contains("stale"));
+    assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), config);
+    let stale_sync = devmeld::prepare(&f.0, &["sync".into()]).unwrap();
+    f.ok(&["language", "zh-CN"]);
+    assert!(
+        stale_sync
+            .apply()
+            .unwrap_err()
+            .to_string()
+            .contains("stale")
+    );
+    let chinese_config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+    let old_entry = fs::read(f.0.join("project/CONTEXT.md")).unwrap();
+    fs::write(f.0.join(".devmeld/output/index.md"), "external edit").unwrap();
+    assert!(!f.run(&["sync"], false).status.success());
+    assert_eq!(
+        fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap(),
+        "external edit"
+    );
+    assert_eq!(fs::read(f.0.join("project/CONTEXT.md")).unwrap(), old_entry);
+    assert!(!f.0.join("other/ENTRY.md").exists());
+    assert_eq!(
+        fs::read(f.0.join(".devmeld/context.json")).unwrap(),
+        chinese_config
     );
 }
 
@@ -275,6 +852,9 @@ fn help_explains_command_options_and_missing_confirmation_is_read_only() {
         .unwrap();
     assert!(help.status.success());
     assert!(String::from_utf8_lossy(&help.stdout).contains("--description PATH"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("--language en|zh-CN"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("language en|zh-CN"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("then sync"));
     let f = Fixture::new();
     let cancelled = Command::new(env!("CARGO_BIN_EXE_devmeld"))
         .arg("--context")

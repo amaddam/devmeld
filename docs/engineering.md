@@ -35,6 +35,48 @@ the owning decision before coding.
   Do not choose a convenient default when it could return context for the wrong
   source or silently change user-managed content.
 
+## Model-Driven Change and Refactoring
+
+Existing code is evidence of an earlier design, not authority for the next one.
+Before extending an affected path, reason from the current requirement, domain
+language, invariants, ownership and data flow; then assess whether the existing
+model expresses them correctly. Do not infer intended behavior from whichever
+function or folder is easiest to patch. The same applies to code written by an
+Agent in an earlier task.
+
+- When a requirement exposes a mistaken concept, misplaced responsibility,
+  duplicated policy or an abstraction that needs exceptions at every caller,
+  reconsider the affected model before adding branches. Ordinary conditionals
+  and platform-specific adapters are not inherently design failures.
+- Choose a local change, preparatory refactoring or replacement of an affected
+  implementation based on semantic clarity and current needs, not the smallest
+  diff or preservation of existing names, signatures and file layout. Moving
+  code into more files is not sufficient if the responsibility error remains.
+- Refactoring may precede or accompany a feature. A cohesive module or its
+  affected collaborators may need restructuring; small verified steps do not
+  impose a small total diff. Remove superseded paths and duplication rather
+  than retaining compatibility scaffolding for unneeded internal structures.
+- Preserve accepted observable behavior and required contracts, not every
+  historical accident. Establish a green baseline and add characterization
+  coverage where needed. Structure-coupled tests may evolve, but passing tests
+  do not justify an incorrect model, and assertions must not be weakened merely
+  to accommodate a replacement. Treat defects as explicit regression fixes.
+- If the newly understood rule changes Product meaning, Feature behavior or an
+  accepted architecture boundary, resolve and record that owning decision first
+  under CONTRIBUTING.md. Do not conceal semantic or persisted-data changes as
+  behavior-preserving refactoring. Already-authorized internal restructuring
+  does not require repeated approval just because several files change.
+- Keep the work tied to the actual design problem and its affected dependency
+  path. Do not expand it into unrelated cleanup, a speculative framework or a
+  whole-project rewrite. Preserve recoverable Git history; follow the existing
+  authorization for commits rather than assuming a refactor authorizes one.
+
+This follows DDD's refinement of models through deeper domain understanding
+([DDD Reference, Refactoring Toward Deeper Insight](https://www.domainlanguage.com/wp-content/uploads/2016/05/DDD_Reference_2015-03.pdf))
+and [preparatory refactoring](https://martinfowler.com/articles/preparatory-refactoring-example.html).
+Neither requires a new tool, arbitrary complexity quota or a separate design
+document for every small edit.
+
 ## Runtime and Automated Quality Gates
 
 [ADR-0003](adr/0003-rust-runtime.md) retains stable Rust, Edition 2024, and
@@ -207,6 +249,11 @@ Do not add a facade, application layer or public API merely to enable a test.
 Do not ask the Maintainer to reconfirm an already accepted boundary; clarify
 only unresolved scope, conflicting decisions or undecided boundary choices.
 
+If the current structure obstructs the accepted behavior, first perform the
+necessary preparatory refactoring on a green baseline as described above.
+The cycle below is not a requirement to patch the old structure first or to
+postpone design correction until after implementing the feature.
+
 Within each behavioral task:
 
 1. Select one observable rule or case from the accepted behavior.
@@ -218,7 +265,7 @@ Within each behavioral task:
    Once the API compiles, ensure the test actually asserts the required behavior
    and passes before treating the behavior as GREEN. Do not add a knowingly
    incorrect stub solely to manufacture a runtime RED.
-5. Run the focused test and affected suite. Make necessary small refactors,
+5. Run the focused test and affected suite. Make necessary refactors in verified steps,
    keeping the suite green, then continue with the next case.
 
 One task owns a bounded behavior slice and may contain several small cycles.
@@ -280,3 +327,8 @@ record any check that could not be run. Review findings should identify whether
 the issue belongs to the product baseline, Feature Spec, architecture,
 engineering guidance, or implementation, so the correction is made in the
 owning artifact.
+
+For material design changes, explain the old assumption or responsibility that
+was wrong, why the revised structure fits the current rules, and which behavior
+and contracts were preserved or intentionally changed. Review the resulting
+model and maintenance burden, not merely diff size or whether tests pass.

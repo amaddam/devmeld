@@ -1,5 +1,7 @@
 # DevMeld
 
+English | [简体中文](README.zh-CN.md)
+
 DevMeld organizes resources and access guidance into durable, readable project
 context. Agents follow a small project entry to the resources they need;
 ordinary reading does not require DevMeld to be running.
@@ -63,6 +65,64 @@ remain authored files. Do not edit generated output; interrupted operations have
 an explicit `recover` path. No tool execution, network connection or installation
 is performed by this feature.
 
+### Generated-output language
+
+Select English (`en`, the default) or Simplified Chinese (`zh-CN`) for one
+context. For a new context, use `init --language zh-CN`. For an existing context:
+
+```text
+devmeld --context PATH language zh-CN --apply
+devmeld --context PATH sync --apply
+```
+
+Confirm each preview with `apply`. The first command saves the language; the
+second updates the index, resource pages and entries. Use `language en` to switch
+back. Current-model configurations without this setting remain English, independently
+of the system locale.
+
+Only generated explanatory text is localized. Authored content, ssh/http/curl,
+other technical names, commands, field names, IDs and links remain unchanged.
+This is not source translation or an instruction about the Agent's reply language.
+CLI help and diagnostics remain English. See the [example](examples/README.md)
+for commands runnable directly from this checkout.
+
+### Entry inside project instructions
+
+Select an ordinary UTF-8 instruction file explicitly; DevMeld does not discover it:
+
+```text
+devmeld --context PATH entry add /path/to/project/AGENTS.md --kind instructions --apply
+devmeld --context PATH sync --apply
+```
+
+For a fresh context, `init --instruction-entry PATH` registers the same entry.
+Registration changes configuration only; confirmed sync inserts the small navigation
+section. Surrounding author text is preserved. `entry remove PATH` followed by sync
+removes only the insertion and retains the host file, even if empty. `--entry` and
+default `entry add` still select an entirely generated file.
+
+This is unreleased **v0 development**, not a second product release. The internal
+draft marker is not a stable format guarantee; indexes/resources carry no release
+label. Incompatible old development records are left intact and rejected, not
+migrated. Use separate fresh paths rather than deleting or relabeling old records.
+See [004 verification](specs/004-project-entry-integration/acceptance.md) for the
+actually tested platforms and client setup; a filename alone does not prove discovery.
+
+### Local files across directories and drives
+
+Sources stay in their existing locations. Register an absolute native path when
+needed, for example `resource add notes --document "D:/knowledge/notes.md"`.
+Sources, output and ordinary entry files can be on different local Windows drives.
+Generated links are relative to the containing Markdown file when roots match;
+across drives they use `file:///D:/...` plus a readable local path. Spaces,
+Unicode and URL-reserved characters are encoded without changing the target.
+
+Only this machine is in scope. Remote service addresses can be authored resource
+attributes; DevMeld does not fetch remote indexes or map paths between machines.
+Some Markdown viewers block file links; use the displayed path with an authorized
+local reader. No running DevMeld process is required, and no universal viewer or
+cross-machine portability is claimed. See the [example](examples/README.md).
+
 ## Workflow During Redesign
 
 The active path is [003 Durable Context Publication](specs/003-durable-context/spec.md),
@@ -70,6 +130,14 @@ with its [plan](specs/003-durable-context/plan.md) and
 [behavior tasks](specs/003-durable-context/tasks.md). Do not resume old 001/002
 tasks. The Maintainer delegated continuation and self-verification of the reviewed
 file-based path; implementation progress and acceptance are recorded separately.
+
+The active extension is [004 Project Instruction Entry Integration](specs/004-project-entry-integration/spec.md):
+maintain a small entry inside a selected project instruction file while preserving
+its authored content. Scope was accepted on 2026-09-09; the [Plan](specs/004-project-entry-integration/plan.md)
+uses a single current draft maintenance model. Implementation and verification
+are recorded in its [tasks](specs/004-project-entry-integration/tasks.md) and
+[evidence](specs/004-project-entry-integration/acceptance.md). It does not automatically migrate existing data.
+Spec Kit's current feature pointer selects 004.
 
 Spec Kit's optional development helpers use the configured Python workflow;
 they are not runtime dependencies of DevMeld or of its generated context.

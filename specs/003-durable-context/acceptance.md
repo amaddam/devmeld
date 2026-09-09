@@ -1,6 +1,7 @@
 # 003 implementation evidence
 
-Status: 003 implementation and required self-verification completed on 2026-09-08;
+Status: initial 003 implementation and required self-verification completed on 2026-09-08;
+output-language follow-up verified on 2026-09-09 (see below);
 not an independently granted Maintainer acceptance or public API ratification.
 
 ## Native Windows behavior cycles (2026-09-08)
@@ -112,11 +113,125 @@ fails with the intended E0603 private-constructor diagnostic.
 - Pre-journal preparation failures/interruption may leave unique temporary files
   or empty directories while targets remain unchanged; no recursive orphan purge.
   Malformed/external recovery records require inspection, not guessed repairs.
-- Relative file links cannot span Windows drive roots; redirected paths and
-  unavailable original references fail explicitly. File metadata beyond content
+- Same-root links remain relative; cross-drive local links use file URIs and
+  readable local paths (T013). Redirected paths and unavailable original
+  references fail explicitly. File metadata beyond content
   and existence is not a promised restore contract.
 
-These limits match the feature-local contract and example instructions. All 11
-tasks are complete; future product/integration choices remain separate decisions.
+These limits match the feature-local contract and example instructions. The original 11
+tasks were completed; future product/integration choices remain separate decisions.
 Local Git checkpoints preserve the design and first implementation, followed by
 the hardening/verification update. No remote push was performed.
+
+## T012 — English/Chinese generated output (2026-09-09)
+
+The Maintainer requested selectable English/Chinese index output, with formal
+developer-facing text and technical terms preserved. The follow-up is recorded
+in FR-015 / SC-007 and the local-file contract; it does not change Product scope,
+source ownership, tool authority or the two-domain architecture.
+
+The native Windows baseline `cargo xtask check` passed before changes (22 tests).
+Focused cycles used `cargo test -p devmeld --test workflow <filter> --locked --offline`:
+
+| Filter | Observed RED | Observed GREEN |
+| --- | --- | --- |
+| `chinese_publication` | init rejected `--language` | Chinese index/page/entry, valid links, unchanged source and repeated bytes/mtime |
+| `language_changes_require` | language command unavailable | preview/cancel/confirm, config-only edit, explicit sync and exact English round-trip |
+| `invalid_output_languages` | Serde's default enum parser accepted object-shaped `{"en":null}` | string-only codes; invalid types/codes/duplicate fields rejected without writes |
+| `help_explains` | help lacked language option | init/change syntax, separate sync step and untranslated-content boundary documented |
+
+Additional regression coverage (not separately claimed RED cycles) verifies
+legacy default/explicit English golden bytes, process-locale independence,
+unchanged authored `Original document` text, ssh/http/curl/JSON, mixed-language
+summaries, attribute names/values, reference labels and multiple entries. Stale
+configuration/publication previews and external edits fail without overwrites.
+Existing fault injection verifies interrupted language configuration recovery
+and all five mutation boundaries of language republication; a failed sync keeps
+the previously committed language while restoring the previous generated files.
+
+Windows and Linux run the same production path. Final gates:
+
+| Host | Command | Result |
+| --- | --- | --- |
+| Native Windows, Rust/Cargo 1.98.1 | `cargo xtask check` | PASS: 9 storage + 17 workflow + 2 boundary tests, 28 total |
+| Ubuntu / WSL Linux 6.18.33.1, existing stable Rust/Cargo 1.98.1 | `cargo xtask check --root /home/lrns1b/project/devmeld-language-check-S9G0dL` with `RUSTUP_TOOLCHAIN=stable` | PASS: 9 storage + 19 workflow + 2 boundary tests, 30 total |
+
+Linux used copied current sources and an independent target directory at
+`/home/lrns1b/project/devmeld-language-check-S9G0dL`. An initial attempt to reuse
+the previous snapshot's target ran an old xtask with its compiled-in workspace
+root; that result was discarded, not counted as verification of this change.
+The independent build then exposed a test-helper race: a no-op process exited
+before the helper wrote confirmation, yielding BrokenPipe. The helper now
+tolerates only that pipe closure and still checks the actual process outcome;
+production confirmation behavior was not changed. Full gates and an additional
+Linux workflow run passed after this correction.
+
+No dependencies or runtime tools were added, upgraded or installed. Message
+sets and Markdown presentation are application-owned; domain facts retain an
+optional authored summary instead of an English presentation fallback. English
+is omitted in serialized configuration for legacy compatibility; old binaries
+cannot read Chinese configuration, as documented. macOS and automatic Agent
+loading remain unverified. CLI diagnostics/help and authored source translation
+are outside this follow-up. README/example commands describe both language paths.
+
+## T013 — Local cross-drive links (2026-09-09)
+
+The Maintainer limited the current path to this machine, including different
+local drives. Remote addresses may be authored resource information, not remote
+indexes to fetch or federate. Product records that scope; FR-016 / SC-008 and
+the local-file contract own this feature's concrete path and output behavior.
+
+Before this change, native Windows `cargo xtask check` passed all 28 T012 tests.
+Observed RED/GREEN cycles, using `cargo test -p devmeld --lib <filter> --locked --offline`:
+
+| Filter | Observed RED | Observed GREEN |
+| --- | --- | --- |
+| `cross_drive_links` | cross-drive input rejected with the old shared-root error | normal and canonical Windows disk paths produce correctly encoded `file:///D:/...` |
+| `remote_index_inputs` | URL path produced OS error 123 instead of local-input guidance | context and resource paths reject URLs before IO, with actionable guidance |
+
+Additional regression tests cover same-drive normal/verbatim prefixes, drive
+case, escaped link labels/readable paths, and Unix filenames containing literal
+backslashes. Existing English golden bytes, Chinese output, schemas, ownership,
+stale previews and source protection remain green. Source data is not translated
+or copied. No Cargo manifest/lockfile change, dependency installation or runtime
+helper was needed; rendering and native-path checks remain application-owned.
+
+Two opt-in tests were explicitly run on **real C: and D: local NTFS volumes**
+(both reported as fixed local disks), not a substituted drive or string-only test:
+
+```text
+cargo test -p devmeld cross_drive --locked --offline -- --ignored
+```
+
+`DEVMELD_TEST_OTHER_ROOT` selected the dedicated D: test directory. Test fixtures
+used unique children; no existing project or knowledge files were used as targets.
+
+- `cross_drive_workflow_preserves_sources_and_follows_offline_links`: PASS.
+  Real binary preview/confirmation/publication, D: source and entry with C:
+  output, then D: output with entries on both drives. All generated Markdown
+  link destinations are decoded and compared with the exact original files.
+  Covers descriptions/references/configuration, Chinese/spaces/`#`/`%`/parentheses,
+  both output languages, unchanged bytes/mtime, no-op, external entry conflict
+  and preserved author-owned sources. Remote endpoint remains descriptive data.
+- `cross_drive_relocation_recovers_at_each_mutation_boundary`: PASS.
+  All eight pre-commit interruption positions (six changed output/entry targets
+  plus the ownership update) restore previous bytes/identities. Previous config
+  commits survive, new outputs are removed, originals are unchanged, and retry
+  succeeds with a subsequent no-op. Sibling staging requires no cross-drive
+  rename or hard link; the production transaction algorithm was not replaced.
+
+Final gates:
+
+| Host | Command | Result |
+| --- | --- | --- |
+| Native Windows, existing Rust/Cargo 1.98.1 | `cargo xtask check` | PASS: 14 unit + 17 workflow + 2 boundary tests, 33 total; 2 two-drive tests ignored by default |
+| Native Windows, C: + D: NTFS | opt-in command above | PASS: both two-drive tests, separately executed |
+| Isolated WSL Linux, existing stable Rust/Cargo 1.98.1 | `cargo xtask check --root /home/lrns1b/project/devmeld-links-check-K4Z6Lj` with `RUSTUP_TOOLCHAIN=stable` | PASS: 12 unit + 19 workflow + 2 boundary tests, 33 total |
+
+The Linux check used copied current sources and its own target directory, not
+Windows binaries. Windows drive behavior is established by Windows evidence,
+not attributed to Linux. macOS, automatic Agent loading and specific Markdown
+viewers' clickable `file:` support remain unverified. Native path resolution and
+permissions still apply; network mappings/mounts and remote-index support are
+outside this scope. A readable absolute path accompanies each file-URI link.
+This is not mount provenance enforcement or a filesystem sandbox.

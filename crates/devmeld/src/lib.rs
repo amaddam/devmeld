@@ -1,5 +1,7 @@
 //! Thin application coordination for explicitly selected local contexts.
 mod declarations;
+mod instructions;
+mod language;
 mod render;
 mod storage;
 
@@ -10,12 +12,27 @@ pub fn error(message: impl Into<String>) -> Box<dyn std::error::Error> {
 }
 
 pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
+    storage::local_path(root)?;
     let root = root.canonicalize()?;
     if !root.is_dir() {
         return Err(error("context root must be an existing directory"));
     }
     if args == ["recover"] {
-        return Plan::recovery(root);
+        let mut plan = Plan::recovery(root)?;
+        // A pending v0 journal is independently recoverable, including interrupted init.
+        if plan.is_empty() {
+            if plan
+                .capture(&plan.root().join(".devmeld/context.json"))?
+                .is_some()
+            {
+                declarations::read_config(&mut plan)?;
+            } else if plan.owned_paths().next().is_some() {
+                return Err(error(
+                    "missing configuration; ownership records left intact",
+                ));
+            }
+        }
+        return Ok(plan);
     }
     let mut plan = Plan::new(root)?;
     match args {
@@ -24,7 +41,13 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
             if plan.capture(&path)?.is_some() {
                 return Err(error("context already initialized; refusing adoption"));
             }
+            if plan.owned_paths().next().is_some() {
+                return Err(error(
+                    "existing ownership records; refusing reinitialization",
+                ));
+            }
             let mut config = declarations::Config::default();
+            let mut language_seen = false;
             for option in options.chunks(2) {
                 match option {
                     [flag, value] if flag == "--entry" => {
@@ -33,10 +56,24 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
                             path: value.clone(),
                         })
                     }
+                    [flag, value] if flag == "--instruction-entry" => {
+                        config.publication.entries.push(declarations::Entry {
+                            kind: "instructions".into(),
+                            path: value.clone(),
+                        });
+                    }
                     [flag, value] if flag == "--output" => {
                         config.publication.directory = value.clone()
                     }
-                    _ => return Err(error("init accepts --entry PATH and --output PATH")),
+                    [flag, value] if flag == "--language" && !language_seen => {
+                        config.publication.language = language::OutputLanguage::parse(value)?;
+                        language_seen = true;
+                    }
+                    _ => {
+                        return Err(error(
+                            "init accepts --entry PATH, --instruction-entry PATH, --output PATH and one --language en|zh-CN",
+                        ));
+                    }
                 }
             }
             declarations::validate_surfaces(&plan, &config)?;
@@ -84,19 +121,37 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
             let config = declarations::read_config(&mut plan)?;
             let resources = declarations::load_resources(&mut plan, &config)?;
             let files = render::publication(&mut plan, &config, &resources)?;
+            let mut instructions = std::collections::BTreeMap::new();
+            for entry in config
+                .publication
+                .entries
+                .iter()
+                .filter(|e| e.kind == "instructions")
+            {
+                let path = storage::resolve(plan.root(), &entry.path)?;
+                instructions.insert(
+                    path.clone(),
+                    render::instruction_entry(plan.root(), &config, &path)?,
+                );
+            }
             let obsolete: Vec<_> = plan
                 .owned_paths()
                 .filter(|path| {
                     path.as_path() != plan.root().join(".devmeld/context.json")
                         && !files.contains_key(*path)
+                        && !instructions.contains_key(*path)
                 })
                 .cloned()
                 .collect();
+            plan.validate_targets(files.keys().chain(instructions.keys()).cloned())?;
             for (path, bytes) in files {
                 plan.set(path, Some(bytes))?;
             }
+            for (path, body) in instructions {
+                plan.set_entry(path, Some(&body))?;
+            }
             for path in obsolete {
-                plan.set(path, None)?;
+                plan.withdraw(path)?;
             }
         }
         [command, action, id] if command == "resource" && action == "remove" => {
@@ -109,15 +164,24 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
                 Some(declarations::encode(&config)?),
             )?;
         }
-        [command, action, path] if command == "entry" => {
+        [command, action, path, options @ ..] if command == "entry" => {
             let mut config = declarations::read_config(&mut plan)?;
             let selected = storage::resolve(plan.root(), path)?;
             if action == "add" {
+                let kind = match options {
+                    [] => "file",
+                    [flag, kind]
+                        if flag == "--kind" && matches!(kind.as_str(), "file" | "instructions") =>
+                    {
+                        kind
+                    }
+                    _ => return Err(error("entry add accepts --kind file|instructions")),
+                };
                 config.publication.entries.push(declarations::Entry {
-                    kind: "file".into(),
+                    kind: kind.into(),
                     path: path.clone(),
                 });
-            } else if action == "remove" {
+            } else if action == "remove" && options.is_empty() {
                 let mut found = false;
                 let mut retained = Vec::new();
                 for entry in config.publication.entries {
@@ -139,6 +203,15 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
                 .publication
                 .entries
                 .sort_by(|a, b| a.path.cmp(&b.path));
+            plan.set(
+                plan.root().join(".devmeld/context.json"),
+                Some(declarations::encode(&config)?),
+            )?;
+        }
+        [command, value] if command == "language" => {
+            let language = language::OutputLanguage::parse(value)?;
+            let mut config = declarations::read_config(&mut plan)?;
+            config.publication.language = language;
             plan.set(
                 plan.root().join(".devmeld/context.json"),
                 Some(declarations::encode(&config)?),

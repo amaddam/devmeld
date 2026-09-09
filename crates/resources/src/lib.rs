@@ -63,7 +63,7 @@ pub struct Resource {
     id: ResourceId,
     source: PathBuf,
     title: String,
-    summary: String,
+    summary: Option<String>,
     attributes: BTreeMap<String, String>,
     references: Vec<(String, PathBuf)>,
 }
@@ -77,7 +77,7 @@ impl Resource {
             id,
             source,
             title,
-            summary: "Original document".into(),
+            summary: None,
             attributes: BTreeMap::new(),
             references: vec![],
         })
@@ -103,7 +103,7 @@ impl Resource {
         }
         let mut resource = Self::document(id, source)?;
         resource.title = title;
-        resource.summary = summary;
+        resource.summary = Some(summary);
         resource.attributes = attributes;
         resource.references = references;
         Ok(resource)
@@ -111,8 +111,8 @@ impl Resource {
     pub fn title(&self) -> &str {
         &self.title
     }
-    pub fn summary(&self) -> &str {
-        &self.summary
+    pub fn summary(&self) -> Option<&str> {
+        self.summary.as_deref()
     }
     pub fn attributes(&self) -> &BTreeMap<String, String> {
         &self.attributes
@@ -185,6 +185,3 @@ impl Membership {
         Ok(())
     }
 }
-
-/// Product policy wording, independent of rendering or an execution engine.
-pub const ACCESS_GUIDANCE: &str = "These are declared associations, not exclusive selections or verified availability. Respect applicable explicit selection; do not silently substitute. Otherwise prefer an eligible existing option requiring no dependency, environment or installation change: project-managed first, then verified local/system options valid in the current task scope. Only then propose a change. Machine presence is not eligibility. Selection does not authorize installation, dependency changes, environment creation, system modification or execution beyond the task's authority.";

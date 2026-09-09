@@ -23,6 +23,9 @@ explicitly chosen entry, stop the command, and follow the entry to the original 
 2. Given registered resources, publication creates navigable files with purposes and editable sources; source bytes are unchanged.
 3. Given a published entry, normal reading works while DevMeld is not running. Missing automatic client discovery is not represented as success.
 4. Given unchanged inputs and rules, repeating publication produces identical bytes and does not rewrite unchanged targets.
+5. Given a selected English or Simplified Chinese output language, the index, resource pages and every entry use consistent generated labels and instructions. Authored content, technical terms such as ssh/http, commands, identifiers and link destinations are not translated.
+6. Given a context without a language setting, publication retains English. A confirmed language change affects the next explicit synchronization; preview, conflicts, recovery and unchanged no-op rules still apply.
+7. Given explicitly registered local files on another Windows drive, publication links the original files without copying or moving them. Entries and output may also be on different local drives; ordinary readers need no DevMeld process to locate the targets.
 
 ### User Story 2 - Maintain reusable descriptions and tool guidance (Priority: P2)
 
@@ -65,6 +68,7 @@ interruption. Recover only the changes belonging to that operation. This is requ
 - Targets aliasing inputs, conflicting output/entry locations, links traversing redirected paths.
 - External edits, missing ownership records, write errors, interrupted recovery and concurrent DevMeld writers.
 - Partial availability of referenced original material is not proof of connectivity or current tool availability.
+- Unsupported or malformed output languages; legacy configuration without a language; authored text equal to a generated label; language changes while publication is pending or externally edited.
 
 ## Requirements
 
@@ -84,6 +88,9 @@ interruption. Recover only the changes belonging to that operation. This is requ
 - **FR-012**: Report configuration and publication outcomes separately. Failed publication cannot roll back successful earlier configuration changes or author-owned edits.
 - **FR-013**: Detect unfinished operations and cooperative concurrent writers. Recovery must not overwrite external changes; no adversarial filesystem isolation or cross-file atomic snapshot is promised.
 - **FR-014**: Provide actionable human diagnostics and non-success outcomes for invalid input, conflicts and pending recovery. Do not expose credentials or fabricate successful verification.
+- **FR-015**: Support one explicitly configured generated-output language per context, initially English and Simplified Chinese, selectable during initialization or through managed maintenance. Default to English without consulting machine locale. Localize only DevMeld-owned explanatory text using formal developer-facing terminology; preserve authored titles, summaries, attribute keys/values, reference labels, protocol/tool names (including ssh/http), commands, IDs, paths and link destinations. Unsupported language selections fail without writes. This does not translate sources, CLI diagnostics or help, create bilingual output trees, or select the Agent's response language.
+
+- **FR-016**: Support explicitly selected local files across directories and Windows drive roots, including source references, managed configuration links, output and entries. Preserve relative links where representable; otherwise provide a standard local file URI and a readable absolute local path. Encode link characters without altering the destination. Do not discover or federate remote indexes, fetch remote addresses, or introduce machine-to-machine path mappings. Remote information remains authored resource data. File links do not bypass reader permissions or guarantee that every Markdown viewer opens them.
 
 ### Key Entities
 
@@ -102,6 +109,9 @@ interruption. Recover only the changes belonging to that operation. This is requ
 - **SC-004**: Address edits, permitted custom fields, association changes and removals produce the expected navigation/guidance with no source deletion or environment change.
 - **SC-005**: Invalid-input, external-conflict, stale-preview, interruption and conflicting-recovery cases all fail explicitly without silently overwriting unrelated bytes.
 - **SC-006**: Platform verification reports actual executed hosts. Unexecuted platforms and Agent automatic loading remain explicitly unverified.
+- **SC-007**: English/Chinese fixtures retain the same resources and working links, preserve source bytes and technical terms, and produce repeatable no-op publication. Language changes are previewed and confirmed; invalid language and external-conflict cases preserve existing files.
+
+- **SC-008**: A native Windows fixture spanning two real local drives follows entry, navigation, resource and original-file links to their exact targets, with spaces, Unicode and URI-reserved characters preserved. Cross-drive publication keeps preview, no-op, ownership and recovery guarantees. Do not claim multi-drive verification from path-string tests alone.
 
 ## Assumptions
 

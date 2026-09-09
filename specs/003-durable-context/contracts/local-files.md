@@ -6,7 +6,7 @@ control fields, unsupported versions and invalid semantics fail; no migration.
 ## Human entrypoint
 
 ```text
-devmeld --context PATH init [--output PATH] [--entry PATH]
+devmeld --context PATH init [--output PATH] [--entry PATH] [--language en|zh-CN]
 devmeld --context PATH resource add ID --document PATH
 devmeld --context PATH resource add ID --description PATH [--schema PATH]
 devmeld --context PATH resource remove ID
@@ -15,6 +15,7 @@ devmeld --context PATH access remove RESOURCE TOOL
 devmeld --context PATH entry add PATH
 devmeld --context PATH entry remove PATH
 devmeld --context PATH output PATH
+devmeld --context PATH language en|zh-CN
 devmeld --context PATH sync
 devmeld --context PATH recover
 ```
@@ -30,7 +31,7 @@ no directory discovery. `init` defaults to output `.devmeld/output` and no entry
 ## JSON
 
 `.devmeld/context.json`: `format_version: 1`, `resources`, `access` and
-`publication: {directory, entries}`. Entries: `{kind: "file", path}`.
+`publication: {directory, entries, language?}`. Entries: `{kind: "file", path}`.
 Registration: `{id, document}` OR `{id, description, attributes_schema?}`.
 Access: `{resource, tool}`. IDs match `[a-z0-9][a-z0-9_-]*`, at most 64 bytes.
 Pages are `r-<id>.md` to avoid reserved platform basenames. Paths/titles allow
@@ -60,6 +61,55 @@ Users point Agents at them explicitly. Entry removal unpublishes the owned entry
 on next sync. `output PATH` selects a new output location; sync removes previous
 owned outputs but never sources. All entries share the complete index.
 
+### Output language
+
+`publication.language` accepts exactly `en` or `zh-CN`. Absence means `en`;
+English is omitted on serialization to preserve existing version-1 configuration
+bytes and no-op behavior. This is an additive version-1 option: existing files
+need no migration; older binaries reject the new Chinese field rather than
+silently ignoring its meaning. Null, unknown codes and duplicate language fields
+or init options are errors, not automatic fallbacks.
+
+Set it with `init --language zh-CN` or `language zh-CN`, using the usual preview
+and confirmation. The latter changes configuration only; a subsequent confirmed
+`sync` updates all generated files together under existing recovery rules.
+There is one selected language, not two parallel trees or per-entry languages.
+Switching does not change target filenames, link destinations or resource sets.
+
+Only fixed generated headings, maintenance/freshness instructions, source labels,
+direct-document summaries and access-guidance prose are localized. Chinese text
+uses formal technical wording. Authored titles, summaries, attribute keys/values,
+reference labels, commands, paths, IDs and technical names such as ssh, http,
+curl and JSON remain unchanged apart from existing Markdown escaping. A source
+already written in English remains English in Chinese output, and vice versa.
+No translation engine, locale detection, Agent response-language instruction,
+CLI/help translation or additional dependency is introduced.
+
+### Local path and link representation
+
+Input paths are native filesystem paths, relative to the bases defined above or
+absolute on this machine. Windows drive-relative forms such as `D:notes.md` are
+ambiguous and rejected, as are rooted paths without a drive (`\notes.md`);
+use `D:/knowledge/notes.md`. URLs, UNC and device paths
+are not indexing inputs. Store remote addresses as description attributes, not
+as file references; DevMeld does not fetch them or traverse remote indexes.
+Local disks are an operating assumption, not an OS-level check of hidden mounts.
+
+Generated relative links are based on the containing Markdown file, never the
+reader's working directory. Same-root destinations retain relative links.
+Different Windows disk roots use `file:///D:/knowledge/notes.md`, with no remote
+host. UTF-8 path segments are percent-encoded (including spaces, `#`, `%` and
+parentheses); filesystem paths are not already-encoded URLs. Windows canonical
+disk prefixes are rendered as normal drive paths, not `\\?\` URI authorities.
+
+Each file-URI link includes a readable absolute local path in the selected output
+language. A reader can use that path when its Markdown viewer blocks file links;
+this does not bypass access controls or promise universal clickable links.
+No source copy, symlink, DevMeld resolver process or cross-machine root mapping
+is created. Relative links require preserved directory relationships; absolute
+links require the same machine paths. Moving files requires configuration/source
+reference maintenance and a new sync, not hand-editing generated links.
+
 ## Safe change and recovery
 
 Preview captures input/config/schema/state/target bytes and target identities.
@@ -84,6 +134,6 @@ identity is recorded so a partial commit record remains safely removable.
 
 Failure or interruption during pre-journal preparation may leave unique staging files/empty
 directories without changing targets; no automatic orphan adoption or recursive
-cleanup. Malformed/external recovery data is reported, not guessed away. Relative
-Markdown links must share a filesystem root (cross-Windows-drive links fail).
-No recursive source discovery or directory deletion.
+cleanup. Malformed/external recovery data is reported, not guessed away.
+Cross-drive targets use sibling staging on their own volumes; no cross-drive
+rename or hard link is required. No recursive source discovery or directory deletion.

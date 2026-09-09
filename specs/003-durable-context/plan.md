@@ -72,3 +72,37 @@ See [research](research.md), [data model](data-model.md),
 No Constitution exception. The journal supports required managed-write recovery;
 schema interpretation uses an offline library, not a handwritten validator.
 File identity prevents confusing another writer's identical new file with ours.
+
+## Generated-output language (2026-09-09)
+
+The Maintainer requested English/Chinese index output and unchanged developer
+terminology. Keep this within the existing publication path: one persisted
+`publication.language`, exact values `en` and `zh-CN`, English when absent.
+`init --language` and `language CODE` use the existing preview/confirmation and
+configuration transaction; `sync` publishes the selected language afterwards.
+No process-locale detection, one-off sync override, additional output tree,
+translation service, dependency or language-aware domain policy is needed.
+
+An application-local `language.rs` owns a typed language selector and complete
+static English/Chinese message sets. Markdown layout and escaping stay shared in
+`render.rs`. Move presentation-only access-guidance wording and the direct-document
+summary fallback out of Resource Organization; an absent authored summary is an
+explicit `Option`, never inferred by comparing its text with an English label.
+Authored strings and technical identifiers are passed through existing escaping,
+not translated. The existing managed-write/recovery path remains unchanged.
+
+## Local file links (2026-09-09)
+
+Resolve explicit native paths separately from Markdown rendering. Keep relative
+links based on the containing generated file when roots match. Across Windows
+disk roots, emit an empty-authority `file:///D:/...` URI plus a readable absolute
+path; encode UTF-8 path components and normalize only disk-prefix presentation
+(including canonical `\\?\` disk prefixes). Do not invent a cross-drive relative
+path, relocate sources or introduce a private URI scheme or dependency.
+
+Apply the same rule to source/reference/configuration links and project entries.
+Keep path handling in the application, not the domains. Retain sibling staging
+on each target's volume; test actual two-drive publication, relocation, conflicts
+and interrupted recovery instead of assuming cross-volume rename will work.
+Local paths are user-selected; network URLs and UNC/device paths are not index
+inputs. This is not a mount-provenance detector or filesystem sandbox.

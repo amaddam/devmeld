@@ -1,4 +1,4 @@
-use crate::{Result, error, storage::Plan};
+use crate::{Result, error, language::OutputLanguage, storage::Plan};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -31,6 +31,8 @@ pub(crate) struct Access {
 pub(crate) struct Publication {
     pub directory: String,
     pub entries: Vec<Entry>,
+    #[serde(default, skip_serializing_if = "OutputLanguage::is_default")]
+    pub language: OutputLanguage,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -42,12 +44,13 @@ pub(crate) struct Entry {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            format_version: 1,
+            format_version: 0,
             resources: vec![],
             access: vec![],
             publication: Publication {
                 directory: ".devmeld/output".into(),
                 entries: vec![],
+                language: OutputLanguage::default(),
             },
         }
     }
@@ -82,11 +85,12 @@ pub(crate) fn read_config(plan: &mut Plan) -> Result<Config> {
         .ok_or_else(|| error("context not initialized"))?;
     let config: Config =
         serde_json::from_slice(&bytes).map_err(|e| error(format!("{}: {e}", path.display())))?;
-    if config.format_version != 1 {
+    if config.format_version != 0 {
         return Err(error("unsupported configuration format_version"));
     }
     validate_surfaces(plan, &config)?;
     membership(&config)?;
+    plan.require_owned_config()?;
     Ok(config)
 }
 
@@ -116,10 +120,11 @@ pub(crate) fn validate_surfaces(plan: &Plan, config: &Config) -> Result<()> {
     }
     let mut entries: Vec<std::path::PathBuf> = Vec::new();
     for entry in &config.publication.entries {
-        if entry.kind != "file" {
+        if !matches!(entry.kind.as_str(), "file" | "instructions") {
             return Err(error("unsupported entry kind"));
         }
         let path = resolve(plan.root(), &entry.path)?;
+        plan.check_entry_kind(&path, &entry.kind)?;
         if overlaps(&path, &directory)
             || reserved.iter().any(|p| overlaps(p, &path))
             || entries.iter().any(|p| overlaps(p, &path))

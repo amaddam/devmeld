@@ -41,3 +41,21 @@ Sources: [locks](https://doc.rust-lang.org/std/fs/struct.File.html#method.try_lo
 Commands preview by default. `--apply` prints the preview and asks for literal
 `apply`; recheck inputs and targets afterwards. No opaque token or manually
 maintained hash. Consumers read files without DevMeld running.
+
+## Local file references (2026-09-09)
+
+Separate locating an original file from serializing its link at an output location.
+[Zim's export linker](https://raw.githubusercontent.com/zim-desktop-wiki/zim-desktop-wiki/master/zim/export/linker.py)
+uses output-relative paths in its applicable export scope and otherwise falls
+back to the file URI. Adopt that separation, not Zim's notebook-specific rules.
+[RFC 8089](https://www.rfc-editor.org/rfc/rfc8089) supplies local file-URI syntax
+and filesystem-name encoding considerations. For this feature, relative links
+remain preferred where representable; different Windows disk roots use an
+empty-authority file URI and an independently readable absolute path.
+
+This is a local rendering choice, not a generic URL resolver. Keep native path
+resolution and sibling-volume recovery in existing application code; no URL
+library, source relocation, private app scheme or always-running resolver is
+needed. Reader support/permission and link correctness are separate concerns.
+Cross-machine base directories, remote-index traversal and network share support
+are excluded by the Maintainer's current scope, not deferred implementation tasks.
