@@ -255,23 +255,32 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
             }
         }
         [command, action, key, value] if command == "config" && action == "set" => {
-            let value = match value.as_str() {
-                "true" => true,
-                "false" => false,
-                _ => return Err(error("inheritance default must be true or false")),
-            };
             let mut config = declarations::read_config(&mut plan)?;
-            let selected = match key.as_str() {
-                "defaults.inherit" => &mut config.defaults.inherit,
-                "defaults.propagate" => &mut config.defaults.propagate,
-                _ => {
-                    return Err(error(
-                        "config set accepts defaults.inherit or defaults.propagate",
-                    ));
-                }
-            };
-            if *selected != value {
+            let changed = if key == "language" {
+                let language = language::OutputLanguage::parse(value)?;
+                let changed = config.publication.language != language;
+                config.publication.language = language;
+                changed
+            } else {
+                let value = match value.as_str() {
+                    "true" => true,
+                    "false" => false,
+                    _ => return Err(error("inheritance default must be true or false")),
+                };
+                let selected = match key.as_str() {
+                    "defaults.inherit" => &mut config.defaults.inherit,
+                    "defaults.propagate" => &mut config.defaults.propagate,
+                    _ => {
+                        return Err(error(
+                            "config set accepts language, defaults.inherit or defaults.propagate",
+                        ));
+                    }
+                };
+                let changed = *selected != value;
                 *selected = value;
+                changed
+            };
+            if changed {
                 plan.set(
                     plan.root().join(".devmeld/context.json"),
                     Some(declarations::encode(&config)?),
@@ -300,40 +309,7 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
         }
         [command] if command == "sync" => {
             let config = declarations::read_config(&mut plan)?;
-            let resources = declarations::load_resources(&mut plan, &config)?;
-            let files = render::publication(&mut plan, &config, &resources)?;
-            let mut instructions = std::collections::BTreeMap::new();
-            for entry in config
-                .publication
-                .entries
-                .iter()
-                .filter(|e| e.kind == "instructions")
-            {
-                let path = storage::resolve(plan.root(), &entry.path)?;
-                instructions.insert(
-                    path.clone(),
-                    render::instruction_entry(plan.root(), &config, &path)?,
-                );
-            }
-            let obsolete: Vec<_> = plan
-                .owned_paths()
-                .filter(|path| {
-                    path.as_path() != plan.root().join(".devmeld/context.json")
-                        && !files.contains_key(*path)
-                        && !instructions.contains_key(*path)
-                })
-                .cloned()
-                .collect();
-            plan.validate_targets(files.keys().chain(instructions.keys()).cloned())?;
-            for (path, bytes) in files {
-                plan.set(path, Some(bytes))?;
-            }
-            for (path, body) in instructions {
-                plan.set_entry(path, Some(&body))?;
-            }
-            for path in obsolete {
-                plan.withdraw(path)?;
-            }
+            prepare_publication(&mut plan, &config)?;
         }
         [command, action, address] if command == "resource" && action == "remove" => {
             let mut config = declarations::read_config(&mut plan)?;
@@ -345,24 +321,20 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
                 Some(declarations::encode(&config)?),
             )?;
         }
-        [command, action, path, options @ ..] if command == "entry" => {
+        [command, action, path] if command == "entry" => {
             let mut config = declarations::read_config(&mut plan)?;
             let selected = storage::resolve(plan.root(), path)?;
-            if action == "add" {
-                let kind = match options {
-                    [] => "file",
-                    [flag, kind]
-                        if flag == "--kind" && matches!(kind.as_str(), "file" | "instructions") =>
-                    {
-                        kind
-                    }
-                    _ => return Err(error("entry add accepts --kind file|instructions")),
+            if action == "create" || action == "attach" {
+                let kind = if action == "attach" {
+                    "instructions"
+                } else {
+                    "file"
                 };
                 config.publication.entries.push(declarations::Entry {
                     kind: kind.into(),
                     path: path.clone(),
                 });
-            } else if action == "remove" && options.is_empty() {
+            } else if action == "remove" {
                 let mut found = false;
                 let mut retained = Vec::new();
                 for entry in config.publication.entries {
@@ -377,22 +349,13 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
                 }
                 config.publication.entries = retained;
             } else {
-                return Err(error("entry expects add or remove"));
+                return Err(error("entry expects attach, create or remove"));
             }
             declarations::validate_surfaces(&plan, &config)?;
             config
                 .publication
                 .entries
                 .sort_by(|a, b| a.path.cmp(&b.path));
-            plan.set(
-                plan.root().join(".devmeld/context.json"),
-                Some(declarations::encode(&config)?),
-            )?;
-        }
-        [command, value] if command == "language" => {
-            let language = language::OutputLanguage::parse(value)?;
-            let mut config = declarations::read_config(&mut plan)?;
-            config.publication.language = language;
             plan.set(
                 plan.root().join(".devmeld/context.json"),
                 Some(declarations::encode(&config)?),
@@ -439,4 +402,43 @@ pub fn prepare(root: &std::path::Path, args: &[String]) -> Result<Plan> {
         _ => return Err(error("unsupported command or arguments; see --help")),
     }
     Ok(plan)
+}
+
+/// Build the same bounded publication comparison for sync and read-only status.
+pub(crate) fn prepare_publication(plan: &mut Plan, config: &declarations::Config) -> Result<()> {
+    let resources = declarations::load_resources(plan, config)?;
+    let files = render::publication(plan, config, &resources)?;
+    let mut instructions = std::collections::BTreeMap::new();
+    for entry in config
+        .publication
+        .entries
+        .iter()
+        .filter(|e| e.kind == "instructions")
+    {
+        let path = storage::resolve(plan.root(), &entry.path)?;
+        instructions.insert(
+            path.clone(),
+            render::instruction_entry(plan.root(), config, &path)?,
+        );
+    }
+    let obsolete: Vec<_> = plan
+        .owned_paths()
+        .filter(|path| {
+            path.as_path() != plan.root().join(".devmeld/context.json")
+                && !files.contains_key(*path)
+                && !instructions.contains_key(*path)
+        })
+        .cloned()
+        .collect();
+    plan.validate_targets(files.keys().chain(instructions.keys()).cloned())?;
+    for (path, bytes) in files {
+        plan.set(path, Some(bytes))?;
+    }
+    for (path, body) in instructions {
+        plan.set_entry(path, Some(&body))?;
+    }
+    for path in obsolete {
+        plan.withdraw(path)?;
+    }
+    Ok(())
 }

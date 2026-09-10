@@ -34,16 +34,17 @@ The user authorized the discussed direction and starting the next step. This doe
 ## Project Structure
 
 - `crates/devmeld/src/main.rs`: process IO and confirmation, delegating help/parsing instead of owning domain policy.
-- `crates/devmeld/src/cli.rs`: implemented command/help definitions and later typed argument parsing. Add only definitions actually served by the current implementation.
+- `crates/devmeld/src/cli.rs`: implemented command/help definitions, context selector and typed invocation flags. Add only definitions actually served by the current implementation.
 - `crates/devmeld/src/annotation_args.rs`: parse shared annotation options, shortcuts and explicit inheritance switches into a domain-owned local edit and choices; no update/merge policy or filesystem resolution in this parser.
-- `crates/devmeld/src/lib.rs`: bootstrap and registration/publication coordination; refactor existing argument matching when the typed commands replace it.
+- `crates/devmeld/src/lib.rs`: bootstrap and registration/publication coordination; share read-only publication preparation between sync and status.
 - `crates/devmeld/src/context.rs`: local marker selection and cwd-to-context native input references, shared by the CLI application path; no domain or filesystem discovery engine.
-- `crates/devmeld/src/inspection.rs`: read-only presentation of saved group/resource declarations, inheritance choices/derived origins and identity-based associations; no new owning domain, source scan or publication status authority.
+- `crates/devmeld/src/inspection.rs`: read-only presentation of saved registrations and derived origins without source reads for list/show. Status separately reads current inputs via publication preparation and rechecks the snapshot; neither is an owning domain or persisted status authority.
 - `crates/devmeld/src/declarations.rs`: JSON adaptation, defaults, stable identity allocation and source loading.
 - `crates/resources/src/organization.rs`: create when the first organization behavior needs it; logical paths, annotations and inheritance belong to Resource Organization.
 - `crates/devmeld/src/render.rs` and `language.rs`: present resolved organization facts/provenance, preserve source links and EN/zh-CN wording.
 - `crates/devmeld/src/storage.rs` and `crates/publication/`: reuse existing managed-write mechanisms; do not replace the transaction engine to simplify flags.
 - `crates/devmeld/tests/cli.rs`: public process-level command tests.
+- `crates/devmeld/tests/interaction.rs`: real executable saves, dry-run, confirmation modes, status, language and entry registration/publication boundaries.
 - `crates/resources/tests/organization.rs`: pure model rules when implemented.
 - Existing `workflow.rs` and `instructions.rs`: regression gates, not evidence for unbuilt new commands.
 

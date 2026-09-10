@@ -288,7 +288,9 @@ mod tests {
             prepare(&["output", new_output.to_str().unwrap()])
                 .apply()
                 .unwrap();
-            prepare(&["language", "zh-CN"]).apply().unwrap();
+            prepare(&["config", "set", "language", "zh-CN"])
+                .apply()
+                .unwrap();
             let paths = [
                 f.0.join(".devmeld/output/index.md"),
                 f.0.join(".devmeld/output/r-resource-1.md"),
@@ -359,18 +361,38 @@ mod tests {
                 .iter()
                 .map(|p| fs::read(f.0.join(p)).unwrap())
                 .collect();
-            let failure = prepare(&["language", "zh-CN"])
+            let failure = prepare(&["config", "set", "language", "zh-CN"])
                 .apply_until(Some(1))
                 .unwrap_err();
             assert!(failure.to_string().contains("injected interruption"));
             assert!(crate::prepare(&f.0, &["sync".into()]).is_err());
             prepare(&["recover"]).apply().unwrap();
             assert_eq!(fs::read(&config_path).unwrap(), english_config);
-            prepare(&["language", "zh-CN"]).apply().unwrap();
+            prepare(&["config", "set", "language", "zh-CN"])
+                .apply()
+                .unwrap();
             let chinese_config = fs::read(&config_path).unwrap();
             let failure = prepare(&["sync"]).apply_until(Some(stop)).unwrap_err();
             assert!(failure.to_string().contains("injected interruption"));
-            assert!(crate::prepare(&f.0, &["language".into(), "en".into()]).is_err());
+            assert!(
+                crate::prepare(
+                    &f.0,
+                    &[
+                        "config".into(),
+                        "set".into(),
+                        "language".into(),
+                        "en".into()
+                    ]
+                )
+                .is_err()
+            );
+            let pending = fs::read(f.0.join(".devmeld/state/pending.json")).unwrap();
+            let status = crate::inspect_in(&f.0, Some(&f.0), &["status".into()]).unwrap_err();
+            assert!(status.to_string().contains("blocked/unverified"));
+            assert_eq!(
+                fs::read(f.0.join(".devmeld/state/pending.json")).unwrap(),
+                pending
+            );
             prepare(&["recover"]).apply().unwrap();
             for (file, before) in files.iter().zip(&english) {
                 assert_eq!(fs::read(f.0.join(file)).unwrap(), *before);
@@ -588,7 +610,9 @@ mod tests {
                 if matches!(operation, "update" | "detach") {
                     prepare(&["sync"]).apply().unwrap();
                     if operation == "update" {
-                        prepare(&["language", "zh-CN"]).apply().unwrap();
+                        prepare(&["config", "set", "language", "zh-CN"])
+                            .apply()
+                            .unwrap();
                     } else {
                         prepare(&["entry", "remove", "AGENTS.md"]).apply().unwrap();
                     }
@@ -1449,7 +1473,10 @@ impl Plan {
         }
         output
     }
-    fn recheck(&self) -> Result<()> {
+    pub(crate) fn changed_paths(&self) -> impl Iterator<Item = &PathBuf> {
+        self.changes.keys()
+    }
+    pub(crate) fn recheck(&self) -> Result<()> {
         for (path, expected) in &self.basis {
             let limit = expected
                 .as_ref()

@@ -1,6 +1,6 @@
 # 005 Implementation Evidence
 
-Date: 2026-09-09. This is incremental implementation evidence, not Maintainer acceptance.
+Date: 2026-09-09. This record retains incremental evidence; the final T012-T015 section summarizes complete implementation verification, not Maintainer acceptance.
 
 ## Baseline (T001)
 
@@ -9,17 +9,17 @@ Date: 2026-09-09. This is incremental implementation evidence, not Maintainer ac
 - 54 tests passed, 3 Windows cross-drive tests explicitly ignored in the default command. Those skips are not new cross-drive verification.
 - No dependency/tool installation, user context migration, commit or push.
 
-## Incremental status
+## Current implementation status
 
 - US1 command help: implemented and verified on native Windows (T002-T004).
 - Source-first registration, distinct logical addresses/stable IDs, automatic parent groups, no-init context selection and read-only bootstrap previews: implemented (T005-T007).
 - Group creation/empty removal and group/resource inspection/logical moves: implemented (T008).
 - Local descriptions/tags/custom fields, shortcut equivalence, add/update/explicit removal, inspection and EN/zh-CN publication: implemented (T009).
-- Metadata inheritance and new publication/status interaction: not implemented (T010-T015 remain open).
-- The resource-add syntax has intentionally changed. Current native operands are cwd-relative. Confirmation still uses the interim `--apply` / `apply` flow; `--dry-run` is supported. No `--yes` or automatic configuration save is advertised.
-- Native Windows and isolated WSL Linux verification passed for this slice, including separate actual C:/D: tests. macOS and additional client acceptance remain unverified.
+- Metadata inheritance, configurable defaults and origin presentation: implemented and verified (T010-T011).
+- Scoped saves, dry-run, one sync/recover confirmation, explicit `--yes`, status, config language and entry attach/create/remove: implemented and verified (T012-T013). Superseded `--apply` / apply-word interaction has been removed.
+- Bilingual documentation/example replay, native Windows and isolated Linux checks, real terminal interaction and actual C:/D: verification completed (T014-T015). All tasks are complete; final Maintainer acceptance, macOS and additional client consumption remain unverified or pending as stated below.
 
-RED/GREEN and completed slice verification will be appended as observed. `tasks.md` records actual completion; planning artifacts are not evidence that commands exist.
+The chronological sections below retain actual RED/GREEN and completed-slice evidence, including historical intermediate limitations. `tasks.md` records actual completion; planning artifacts alone are not evidence that commands exist.
 
 ## Command discovery RED/GREEN (T002-T003)
 
@@ -172,3 +172,42 @@ Additional characterization/regression cases passed on first execution; no RED i
 - No tool/dependency installation, paid Agent session, commit or push. macOS and additional client acceptance remain unverified.
 - T001-T011 complete. US4 is implemented and verified; T012-T015, complete 005 delivery and Maintainer acceptance remain open. Next: simplify scoped saves/publication confirmation and add honest status, preserving managed boundaries.
 - Final document checks: 24 local links in both READMEs and the 005 spec/plan/tasks/contract/model/quickstart/acceptance set passed; `git diff --check` passed. `.specify/extensions.yml` is absent, so post-implementation hooks were skipped.
+
+## Save, inspect and publish (T012-T015, 2026-09-09)
+
+Baseline: local commit `9dadac8`, clean worktree, native `cargo xtask check` PASS (104 passed, 4 explicit cross-drive skips). The specification checklist remained read-only, 16/16 satisfied. No new commit or push was requested in this continuation.
+
+Focused behavior commands used `cargo test --locked --offline -p devmeld --test interaction <test-name>` against the real executable. Cases were implemented one at a time; the following RED failures were actually observed before their corresponding changes.
+
+| Case | Observed RED | Observed GREEN |
+| --- | --- | --- |
+| Scoped save / dry-run bootstrap | no-flag resource add only previewed; configuration absent | direct save, dry-run leaves no context, source unchanged and no implicit entry/publication |
+| Noninteractive publication / no-op | no-flag sync incorrectly succeeded as preview | changes require terminal confirmation or explicit `--yes`; no-op rechecks without prompt/rewrite; contradictory/removed flags rejected |
+| Read-only publication status | unsupported status command | pending/current generation, saved configuration and entries distinguished; missing source blocks verification without writes |
+| Config language | `config set language zh-CN` rejected by boolean-default parser | language saves without publishing, old `language VALUE` rejected, sync produces Chinese wording |
+| Entry attach/create | entry operation expected add/remove | explicit insertion/whole-file registration; sync publishes; detach restores authored host bytes and retains independent ordinary entry |
+| Optional init path | init treated the positional path as an invalid option | explicit native location, no-write preview, no implicit entry; duplicate context selectors and existing state rejected |
+| Root help cleanup | root help still advertised removed `--apply` | save semantics and sync/recover confirmation flags match implementation, without creating context |
+
+Additional regression/characterization coverage passed on first execution; no RED is claimed: actual modified-output conflicts cannot be overridden by `--yes`; status/preview preserve bytes/receipts; linked-document body changes are not represented as historical source-freshness tracking; empty recovery does not prompt. The existing interruption loop now also checks status is blocked and preserves the pending journal before successful rollback. The private terminal-confirmation test covers y/YES, n/blank/EOF/old apply-word and verifies nonterminal input is not read.
+
+### Ownership and refactor review
+
+- This is application interaction work. No change to either std-only owning domain, manifests, lockfile, toolchain, generated record version or transaction algorithm. No additional dependency or runtime service.
+- The argument adapter handles one terminal flag and explicit context selection; optional init PATH uses the same existing explicit-context path. Removed human syntax has no permanent compatibility wrapper. Main flushes previews before saves and before its one confirmation; even empty plans still run apply/recheck.
+- Status and sync share publication preparation. Status never applies it: current sources and owned files are inspected/rechecked; conflicts, missing inputs and pending recovery are errors. No dirty flag, timestamp, source hash registry or persisted snapshot was added. Generated-content equivalence and actual Agent consumption are explicitly distinct.
+- Entry attach/create retain existing insertion/whole-file ownership. Configuration saves do not publish or modify source/host files. Exact BOM, mixed-newline, no-final-newline, independent-entry, stale/no-op, cross-drive, interruption and recovery assertions remain in the regression suites.
+- Existing test helpers were updated from pipe-based apply-word input to direct scoped saves, explicit dry-run and `sync/recover --yes`. Old syntax rejection assertions were updated deliberately; no ownership/source/recovery assertions were dropped. One remaining pure-plan language invocation and one pending-recovery assertion were migrated so they test the accepted command rather than accidentally failing on removed syntax.
+- Both READMEs, examples, CLI contract, model, research and validation guide describe the implemented journey. Research labels its old-command evidence as a historical baseline. No user/example context was migrated or edited; only disposable copies of authored fixtures were used.
+
+### Verification
+
+- Final Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: PASS, **113 passed**, 4 cross-drive cases explicitly ignored in the ordinary gate. Formatting, compiler, conservative Clippy and architecture probes passed.
+- Final isolated WSL Linux `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: PASS, **112 passed**, 0 ignored, source/build copy `/home/lrns1b/project/devmeld-publication-final-005.cManal`. Windows-only checks are not claimed as Linux evidence.
+- Actual C:/D: `cargo test --locked --offline -p devmeld cross_drive_ -- --ignored`: PASS, **all 4 cases**, covering relocation/recovery, organization/inheritance, instruction entries and offline source links. Scratch parent `D:\devmeld-publication-cli-005-c0fcb7cf0ade4502b4e452da583140cc`; test-owned children cleaned by the tests. The later root-help-only fix does not change these paths or behaviors.
+- `cargo build --release --locked --offline -p devmeld`: PASS. Both README languages (10 fenced CLI blocks each), 005 quickstart (2 CLI blocks) and examples ran using that release executable: **156 successful invocations** in `C:\Users\lrns1\AppData\Local\Temp\devmeld-publication-docs-005-5806a2792a074b299caef43b1bf5ff60`. Placeholder paths were replaced with disposable local fixtures; documented `sync --yes` was used for noninteractive replay. Source bytes/timestamps, attach/detach host restoration, source-first setup, metadata/inheritance, status, language and C:/D: file-URI output were checked. The replay script remains in that disposable directory, not in the repository.
+- Real Windows terminal, release executable, `C:\Users\lrns1\AppData\Local\Temp\devmeld-terminal-005-2d4856f49a2f49a2b839090dcb328ecf`: answering n cancelled with no output directory; changing configuration through a separate invocation while the next sync waited for y caused **stale preview** rejection, still without output; a newly prepared sync accepted y once and published successfully. Blank/EOF and nonterminal refusal additionally have automated coverage.
+- 26 local Markdown links and tracked/untracked whitespace checks passed. `.specify/extensions.yml` is absent; no post-implementation hooks apply.
+- No tool/dependency installation, paid Agent run, commit or push. macOS and additional Agent Client consumption remain unverified. Existing generated files remain independently readable without DevMeld running.
+
+**Delivery status:** T001-T015 implemented and verified. US5 completes the 005 CLI journey. This is implementation evidence, not final Maintainer acceptance; that decision remains pending.

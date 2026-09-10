@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -231,7 +230,7 @@ fn inherited_navigation_is_derived_localized_and_separate_from_source_attributes
         ("en", "Effective tags and fields", "Origin"),
         ("zh-CN", "生效标签和字段", "来源"),
     ] {
-        f.apply(&["language", language]);
+        f.apply(&["config", "set", "language", language]);
         f.apply(&["sync"]);
         for name in ["index.md", "r-resource-1.md"] {
             let text = fs::read_to_string(f.0.join(".devmeld/output").join(name)).unwrap();
@@ -492,7 +491,7 @@ fn annotation_help_explains_add_update_and_only_implemented_flags_without_contex
             assert!(help.contains("--inherit"));
             assert!(help.contains("--no-inherit"));
             assert_eq!(help.contains("--propagate"), kind == "group");
-            assert!(!help.contains("--yes"));
+            assert!(help.contains("--dry-run"));
         }
     }
     f.assert_empty();
@@ -739,7 +738,7 @@ fn resource_annotations_keep_source_attributes_separate_in_both_output_languages
         ),
         ("zh-CN", "上下文标注（本级）", "源文件声明的属性"),
     ] {
-        f.apply(&["language", language]);
+        f.apply(&["config", "set", "language", language]);
         f.apply(&["sync"]);
         let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
         for expected in [
@@ -808,19 +807,16 @@ impl Fixture {
     }
 
     fn confirm(&self, args: &[&str]) -> Output {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_devmeld"))
-            .current_dir(&self.0)
-            .args(args)
-            .arg("--apply")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        if let Err(error) = child.stdin.take().unwrap().write_all(b"apply\n") {
-            assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
+        let command = if args.first() == Some(&"--context") {
+            &args[2..]
+        } else {
+            args
+        };
+        let mut selected = args.to_vec();
+        if matches!(command, ["sync" | "recover"]) {
+            selected.push("--yes");
         }
-        child.wait_with_output().unwrap()
+        self.run(&selected)
     }
 }
 
@@ -1159,8 +1155,12 @@ fn command_groups_and_operations_have_specific_current_help() {
     let cases: &[(&[&str], &[&str])] = &[
         (&["resource"], &["resource add", "resource remove"]),
         (&["resource", "remove"], &["resource remove PATH", "source"]),
-        (&["entry"], &["entry add", "entry remove"]),
-        (&["entry", "add"], &["--kind file|instructions", "sync"]),
+        (
+            &["entry"],
+            &["entry attach", "entry create", "entry remove"],
+        ),
+        (&["entry", "attach"], &["managed insertion", "sync"]),
+        (&["entry", "create"], &["generated Markdown", "sync"]),
         (&["entry", "remove"], &["entry remove PATH", "sync"]),
         (&["access"], &["access add", "access remove"]),
         (&["access", "add"], &["access add RESOURCE TOOL", "install"]),
@@ -1173,7 +1173,8 @@ fn command_groups_and_operations_have_specific_current_help() {
             &["--instruction-entry PATH", "--language en|zh-CN"],
         ),
         (&["output"], &["output PATH", "sync"]),
-        (&["language"], &["language en|zh-CN", "authored"]),
+        (&["config", "set"], &["language en|zh-CN", "authored"]),
+        (&["status"], &["status", "without writing", "unverified"]),
         (
             &["config"],
             &["defaults.inherit true|false", "existing context"],
@@ -1182,8 +1183,8 @@ fn command_groups_and_operations_have_specific_current_help() {
             &["config", "set"],
             &["defaults.propagate true|false", "future nodes"],
         ),
-        (&["sync"], &["sync [--apply | --dry-run]", "source"]),
-        (&["recover"], &["recover [--apply | --dry-run]", "recovery"]),
+        (&["sync"], &["sync [--dry-run | --yes]", "source"]),
+        (&["recover"], &["recover [--dry-run | --yes]", "recovery"]),
     ];
     for (topic, expected) in cases {
         let mut args = topic.to_vec();
@@ -1319,9 +1320,8 @@ fn organization_rejections_previews_and_noops_never_rewrite_registration() {
             "move",
             "database/test/orders",
             "database/test/orders",
-            "--apply",
         ],
-        vec!["group", "move", "database", "database", "--apply"],
+        vec!["group", "move", "database", "database"],
     ] {
         let result = f.run(&args);
         assert!(
@@ -1381,7 +1381,7 @@ fn organization_queries_never_bootstrap_or_bypass_existing_ownership() {
     f.apply(&["group", "add", "database"]);
     let config_path = f.0.join(".devmeld/context.json");
     let before = fs::read(&config_path).unwrap();
-    let refused = f.run(&["group", "list", "--apply"]);
+    let refused = f.run(&["group", "list", "--yes"]);
     assert!(!refused.status.success());
     assert!(String::from_utf8_lossy(&refused.stderr).contains("read-only"));
     assert_eq!(fs::read(&config_path).unwrap(), before);
@@ -1656,7 +1656,9 @@ fn explicit_new_context_takes_precedence_without_creating_it_during_preview() {
         "--as",
         "knowledge/source",
     ];
-    let preview = f.run(&args);
+    let mut preview_args = args.to_vec();
+    preview_args.push("--dry-run");
+    let preview = f.run(&preview_args);
     assert!(
         preview.status.success(),
         "{}",
@@ -1727,7 +1729,7 @@ fn invalid_first_operations_leave_sources_and_storage_untouched() {
         vec!["resource", "add", "notes.md", "--kind", "description"],
         vec!["resource", "add", "https://example.invalid/source"],
         vec!["resource", "add", "notes.md", "--schema", "missing.json"],
-        vec!["resource", "add", "notes.md", "--dry-run"], // conflicts with confirm's --apply
+        vec!["resource", "add", "notes.md", "--apply"], // removed interaction must fail, not silently save
         vec!["resource", "remove", "missing"],
         vec!["sync"],
         vec!["unknown"],
@@ -1918,7 +1920,7 @@ fn schema_entry_and_output_operands_use_cwd_while_description_references_use_sou
         String::from_utf8_lossy(&add.stderr)
     );
     for args in [
-        vec!["entry", "add", "AGENTS.md", "--kind", "instructions"],
+        vec!["entry", "attach", "AGENTS.md"],
         vec!["output", "generated"],
         vec!["sync"],
     ] {

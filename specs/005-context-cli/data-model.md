@@ -47,7 +47,7 @@ Existing ownership and publication records retain their shape and IDs. Source de
 
 CLI native operands resolve from the invocation directory. Resolved inputs within the selected context are persisted relative to that context; outside inputs retain an absolute native local path, including other drives. Description-file references still resolve from the description's directory. Logical addresses are never passed to native path resolution.
 
-The first confirmed add creates configuration and ownership evidence in one existing transaction. Preview and validation create no directory; application atomically creates a previously absent `.devmeld` marker and refuses a marker appearing after preview. Inferred incomplete state blocks fallback and implicit init. The earlier explicit `--context PATH init` retry after a completed rollback remains supported when configuration and owned surfaces are absent; this creates new configuration, not ownership of unrelated remnants.
+The first successful add saves configuration and ownership evidence in one existing transaction. Preview and validation create no directory; application atomically creates a previously absent `.devmeld` marker and refuses a marker appearing after preview. Inferred incomplete state blocks fallback and implicit init. Explicit `--context PATH init` (or `init PATH`) after a completed rollback remains supported when configuration and owned surfaces are absent; this creates new configuration, not ownership of unrelated remnants.
 
 ## T009 annotation representation
 
@@ -62,3 +62,9 @@ Keep draft `format_version: 0`. Context `defaults` stores `inherit` and `propaga
 Organization owns creation-time defaults and saved node choices. Explicit add flags affect the target only; automatically created parents (including move destinations) use the current defaults. Moves preserve existing nodes' choices and recompute effective annotations under the new ancestry. Updates with omitted flags preserve choices. `config set defaults.inherit/defaults.propagate` changes one value in an existing context; it does not implicitly initialize a new context.
 
 Effective fields retain one origin, replaced by the nearest local declaration even when its text is identical or empty. A unique effective tag retains all contributing node paths. The derived view contains tags/fields only: no overall description, identity, source location or authority. Computation follows the immediate-parent chain without recursion or cached child declarations. Removing a local annotation may reveal an inherited value; per-value inheritance suppression is outside 005.
+
+## T012-T013 publication inspection
+
+Status is a read-only application result, not a persisted entity or new domain. It derives expected generated content from current configuration and sources using the same preparation as sync, compares against owned files and rechecks the captured inputs. Entry registration belongs to configuration; publication evidence belongs to the existing ownership receipts. Missing inputs, conflicts or pending recovery block verification.
+
+No timestamp, counter, source snapshot or new format is stored for status. A changed document body can leave its generated reference unchanged; status reports generated-content equivalence, not historical source freshness or Agent consumption. Entry attach/create map to the existing insertion/whole-file ownership modes, with no receipt or transaction-engine redesign.

@@ -47,7 +47,7 @@ pub(crate) fn operands(cwd: &Path, root: &Path, args: &[String]) -> Result<Vec<S
                 };
             }
         }
-        ["entry", "add" | "remove", _, ..] => paths.push(2),
+        ["entry", "attach" | "create" | "remove", _] => paths.push(2),
         ["output", _] => paths.push(1),
         ["init", options @ ..] => {
             for (i, pair) in options.chunks(2).enumerate() {

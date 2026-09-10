@@ -1,6 +1,5 @@
 use std::{
     fs,
-    io::Write,
     path::PathBuf,
     process::{Command, Output, Stdio},
     sync::atomic::{AtomicUsize, Ordering},
@@ -31,12 +30,12 @@ impl Fixture {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        if apply {
-            command.arg("--apply");
+        if apply && matches!(args, ["sync" | "recover"]) {
+            command.arg("--yes");
+        } else if !apply {
+            command.arg("--dry-run");
         }
-        let mut child = command.spawn().unwrap();
-        let _ = child.stdin.take().unwrap().write_all(b"apply\n");
-        child.wait_with_output().unwrap()
+        command.stdin(Stdio::null()).output().unwrap()
     }
     fn ok(&self, args: &[&str]) -> String {
         let output = self.run(args, true);
@@ -192,7 +191,7 @@ fn outside_atomic_saves_are_preserved_and_unchanged_sync_does_not_touch_host() {
             .unwrap(),
         mtime
     );
-    f.ok(&["language", "zh-CN"]);
+    f.ok(&["config", "set", "language", "zh-CN"]);
     f.ok(&["sync"]);
     let updated = String::from_utf8(f.read("AGENTS.md")).unwrap();
     assert!(updated.starts_with("# New author prefix\r\n"));
@@ -211,15 +210,15 @@ fn multiple_hosts_detach_independently_and_registration_roundtrips_need_no_publi
         "--instruction-entry",
         "AGENTS.md",
     ]);
-    f.ok(&["entry", "add", "CLAUDE.md", "--kind", "instructions"]);
+    f.ok(&["entry", "attach", "CLAUDE.md"]);
     f.ok(&["entry", "remove", "CLAUDE.md"]);
     f.ok(&["sync"]);
     assert!(!f.0.join("CLAUDE.md").exists());
     let agents = f.read("AGENTS.md");
     f.ok(&["entry", "remove", "AGENTS.md"]);
-    f.ok(&["entry", "add", "AGENTS.md", "--kind", "instructions"]);
+    f.ok(&["entry", "attach", "AGENTS.md"]);
     assert!(f.prepare(&["sync"]).unwrap().is_empty());
-    f.ok(&["entry", "add", "CLAUDE.md", "--kind", "instructions"]);
+    f.ok(&["entry", "attach", "CLAUDE.md"]);
     f.ok(&["sync"]);
     assert_eq!(f.read("AGENTS.md"), agents);
     let claude = f.read("CLAUDE.md");
@@ -237,7 +236,7 @@ fn multiple_hosts_detach_independently_and_registration_roundtrips_need_no_publi
             .get(f.0.join("AGENTS.md").to_str().unwrap())
             .is_none()
     );
-    f.ok(&["entry", "add", "AGENTS.md", "--kind", "instructions"]);
+    f.ok(&["entry", "attach", "AGENTS.md"]);
     f.ok(&["sync"]);
     assert_eq!(f.read("AGENTS.md"), agents);
 }
@@ -258,7 +257,7 @@ fn relocated_navigation_and_language_share_sources_without_translating_authored_
     f.ok(&["resource", "add", "知识 #100%.md", "--as", "ssh-http"]);
     f.ok(&["sync"]);
     f.ok(&["output", "navigation #new"]);
-    f.ok(&["language", "zh-CN"]);
+    f.ok(&["config", "set", "language", "zh-CN"]);
     f.ok(&["sync"]);
     let host = String::from_utf8(f.read("project/AGENTS.md")).unwrap();
     assert!(host.contains("[上下文索引](../navigation%20%23new/index.md)"));
@@ -272,7 +271,7 @@ fn relocated_navigation_and_language_share_sources_without_translating_authored_
             .unwrap()
             .contains("navigation%20%23new/index.md")
     );
-    f.ok(&["language", "en"]);
+    f.ok(&["config", "set", "language", "en"]);
     f.ok(&["sync"]);
     assert!(
         String::from_utf8(f.read("project/AGENTS.md"))
@@ -312,7 +311,11 @@ fn missing_receipt_never_turns_a_managed_config_into_fresh_authority() {
     let f = Fixture::new();
     f.ok(&["init"]);
     fs::remove_file(f.0.join(".devmeld/state/owned.json")).unwrap();
-    for args in [&["sync"][..], &["recover"], &["language", "zh-CN"]] {
+    for args in [
+        &["sync"][..],
+        &["recover"],
+        &["config", "set", "language", "zh-CN"],
+    ] {
         let result = f.run(args, true);
         assert!(
             !result.status.success(),
@@ -385,7 +388,11 @@ fn receipts_reject_duplicate_target_keys_and_invalid_insertion_evidence() {
             fs::write(&path, serde_json::to_vec(&receipt).unwrap()).unwrap();
         }
         let record = fs::read(&path).unwrap();
-        for args in [&["recover"][..], &["language", "zh-CN"], &["sync"]] {
+        for args in [
+            &["recover"][..],
+            &["config", "set", "language", "zh-CN"],
+            &["sync"],
+        ] {
             let result = f.run(args, true);
             assert!(
                 !result.status.success(),
@@ -401,12 +408,31 @@ fn owned_entry_mode_cannot_be_changed_by_remove_then_add_before_detachment() {
     for (initial, next) in [("file", "instructions"), ("instructions", "file")] {
         let f = Fixture::new();
         f.ok(&["init"]);
-        f.ok(&["entry", "add", "ENTRY.md", "--kind", initial]);
+        f.ok(&[
+            "entry",
+            if initial == "instructions" {
+                "attach"
+            } else {
+                "create"
+            },
+            "ENTRY.md",
+        ]);
         f.ok(&["sync"]);
         let host = f.read("ENTRY.md");
         f.ok(&["entry", "remove", "ENTRY.md"]);
         let config = f.read(".devmeld/context.json");
-        let result = f.run(&["entry", "add", "ENTRY.md", "--kind", next], true);
+        let result = f.run(
+            &[
+                "entry",
+                if next == "instructions" {
+                    "attach"
+                } else {
+                    "create"
+                },
+                "ENTRY.md",
+            ],
+            true,
+        );
         assert!(
             !result.status.success(),
             "accepted mode conversion {initial} to {next}"
@@ -493,7 +519,7 @@ fn sources_and_obsolete_targets_remain_in_the_alias_check() {
     f.ok(&["init", "--instruction-entry", "old.md"]);
     f.ok(&["sync"]);
     f.ok(&["entry", "remove", "old.md"]);
-    f.ok(&["entry", "add", "new.md", "--kind", "instructions"]);
+    f.ok(&["entry", "attach", "new.md"]);
     fs::hard_link(f.0.join("old.md"), f.0.join("new.md")).unwrap();
     let before = f.read("old.md");
     assert!(!f.run(&["sync"], true).status.success());
@@ -555,7 +581,7 @@ fn cross_drive_instruction_entries_follow_real_sources_after_relocation_and_deta
         (second.0.join("发布 #100%"), "zh-CN"),
     ] {
         f.ok(&["output", output.to_str().unwrap()]);
-        f.ok(&["language", language]);
+        f.ok(&["config", "set", "language", language]);
         f.ok(&["sync"]);
         for host in [&first_host, &second_host] {
             assert_eq!(

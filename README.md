@@ -44,13 +44,14 @@ is required. Choose an existing local document and replace `<absolute-document-p
 full path, such as `C:/knowledge/notes.md` or `/home/me/knowledge/notes.md`.
 
 ```text
-devmeld resource add "<absolute-document-path>" --as knowledge/notes --apply
-devmeld sync --apply
+devmeld resource add "<absolute-document-path>" --as knowledge/notes
+devmeld sync
 ```
 
-Each command shows a preview. Type `apply` to confirm it; omit `--apply` for
-preview only, or use `--dry-run`. Registration changes configuration; `sync` publishes the files.
-The apply-word interaction is still in place while the rest of the CLI redesign is implemented.
+Registration saves configuration directly. `sync` shows the publication preview and asks
+once: `Apply these changes? [y/N]`. Enter `y` to publish, or press Enter to cancel.
+Append `--dry-run` to preview without writing; scripts use `sync --yes` instead of an
+interactive prompt. `--yes` never overrides conflicts or grants additional ownership.
 
 Open `.devmeld/output/index.md`, then follow the resource page to the
 original document. You can give that index file to an Agent with local read
@@ -58,9 +59,10 @@ access. DevMeld can exit after publication; reading does not call it again.
 
 The command reports the selected context: explicit `--context PATH` wins;
 otherwise it reuses the nearest ancestor `.devmeld`, or creates one in the current
-directory on the first confirmed add. A corrupt or incomplete marker blocks fallback.
+directory on the first successful add. A corrupt or incomplete marker blocks fallback.
 For a separate trial, pass `--context "<new-context-directory>"` to both commands;
-the new location is created only when applying valid changes.
+the new location is created only when saving valid changes. Optional `devmeld init PATH`
+creates an empty context at an explicit location; it is not required before adding resources.
 
 Native source/schema/entry/output paths resolve from the invoking directory.
 `knowledge/notes` is a logical address, not a source folder or an internal ID;
@@ -76,7 +78,7 @@ Help works without initializing or selecting a context and does not create files
 devmeld --help
 devmeld resource --help
 devmeld resource add --help
-devmeld entry add --help
+devmeld entry attach --help
 ```
 
 Use `-h` as a short form. Help describes the currently implemented commands.
@@ -90,11 +92,11 @@ devmeld group list
 devmeld group show knowledge
 devmeld resource list knowledge
 devmeld resource show knowledge/notes
-devmeld group add database --apply
-devmeld resource move knowledge/notes database/notes --apply
-devmeld group move database reference/database --apply
-devmeld group remove knowledge --apply
-devmeld sync --apply
+devmeld group add database
+devmeld resource move knowledge/notes database/notes
+devmeld group move database reference/database
+devmeld group remove knowledge
+devmeld sync
 ```
 
 `list`/`show` are read-only and need no confirmation. List with a group path includes
@@ -103,7 +105,7 @@ sources and access associations, not live availability or whether an Agent read 
 Move destinations are exact logical addresses: existing targets are rejected, not merged.
 Moving never relocates source files or changes stable identities/associations. Empty old
 groups remain until explicitly removed; nonempty group removal is rejected. Only sync
-updates published navigation. Use `--dry-run` instead of `--apply` to preview a change.
+updates published navigation. Append `--dry-run` to preview a change without saving.
 
 ### Describe groups and resources
 
@@ -111,11 +113,11 @@ Descriptions, tags and named fields are separate context annotations. For exampl
 after the quick start (before moving `knowledge/notes`):
 
 ```text
-devmeld group update knowledge --description "Team documentation" --tag backend --environment test --shared --apply
-devmeld resource update knowledge/notes --description "Project conventions" --field "attention=Check the source before changing configuration" --apply
+devmeld group update knowledge --description "Team documentation" --tag backend --environment test --shared
+devmeld resource update knowledge/notes --description "Project conventions" --field "attention=Check the source before changing configuration"
 devmeld group show knowledge
 devmeld resource show knowledge/notes
-devmeld sync --apply
+devmeld sync
 ```
 
 These options also work on `group add` and `resource add`. Custom fields need no
@@ -137,10 +139,10 @@ the child receives it (`inherit`). Initially, groups transmit by default and
 children do not inherit. After the quick start, before moving `knowledge/notes`:
 
 ```text
-devmeld group update knowledge --tag backend --environment test --propagate --apply
-devmeld resource update knowledge/notes --inherit --apply
+devmeld group update knowledge --tag backend --environment test --propagate
+devmeld resource update knowledge/notes --inherit
 devmeld resource show knowledge/notes
-devmeld sync --apply
+devmeld sync
 ```
 
 Show and generated navigation identify local annotations and the origin of effective
@@ -152,9 +154,9 @@ including more distant ancestors. Removing a local field override may reveal its
 Creation defaults are configurable in an existing context:
 
 ```text
-devmeld config set defaults.inherit true --apply
-devmeld config set defaults.propagate false --apply
-devmeld group add tools --no-inherit --propagate --apply
+devmeld config set defaults.inherit true
+devmeld config set defaults.propagate false
+devmeld group add tools --no-inherit --propagate
 devmeld group show tools
 ```
 
@@ -164,12 +166,25 @@ choices. Existing choices stay saved when defaults change or nodes move.
 Changed parent annotations take effect in generated files on the next `sync`;
 inherited values are never copied into the child's registration.
 
+### Check publication state
+
+```text
+devmeld status
+devmeld sync --dry-run
+devmeld sync
+```
+
+`status` is read-only: it distinguishes saved configuration, pending/up-to-date
+publication and configured/published entries. Missing inputs, conflicts or pending
+recovery block verification. It never claims that an Agent loaded the context.
+An unchanged sync still validates inputs and ownership but does not prompt or rewrite files.
+
 ### Update context
 
 Edit your original documents or descriptions, then synchronize:
 
 ```text
-devmeld sync --apply
+devmeld sync
 ```
 
 Use DevMeld commands to change registrations and entries; do not hand-edit managed
@@ -180,24 +195,24 @@ configuration or generated files. Unchanged synchronization does not rewrite out
 Select an ordinary UTF-8 instruction file, such as your project's `AGENTS.md`:
 
 ```text
-devmeld entry add "<absolute-project-path>/AGENTS.md" --kind instructions --apply
-devmeld sync --apply
+devmeld entry attach "<absolute-project-path>/AGENTS.md"
+devmeld sync
 ```
 
 Only the generated insertion is maintained; surrounding authored text is preserved.
 Whether a new Agent session discovers the file depends on that client's setup.
-Alternatively, register an ordinary entry using `devmeld entry add CONTEXT.md --apply`,
+Alternatively, register an ordinary entry using `devmeld entry create CONTEXT.md`,
 then sync. Initialization does not register or edit a project entry implicitly.
 
-To detach, run `entry remove "<absolute-project-path>/AGENTS.md" --apply`, then
-`sync --apply`, from the same context (or with an explicit `--context`). This removes only the insertion,
+To detach, run `entry remove "<absolute-project-path>/AGENTS.md"`, then
+`sync`, from the same context (or with an explicit `--context`). This removes only the insertion,
 not the host file or original resources.
 
 ### Choose the generated language
 
 ```text
-devmeld language zh-CN --apply
-devmeld sync --apply
+devmeld config set language zh-CN
+devmeld sync
 ```
 
 Use `en` to switch back. English is the default. Only generated explanatory text
@@ -210,11 +225,12 @@ CLI help and diagnostics currently remain English.
   addresses can be described, but are not fetched or indexed remotely.
 - Synchronization is manual. There is no automatic project discovery, scheduler,
   tool installation or execution.
-- Logical groups, inspection, moves, annotations and configurable inheritance are
-  implemented. The simplified save/confirmation UX and publication status remain unbuilt.
+- `status` compares expected generated content with owned files using current inputs;
+  it is not a historical source-freshness record or proof that an Agent read the entry.
 - Older incompatible development records are preserved and rejected, not migrated.
   Use fresh context paths for a first trial. For an interrupted current operation,
-  preview `devmeld --context PATH recover` before confirming with `--apply`.
+  preview `devmeld --context PATH recover --dry-run`, then run `recover` for one
+  confirmation (or `recover --yes` in a script).
 - See the [current CLI verification record](specs/005-context-cli/acceptance.md)
   for platform results. macOS and additional Agent Client setups remain unverified.
 

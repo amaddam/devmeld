@@ -50,13 +50,13 @@
 **Goal**: Clear pending/published states and one publication confirmation, retaining managed boundaries.
 **Independent acceptance**: US5 scenarios 1-5 through the real CLI, including an existing instruction file.
 
-- [ ] T012 [US5] Replace old apply-word interaction with scoped saves, dry-run, sync/recover confirmation, explicit noninteractive confirmation, status, config language and entry attach/create/remove in `crates/devmeld/src/main.rs`, `crates/devmeld/src/cli.rs`, `crates/devmeld/src/lib.rs`, `crates/devmeld/tests/cli.rs` and affected existing tests; preserve previews and report configured versus published, never claim automatic client consumption (FR-008); depends on T011.
-- [ ] T013 [US5] Verify stale/no-op/cancel/conflict/recovery and exact host preservation under the new CLI in `crates/devmeld/tests/cli.rs`, `crates/devmeld/tests/instructions.rs` and `crates/devmeld/src/storage.rs`; retain existing protection assertions rather than weakening them for new flags (FR-009); depends on T012.
+- [x] T012 [US5] Replace old apply-word interaction with scoped saves, dry-run, sync/recover confirmation, explicit noninteractive confirmation, status, config language and entry attach/create/remove in `crates/devmeld/src/main.rs`, `crates/devmeld/src/cli.rs`, `crates/devmeld/src/lib.rs`, `crates/devmeld/tests/cli.rs` and affected existing tests; preserve previews and report configured versus published, never claim automatic client consumption (FR-008); depends on T011.
+- [x] T013 [US5] Verify stale/no-op/cancel/conflict/recovery and exact host preservation under the new CLI in `crates/devmeld/tests/cli.rs`, `crates/devmeld/tests/instructions.rs` and `crates/devmeld/src/storage.rs`; retain existing protection assertions rather than weakening them for new flags (FR-009); depends on T012.
 
 ## Phase 7: Full delivery and acceptance
 
-- [ ] T014 Update `README.md`, `README.zh-CN.md` and `specs/005-context-cli/quickstart.md` to the verified complete journey, remove superseded human syntax and test every executable example using disposable fixtures; depends on T013.
-- [ ] T015 Run `cargo xtask check` natively and in isolated Linux, run actual Windows cross-drive cases, review source/domain/ownership boundaries and record results plus unverified macOS/client cases in `specs/005-context-cli/acceptance.md`; report pending Maintainer acceptance separately; depends on T014.
+- [x] T014 Update `README.md`, `README.zh-CN.md` and `specs/005-context-cli/quickstart.md` to the verified complete journey, remove superseded human syntax and test every executable example using disposable fixtures; depends on T013.
+- [x] T015 Run `cargo xtask check` natively and in isolated Linux, run actual Windows cross-drive cases, review source/domain/ownership boundaries and record results plus unverified macOS/client cases in `specs/005-context-cli/acceptance.md`; report pending Maintainer acceptance separately; depends on T014.
 
 ## Dependencies and Execution Order
 

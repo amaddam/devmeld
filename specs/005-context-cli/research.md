@@ -1,8 +1,8 @@
 # Implementation Rationale
 
-## Current repository evidence
+## Pre-005 repository evidence (historical baseline)
 
-Inspected on 2026-09-09: `main.rs` handles only root help, then requires leading `--context` and trailing `--apply`; `lib.rs` coordinates already-authorized plans; `declarations.rs` stores flat registration IDs; `ResourceId` is a portable slug. These are current implementation facts, not authority for the new CLI model.
+Before 005 implementation on 2026-09-09, `main.rs` handled only root help, then required leading `--context` and trailing `--apply`; `lib.rs` coordinated already-authorized plans; `declarations.rs` stored flat registration IDs; `ResourceId` was a portable slug. This explains the starting point, not the current command vocabulary or authority for the new CLI model.
 
 ## Command discovery before parser replacement
 
@@ -33,3 +33,9 @@ Inspected on 2026-09-09: `main.rs` handles only root help, then requires leading
 - Rationale: reduce ceremony without weakening conflicts, stale-input checks or recovery. Entry attachment remains explicit.
 
 No external technology comparison or new dependency was needed for these decisions. Future technical changes must be justified by an actual task, not silently adopted here.
+
+## Status without a second state registry
+
+- Decision: reuse sync's read-only publication preparation and captured-input recheck for status. Report current generated-content equivalence, configured/published entries and pending targets; fail verification on missing inputs, ownership conflicts or pending recovery.
+- Rationale: configuration and existing ownership receipts already own the relevant facts. A separate dirty flag or historical source snapshot would introduce another invalidation/lifecycle problem beyond this CLI change. A linked document body changing without changing generated navigation therefore does not imply pending publication.
+- Boundary: status may inspect registered inputs but never applies a plan. Registration list/show still reads no source contents. Neither can prove Agent consumption.

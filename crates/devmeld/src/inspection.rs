@@ -1,9 +1,14 @@
-//! Human-facing registration inspection, without publication or source reads.
+//! Read-only presentation: registrations alone, or current publication comparison.
 use crate::{Plan, Result, context, declarations, error};
 use devmeld_resources::organization::OrganizationPath;
 use std::path::Path;
 
 pub fn inspect_in(cwd: &Path, explicit: Option<&Path>, args: &[String]) -> Result<Option<String>> {
+    if args == ["status"] {
+        return publication_status(cwd, explicit)
+            .map(Some)
+            .map_err(|cause| error(format!("publication status blocked/unverified: {cause}")));
+    }
     let command: Vec<_> = args.iter().map(String::as_str).collect();
     if !matches!(
         command.as_slice(),
@@ -87,6 +92,51 @@ pub fn inspect_in(cwd: &Path, explicit: Option<&Path>, args: &[String]) -> Resul
     }
     report.push_str("Registration only; relative source/schema references use the shown context root. Source availability, publication and client consumption are not checked.\n");
     Ok(Some(report))
+}
+
+fn publication_status(cwd: &Path, explicit: Option<&Path>) -> Result<String> {
+    let root = context::select(cwd, explicit)?;
+    let mut plan = Plan::new(root.clone())?;
+    let config = declarations::read_config(&mut plan)?;
+    crate::prepare_publication(&mut plan, &config)?;
+    plan.recheck()?;
+    let mut report = format!(
+        "Context: {}\nConfiguration: saved\nRegistered resources: {}\nConfigured entries: {}\nPublication: {}\n",
+        root.display(),
+        config.resources.len(),
+        config.publication.entries.len(),
+        if plan.is_empty() {
+            "up to date"
+        } else {
+            "pending"
+        }
+    );
+    report.push_str(&format!(
+        "Navigation: {}\n",
+        crate::storage::resolve(&root, &config.publication.directory)?
+            .join("index.md")
+            .display()
+    ));
+    for entry in &config.publication.entries {
+        let path = crate::storage::resolve(&root, &entry.path)?;
+        let owned = plan.owned_paths().any(|p| p == &path);
+        let changed = plan.changed_paths().any(|p| p == &path);
+        let state = match (owned, changed) {
+            (false, _) => "not published",
+            (true, true) => "pending update",
+            (true, false) => "published; matches current generated content",
+        };
+        report.push_str(&format!(
+            "Entry: {} ({}) — {state}\n",
+            path.display(),
+            entry.kind
+        ));
+    }
+    for path in plan.changed_paths() {
+        report.push_str(&format!("Pending target: {}\n", path.display()));
+    }
+    report.push_str("Read-only comparison of expected generated content with owned files using current inputs; not a historical source-freshness receipt.\nClient consumption: unverified\n");
+    Ok(report)
 }
 
 fn require_group(

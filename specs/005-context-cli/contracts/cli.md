@@ -1,17 +1,17 @@
 # CLI Contract and Delivery Tracking
 
-Status: target interaction for 005. Only completed tasks and live help establish current support. T001-T011 are implemented: source-first add/addresses, nearest context, no-init first add, cwd-relative native operands, `--dry-run`, group add/remove, group/resource list/show/move, local annotation add/update, configurable inheritance defaults and saved choices with derived origins. Confirmation still uses `--apply` / `apply`; simplified saves, status and entry attach/create below remain unbuilt.
+Status: implemented command contract for 005. Scoped saves, status, config language, entry attach/create/remove and one sync/recover confirmation complete the earlier organization/inheritance slices. Platform evidence and pending Maintainer acceptance are recorded in acceptance.md.
 
 ## Help (first deliverable)
 
 - `devmeld --help`, `devmeld resource --help`, `devmeld resource add --help`.
-- Equivalent help for implemented `init`, `resource remove`, `access add/remove`, `entry add/remove`, `output`, `language`, `sync` and `recover`.
+- Equivalent help for implemented `init`, `resource remove`, `access add/remove`, `entry attach/create/remove`, `output`, `config set`, `status`, `sync` and `recover`.
 - `-h` is equivalent to `--help` for these requests.
 - A syntactically complete `--context PATH` selector may precede the help path; the path is never resolved or opened for help.
 - Root/group help lists actual children; operation help documents current operands/options, path interpretation and write behavior. No future `group`/`--as`/`--inherit` syntax is shown until implemented.
 - An unknown topic is an error, not successful unrelated help. No-argument invocation retains root help. Help is terminal-only output and creates no context/output/entry files.
 
-## Target command vocabulary (later slices)
+## Command vocabulary
 
 ```text
 devmeld [--context PATH] COMMAND
@@ -36,7 +36,7 @@ entry remove PATH
 status
 sync [--dry-run | --yes]
 recover [--dry-run | --yes]
-init [PATH]
+init [PATH] [--output PATH] [--entry PATH] [--instruction-entry PATH] [--language en|zh-CN]
 ```
 
 All path-taking operations use native local paths, except organization addresses which use logical `/` segments. Default `--as` is derived from the source filename only when unambiguous and valid; collisions require an explicit address, not invented suffixes. IDs are internal.
@@ -59,7 +59,7 @@ All path-taking operations use native local paths, except organization addresses
 ## Organization operations (T008)
 
 - Resource/group list without a scope lists all registered addresses in sorted order. With a group scope, list includes its descendants using complete logical segments; group list excludes the scope itself. Unknown/wrong-kind scopes are errors.
-- Group show displays direct child groups and resources. Resource show displays stable identity, stored source/schema references and incoming/outgoing access associations by current address. These are read-only registration snapshots, not source availability, publication freshness or client-consumption checks. Queries never bootstrap, do not open source contents and reject `--apply`.
+- Group show displays direct child groups and resources. Resource show displays stable identity, stored source/schema references and incoming/outgoing access associations by current address. These are read-only registration snapshots, not source availability, publication freshness or client-consumption checks. Queries never bootstrap, do not open source contents and reject `--yes`. The removed `--apply` is rejected on all commands.
 - Group add creates missing parents and may be the first operation in a new context. Group remove accepts empty groups only; no recursive option is supported and no source directories/files are deleted.
 - Move uses an exact full destination, not filesystem `mv` inference. Missing destination parents are created; existing destinations, resource-as-parent collisions and self-descendant group moves fail without changes. Same-address move is a no-op but still validates existence and rechecks captured state on apply.
 - Group move readdresses only that logical subtree, including empty subgroups. Resource IDs, source/schema references, incoming/outgoing associations and generated page filenames remain stable. Empty old parents remain until explicitly removed. New navigation and association labels appear on sync, not when the configuration move is saved.
@@ -75,7 +75,7 @@ The first help slice changes no persisted data or mutating commands. Later repla
 - Update adds unique tags and sets only named fields. `--clear-description`, `--remove-tag TEXT` and `--remove-field KEY` explicitly remove information. Removing an absent value is a no-op; removal flags are not valid for add. Setting and removing the same value, setting and clearing description, or duplicate field assignments (including shortcuts) fail without writes.
 - All field values are text. `--shared` / `--no-shared` store the same `shared` strings as `--field shared=true` / `--field shared=false`. An empty field value is permitted; `--field` splits only at the first `=`. No value is interpreted as a permission, an environment action or an executable extension.
 - Show, generated group navigation and resource navigation/pages identify these as local context annotations, separate from source-declared attributes. Supplied names/text are not translated or interpreted as Markdown instructions. Only generated labels switch between English and Simplified Chinese. List remains an address listing, not a metadata query engine.
-- Updates use the existing preview/`--apply` mechanism until T012. Sync publishes changes. T010-T011 extend this local-annotation behavior with inheritance as described below.
+- Updates save configuration directly; `--dry-run` previews without writing. Sync publishes changes. Inheritance extends local annotations as described below.
 
 ## Inheritance (T010-T011)
 
@@ -85,3 +85,12 @@ The first help slice changes no persisted data or mutating commands. Later repla
 - Inheritance requires the immediate parent to propagate and the child to inherit. A broken edge cuts all information crossing it, including distant ancestors. Tags union with all contributing origins; the closest local field overrides inherited value/origin, including identical or empty text. Removing a local override may reveal its inherited value; there is no per-value suppression mechanism.
 - Show displays creation defaults separately from saved node choices. Show and generated navigation/pages retain local annotations and, when receipt is enabled, show effective tags/fields with origins (or an explicit empty result). Fixed output labels support en/zh-CN; supplied text/technical terms stay unchanged. List remains a logical-address listing.
 - Overall descriptions, identities, source locations and permissions never inherit. No derived values are persisted into child declarations or source attributes. Defaults-only changes do not change generated content. Parent annotation/choice changes and moves require sync to update publication; all existing preview/stale/ownership checks still apply.
+
+## Publication interaction and status (T012-T013)
+
+- One optional terminal `--dry-run` applies to mutations; no directories, locks, journals or targets are created. One terminal `--yes` is valid only for exact sync/recover commands. Mixed/duplicate flags fail before context IO. Removed `--apply`, `language VALUE` and `entry add` are not compatibility aliases.
+- A sync/recover with changes flushes the preview before prompting once. Both input and output must be terminals unless `--yes` was supplied. Accept `y` or `yes` case-insensitively; blank, n or EOF cancel. A no-op still calls the existing apply/recheck path without prompting.
+- Optional `init PATH` is an explicit cwd-relative native context selector, mutually exclusive with `--context`. Init flags for output/language/explicit entries remain supported. No init or add implicitly chooses an instruction host.
+- `entry attach PATH` registers an insertion in a selected UTF-8 host (sync may create an absent selected host); `entry create PATH` registers a wholly generated file. Both save registration only. Existing ownership modes cannot be silently switched. Remove plus sync withdraws only the owned content.
+- `status` reads current declarations/sources and shares publication preparation with sync; it rechecks inputs without applying changes. It reports saved configuration, pending/up-to-date generated content, configured/unpublished or published entries and pending targets. Missing inputs, conflicts or pending recovery block verification without repairing anything.
+- Status compares currently expected generated bytes with owned files, not a historical source-freshness receipt. Authored document body changes that leave generated references unchanged need not mark publication pending. Client consumption always remains unverified; no persistent status registry, timestamp or new data format is introduced.

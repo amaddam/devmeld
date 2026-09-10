@@ -1,8 +1,8 @@
 # 看一遍实际效果
 
 从仓库根目录执行，首次使用已有 Rust 工具链运行 `cargo fetch --locked`。
-下面每条带 `--apply` 的命令先显示预览，需要输入 `apply` 才会写入。
-去掉 `--apply` 就只看预览。
+登记和配置命令直接保存；`sync` 显示预览后询问一次 `y/N`，输入 `y` 才发布。
+命令末尾加 `--dry-run` 只预览、不写入；脚本用 `sync --yes` 明确确认。
 
 当前是未定版的 v0 开发实现。以下初始化示例适用于尚未运行过的新 checkout。
 如果 `team-context/.devmeld` 已有不兼容的开发记录，请保留它，不要清空或改格式字段。
@@ -10,12 +10,12 @@
 并选择未占用的输出/入口路径。原始知识不必复制；旧产物仍可阅读。
 
 ```text
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/knowledge/notes.md --as knowledge/notes --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/resources/service.json --as services/http --kind description --schema examples/team-context/templates/service.schema.json --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/resources/http-guide.json --as tools/http-guide --kind description --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context access add services/http tools/http-guide --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context entry add examples/sample-project/CONTEXT.md --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context sync --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/knowledge/notes.md --as knowledge/notes
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/resources/service.json --as services/http --kind description --schema examples/team-context/templates/service.schema.json
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add examples/team-context/resources/http-guide.json --as tools/http-guide --kind description
+cargo run -p devmeld --locked --offline -- --context examples/team-context access add services/http tools/http-guide
+cargo run -p devmeld --locked --offline -- --context examples/team-context entry create examples/sample-project/CONTEXT.md
+cargo run -p devmeld --locked --offline -- --context examples/team-context sync
 ```
 
 然后关闭命令，从 `examples/sample-project/CONTEXT.md` 开始看：
@@ -29,8 +29,8 @@ cargo run -p devmeld --locked --offline -- --context examples/team-context sync 
 如需在已有项目说明文件中添加小段入口，显式执行：
 
 ```text
-devmeld --context PATH entry add /path/to/project/AGENTS.md --kind instructions --apply
-devmeld --context PATH sync --apply
+devmeld --context PATH entry attach /path/to/project/AGENTS.md
+devmeld --context PATH sync
 ```
 
 第一条只登记，第二条才发布；周围原文保留。移除时执行 `entry remove PATH` 后再同步，
@@ -41,6 +41,7 @@ devmeld --context PATH sync --apply
 
 修改 `resources/service.json` 的 endpoint 或自定义属性后，再运行 `sync`。
 原始资料可由人/AI 修改；登记、关联通过命令维护；生成文件不要手改。
+使用 `status` 查看当前生成内容是否待更新；它不证明 Agent 已读取，也不保存历史来源快照。
 无变化同步会显示 `0 changed target(s)`，不会重写文件。
 
 这里只会创建示例自己的 `.devmeld` 和 `sample-project/CONTEXT.md`，不会连接
@@ -53,12 +54,12 @@ devmeld --context PATH sync --apply
 首次成功登记会创建上下文，无需独立执行 `init`。按以下方式切换生成语言：
 
 ```text
-cargo run -p devmeld --locked --offline -- --context examples/team-context language zh-CN --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context sync --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context config set language zh-CN
+cargo run -p devmeld --locked --offline -- --context examples/team-context sync
 ```
 
-分别检查预览并输入 `apply`。语言设置先保存到受管配置，下次 `sync` 才更新
-索引、资源页和全部入口；使用 `language en` 并再次同步即可切回英文。
+语言设置直接保存到受管配置，下次 `sync` 确认后才更新
+索引、资源页和全部入口；使用 `config set language en` 并再次同步即可切回英文。
 未配置语言时固定使用英文，不读取系统 locale。
 
 中文产物使用“上下文索引”“原始来源”“接入指引”等正式表述。
@@ -73,8 +74,8 @@ CLI 帮助和错误信息暂不本地化。
 再注册并同步（同样需要预览确认）：
 
 ```text
-cargo run -p devmeld --locked --offline -- --context examples/team-context resource add "D:/knowledge/团队 notes.md" --as knowledge/shared-notes --apply
-cargo run -p devmeld --locked --offline -- --context examples/team-context sync --apply
+cargo run -p devmeld --locked --offline -- --context examples/team-context resource add "D:/knowledge/团队 notes.md" --as knowledge/shared-notes
+cargo run -p devmeld --locked --offline -- --context examples/team-context sync
 ```
 
 命令中的源文件、Schema、入口和输出路径相对于执行命令时的目录；绝对路径直接指定本机位置。
@@ -90,7 +91,7 @@ cargo run -p devmeld --locked --offline -- --context examples/team-context sync 
 ```
 
 同盘继续使用相对于生成文件的链接。跨盘的入口、输出与受管配置链接
-采用同一规则；通过已有 `entry add PATH`、`output PATH` 命令维护，随后同步。
+采用同一规则；通过 `entry create PATH` / `entry attach PATH`、`output PATH` 命令维护，随后同步。
 源文件不移动、不复制，链接也不是 DevMeld 专用协议。
 如果阅读器禁止 `file:` 链接，可使用附带的本地路径，仍需相应读取权限。
 相对链接依赖目录关系不变，绝对链接依赖本机路径不变；都不是跨机器同步机制。

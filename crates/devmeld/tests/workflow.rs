@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -29,18 +28,12 @@ impl Fixture {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        if apply {
-            command.arg("--apply");
+        if apply && matches!(args, ["sync" | "recover"]) {
+            command.arg("--yes");
+        } else if !apply {
+            command.arg("--dry-run");
         }
-        let mut child = command.spawn().unwrap();
-        if apply {
-            if let Err(error) = child.stdin.take().unwrap().write_all(b"apply\n") {
-                // A no-op or rejected command can exit without requesting confirmation.
-                // Still collect and assert its actual exit status/output below.
-                assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
-            }
-        }
-        child.wait_with_output().unwrap()
+        command.stdin(Stdio::null()).output().unwrap()
     }
     fn ok(&self, args: &[&str]) -> Output {
         let output = self.run(args, true);
@@ -134,7 +127,7 @@ fn unsupported_records_are_rejected_even_by_recover_without_creating_state() {
                 vec!["init"],
                 vec!["sync"],
                 vec!["recover"],
-                vec!["language", "en"],
+                vec!["config", "set", "language", "en"],
             ] {
                 let result = f.run(&args, true);
                 assert!(
@@ -265,9 +258,9 @@ fn cross_drive_workflow_preserves_sources_and_follows_offline_links() {
     // now need file URIs, while the old remote-drive source becomes relative.
     let moved = second.0.join("published #100%");
     let first_entry = f.0.join("ENTRY.md");
-    f.ok(&["entry", "add", "ENTRY.md"]);
+    f.ok(&["entry", "create", "ENTRY.md"]);
     f.ok(&["output", moved.to_str().unwrap()]);
-    f.ok(&["language", "en"]);
+    f.ok(&["config", "set", "language", "en"]);
     f.ok(&["sync"]);
     assert!(!index.exists());
     verify_targets(&entry, &[&moved.join("index.md")]);
@@ -415,7 +408,7 @@ fn chinese_publication_localizes_generated_text_without_changing_document_or_lin
 }
 
 #[test]
-fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() {
+fn language_changes_save_separately_from_sync_and_preserve_authored_terms() {
     let f = Fixture::new();
     let service = r#"{"title":"ssh / http API","summary":"Original document","attributes":{"protocol":"ssh","transport":"http","command":"curl --head http://local.invalid","多语言":"i18n","format":"JSON"},"references":[{"label":"ssh / http CLI","path":"ssh-http.md"}]}"#;
     let tool = r#"{"title":"curl","summary":"curl for http; ssh 使用独立授权。"}"#;
@@ -464,7 +457,7 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
         .iter()
         .map(|path| fs::read(f.0.join(path)).unwrap())
         .collect();
-    let preview = f.run(&["language", "zh-CN"], false);
+    let preview = f.run(&["config", "set", "language", "zh-CN"], false);
     assert!(
         preview.status.success(),
         "{}",
@@ -472,17 +465,17 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
     );
     assert!(String::from_utf8_lossy(&preview.stdout).contains("zh-CN"));
     assert_eq!(fs::read(&config_path).unwrap(), english_config);
-    let cancelled = Command::new(env!("CARGO_BIN_EXE_devmeld"))
+    let refused = Command::new(env!("CARGO_BIN_EXE_devmeld"))
         .arg("--context")
         .arg(&f.0)
-        .args(["language", "zh-CN", "--apply"])
+        .args(["config", "set", "language", "zh-CN", "--apply"])
         .stdin(Stdio::null())
         .output()
         .unwrap();
-    assert!(!cancelled.status.success());
-    assert!(String::from_utf8_lossy(&cancelled.stderr).contains("cancelled"));
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("--apply has been removed"));
     assert_eq!(fs::read(&config_path).unwrap(), english_config);
-    f.ok(&["language", "zh-CN"]);
+    f.ok(&["config", "set", "language", "zh-CN"]);
     let config: serde_json::Value =
         serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
     assert_eq!(config["publication"]["language"], "zh-CN");
@@ -534,10 +527,10 @@ fn language_changes_require_confirmation_and_sync_and_preserve_authored_terms() 
         );
     }
     assert!(
-        String::from_utf8_lossy(&f.ok(&["language", "zh-CN"]).stdout)
+        String::from_utf8_lossy(&f.ok(&["config", "set", "language", "zh-CN"]).stdout)
             .contains("0 changed target(s)")
     );
-    f.ok(&["language", "en"]);
+    f.ok(&["config", "set", "language", "en"]);
     f.ok(&["sync"]);
     assert_eq!(fs::read(&config_path).unwrap(), english_config);
     for (file, before) in files.iter().zip(&english) {
@@ -579,9 +572,9 @@ fn invalid_output_languages_are_rejected_without_mutating_context() {
     let index = fs::read(f.0.join(".devmeld/output/index.md")).unwrap();
     let receipt = fs::read(f.0.join(".devmeld/state/owned.json")).unwrap();
     for args in [
-        vec!["language", "fr"],
-        vec!["language"],
-        vec!["language", "en", "zh-CN"],
+        vec!["config", "set", "language", "fr"],
+        vec!["config", "set", "language"],
+        vec!["config", "set", "language", "en", "zh-CN"],
         vec!["sync", "--language", "zh-CN"],
     ] {
         assert!(!f.run(&args, false).status.success());
@@ -637,6 +630,7 @@ fn language_defaults_ignore_host_locale_and_keep_deterministic_english_output_by
             .arg("--context")
             .arg(&f.0)
             .args(&options)
+            .arg("--dry-run")
             .env("LANG", "zh_CN.UTF-8")
             .env("LC_ALL", "zh_CN.UTF-8")
             .env("LANGUAGE", "zh_CN")
@@ -651,6 +645,7 @@ fn language_defaults_ignore_host_locale_and_keep_deterministic_english_output_by
             .arg("--context")
             .arg(&f.0)
             .arg("sync")
+            .arg("--dry-run")
             .env("LANG", "zh_CN.UTF-8")
             .env("LC_ALL", "zh_CN.UTF-8")
             .env("LANGUAGE", "zh_CN")
@@ -674,15 +669,16 @@ fn language_defaults_ignore_host_locale_and_keep_deterministic_english_output_by
         let config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
         assert!(!String::from_utf8_lossy(&config).contains("language"));
         assert!(
-            String::from_utf8_lossy(&f.ok(&["language", "en"]).stdout)
+            String::from_utf8_lossy(&f.ok(&["config", "set", "language", "en"]).stdout)
                 .contains("0 changed target(s)")
         );
         assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), config);
-        f.ok(&["language", "zh-CN"]);
+        f.ok(&["config", "set", "language", "zh-CN"]);
         let sync = Command::new(env!("CARGO_BIN_EXE_devmeld"))
             .arg("--context")
             .arg(&f.0)
             .arg("sync")
+            .arg("--dry-run")
             .env("LANG", "en_US.UTF-8")
             .env("LC_ALL", "en_US.UTF-8")
             .output()
@@ -697,13 +693,22 @@ fn language_changes_reject_stale_preview_and_preserve_external_publication_edits
     let f = Fixture::new();
     f.ok(&["init", "--entry", "project/CONTEXT.md"]);
     f.ok(&["sync"]);
-    let stale = devmeld::prepare(&f.0, &["language".into(), "zh-CN".into()]).unwrap();
-    f.ok(&["entry", "add", "other/ENTRY.md"]);
+    let stale = devmeld::prepare(
+        &f.0,
+        &[
+            "config".into(),
+            "set".into(),
+            "language".into(),
+            "zh-CN".into(),
+        ],
+    )
+    .unwrap();
+    f.ok(&["entry", "create", "other/ENTRY.md"]);
     let config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
     assert!(stale.apply().unwrap_err().to_string().contains("stale"));
     assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), config);
     let stale_sync = devmeld::prepare(&f.0, &["sync".into()]).unwrap();
-    f.ok(&["language", "zh-CN"]);
+    f.ok(&["config", "set", "language", "zh-CN"]);
     assert!(
         stale_sync
             .apply()
@@ -790,7 +795,7 @@ fn registration_entry_and_output_changes_unpublish_only_owned_files() {
     f.ok(&["resource", "add", "notes.md", "--as", "notes"]);
     f.ok(&["sync"]);
     f.ok(&["entry", "remove", "project/CONTEXT.md"]);
-    f.ok(&["entry", "add", "other/CONTEXT.md"]);
+    f.ok(&["entry", "create", "other/CONTEXT.md"]);
     f.ok(&["output", "published"]);
     f.ok(&["sync"]);
     assert!(!f.0.join("project/CONTEXT.md").exists());
@@ -873,7 +878,7 @@ fn help_explains_command_options_and_missing_confirmation_is_read_only() {
         .output()
         .unwrap();
     assert!(!cancelled.status.success());
-    assert!(String::from_utf8_lossy(&cancelled.stderr).contains("cancelled"));
+    assert!(String::from_utf8_lossy(&cancelled.stderr).contains("--apply has been removed"));
     assert_eq!(fs::read_dir(&f.0).unwrap().count(), 0);
 }
 

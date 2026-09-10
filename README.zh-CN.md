@@ -42,22 +42,24 @@ Linux/macOS 的可执行文件为 `target/release/devmeld`，Windows 为
 `C:/knowledge/notes.md` 或 `/home/me/knowledge/notes.md`。
 
 ```text
-devmeld resource add "<文档绝对路径>" --as knowledge/notes --apply
-devmeld sync --apply
+devmeld resource add "<文档绝对路径>" --as knowledge/notes
+devmeld sync
 ```
 
-每条命令先显示预览，输入 `apply` 才确认写入；去掉 `--apply` 或使用 `--dry-run` 则只预览。
-登记命令只保存配置，`sync` 才生成文件。目前仍保留这套确认方式，简化交互尚在后续实现中。
+登记命令直接保存配置；`sync` 显示发布预览，再询问一次 `Apply these changes? [y/N]`。
+输入 `y` 发布，直接回车则取消。命令末尾加 `--dry-run` 只预览、不写入。
+脚本中使用 `sync --yes` 明确确认；它不会绕过冲突检查或扩大维护权限。
 
 打开 `.devmeld/output/index.md`，沿资源页找到原始文档。
 也可以将这个索引文件指定给有本地读取权限的 Agent。
 生成完成后 DevMeld 即可退出，读取时不再调用它。
 
 命令会显示实际使用的上下文位置：优先使用 `--context PATH`；未指定时，
-查找当前目录及其上层最近的 `.devmeld`；没有时，首次确认登记才在当前目录创建。
+查找当前目录及其上层最近的 `.devmeld`；没有时，首次成功登记才在当前目录创建。
 发现损坏或不完整的记录会报错，不会跳过它另建一份。
 如需独立试用，可在两条命令中都加上 `--context "<新的上下文目录>"`；
-该位置只在有效操作确认写入时创建。
+该位置只在有效操作保存时创建。也可以用 `devmeld init PATH` 显式创建空上下文，
+但登记资源前不需要单独初始化。
 
 源文件、Schema、入口、输出的相对路径以执行命令时的目录为基准。
 `knowledge/notes` 是逻辑分类地址，不是源文件夹或内部 ID；缺少的父组会自动建立。
@@ -73,7 +75,7 @@ devmeld sync --apply
 devmeld --help
 devmeld resource --help
 devmeld resource add --help
-devmeld entry add --help
+devmeld entry attach --help
 ```
 
 也可以使用简写 `-h`。帮助只展示当前已经实现的命令。
@@ -87,11 +89,11 @@ devmeld group list
 devmeld group show knowledge
 devmeld resource list knowledge
 devmeld resource show knowledge/notes
-devmeld group add database --apply
-devmeld resource move knowledge/notes database/notes --apply
-devmeld group move database reference/database --apply
-devmeld group remove knowledge --apply
-devmeld sync --apply
+devmeld group add database
+devmeld resource move knowledge/notes database/notes
+devmeld group move database reference/database
+devmeld group remove knowledge
+devmeld sync
 ```
 
 `list`/`show` 只读，不需要确认。按组执行 list 会列出整个子树，group show 只显示直属内容。
@@ -99,18 +101,18 @@ resource show 展示登记的来源和接入关联，不代表来源当前可用
 移动目标是完整逻辑地址：同名目标会报错，不会自动合并。
 移动不搬移源文件，也不改变内部 ID 或关联；空的原分组会保留，需显式删除。
 非空组不能直接删除。最后执行 `sync` 才更新生成的导航。
-把 `--apply` 替换为 `--dry-run` 可只看修改预览。
+命令末尾加 `--dry-run` 可只看修改预览、不保存。
 
 ### 补充说明、标签和字段
 
 三者是分开的上下文标注。例如，完成快速开始后、移动 `knowledge/notes` 之前：
 
 ```text
-devmeld group update knowledge --description "团队文档" --tag backend --environment test --shared --apply
-devmeld resource update knowledge/notes --description "项目约定" --field "attention=修改配置前确认原始说明" --apply
+devmeld group update knowledge --description "团队文档" --tag backend --environment test --shared
+devmeld resource update knowledge/notes --description "项目约定" --field "attention=修改配置前确认原始说明"
 devmeld group show knowledge
 devmeld resource show knowledge/notes
-devmeld sync --apply
+devmeld sync
 ```
 
 `group add`、`resource add` 也支持这些参数。自定义字段不需要新增插件：
@@ -129,10 +131,10 @@ devmeld sync --apply
 初始默认值是父组允许传递、子项不继承。完成快速开始后、移动 `knowledge/notes` 之前：
 
 ```text
-devmeld group update knowledge --tag backend --environment test --propagate --apply
-devmeld resource update knowledge/notes --inherit --apply
+devmeld group update knowledge --tag backend --environment test --propagate
+devmeld resource update knowledge/notes --inherit
 devmeld resource show knowledge/notes
-devmeld sync --apply
+devmeld sync
 ```
 
 查看和生成的导航会区分本级标注与生效的继承信息，并标明来源。
@@ -143,9 +145,9 @@ devmeld sync --apply
 在已有上下文中，可以调整两个创建默认值：
 
 ```text
-devmeld config set defaults.inherit true --apply
-devmeld config set defaults.propagate false --apply
-devmeld group add tools --no-inherit --propagate --apply
+devmeld config set defaults.inherit true
+devmeld config set defaults.propagate false
+devmeld group add tools --no-inherit --propagate
 devmeld group show tools
 ```
 
@@ -153,12 +155,24 @@ devmeld group show tools
 更新时未指定的选项保留。修改默认值或移动节点，都不会改写已有节点保存的开关。
 父组标注发生变化后，下一次 `sync` 才更新生成文件；继承值不会复制进子项配置。
 
+### 查看发布状态
+
+```text
+devmeld status
+devmeld sync --dry-run
+devmeld sync
+```
+
+`status` 只读区分配置已保存、发布待更新或已更新，以及入口已登记或已发布。
+来源缺失、文件冲突、待恢复操作会阻止验证，不会自动修复。
+它不代表 Agent 已读取上下文。无变化的同步仍检查输入和所有权，但不再询问或重写文件。
+
 ### 更新上下文
 
 修改原始文档或资源描述后，再同步：
 
 ```text
-devmeld sync --apply
+devmeld sync
 ```
 
 通过 DevMeld 命令维护资源登记和入口，不要直接编辑受管配置或生成文件。
@@ -169,24 +183,24 @@ devmeld sync --apply
 明确选择一个普通 UTF-8 项目说明文件，例如项目的 `AGENTS.md`：
 
 ```text
-devmeld entry add "<项目绝对路径>/AGENTS.md" --kind instructions --apply
-devmeld sync --apply
+devmeld entry attach "<项目绝对路径>/AGENTS.md"
+devmeld sync
 ```
 
 DevMeld 只维护其中的生成片段，保留周围的作者内容。
 新 Agent 会话能否自动读到该文件，取决于具体客户端配置；
-也可以通过 `devmeld entry add CONTEXT.md --apply` 登记普通入口，再执行同步。
+也可以通过 `devmeld entry create CONTEXT.md` 登记普通入口，再执行同步。
 初始化上下文本身不会隐式登记或修改项目入口。
 
 移除入口时，在同一上下文中执行（也可显式指定 `--context`）
-`entry remove "<项目绝对路径>/AGENTS.md" --apply`，再执行 `sync --apply`。
+`entry remove "<项目绝对路径>/AGENTS.md"`，再执行 `sync`。
 这只移除片段，不删除项目说明文件或原始资源。
 
 ### 切换生成语言
 
 ```text
-devmeld language zh-CN --apply
-devmeld sync --apply
+devmeld config set language zh-CN
+devmeld sync
 ```
 
 使用 `en` 可切回英文；未指定时默认英文。
@@ -198,11 +212,11 @@ CLI 帮助和错误提示目前仍为英文。
 - 仅处理本机上下文，源文件可位于不同本地磁盘。远程服务地址可保存在描述中，
   但不会被自动连接或展开成远程索引。
 - 当前需要手动同步，没有自动发现项目、定时更新、安装或执行工具的能力。
-- 已实现逻辑分组、查看、移动、标注和可配置继承；简化的保存与确认交互、
-  发布状态查看尚未实现。
+- `status` 根据当前输入比较应生成的内容和受管文件，不是历史来源快照，
+  也不代表 Agent 已经读取。
 - 不兼容的旧开发记录会原样保留并拒绝维护，不自动迁移。首次试用请选择新路径。
-  当前操作意外中断时，先用 `devmeld --context PATH recover` 查看恢复预览，
-  再通过 `--apply` 确认。
+  当前操作意外中断时，先用 `devmeld --context PATH recover --dry-run` 查看恢复预览，
+  再运行 `recover` 确认一次；脚本使用 `recover --yes`。
 - 各平台的实际结果见[当前 CLI 验证记录](specs/005-context-cli/acceptance.md)。
   macOS 及其他 Agent Client 配置尚未验证。
 
