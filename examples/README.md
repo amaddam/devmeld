@@ -29,11 +29,11 @@ cargo run -p devmeld --locked --offline -- --context examples/team-context sync
 如需在已有项目说明文件中添加小段入口，显式执行：
 
 ```text
-devmeld --context PATH entry attach /path/to/project/AGENTS.md
-devmeld --context PATH sync
+devmeld --context <CONTEXT_DIR> entry attach /path/to/project/AGENTS.md
+devmeld --context <CONTEXT_DIR> sync
 ```
 
-第一条只登记，第二条才发布；周围原文保留。移除时执行 `entry remove PATH` 后再同步，
+第一条只登记，第二条才发布；周围原文保留。移除时执行 `entry remove <ENTRY_FILE>` 后再同步，
 只移除片段，不删除宿主文件。普通文件入口与片段入口可以并存，共享同一索引。
 请勿手工复制受管片段；维护授权来自当前上下文的记录，不来自标记外观。
 客户端验收步骤和实际结果见 [004](../specs/004-project-entry-integration/quickstart.md)
@@ -91,7 +91,7 @@ cargo run -p devmeld --locked --offline -- --context examples/team-context sync
 ```
 
 同盘继续使用相对于生成文件的链接。跨盘的入口、输出与受管配置链接
-采用同一规则；通过 `entry create PATH` / `entry attach PATH`、`output PATH` 命令维护，随后同步。
+采用同一规则；通过 `entry create <ENTRY_FILE>` / `entry attach <ENTRY_FILE>`、`output <OUTPUT_DIR>` 命令维护，随后同步。
 源文件不移动、不复制，链接也不是 DevMeld 专用协议。
 如果阅读器禁止 `file:` 链接，可使用附带的本地路径，仍需相应读取权限。
 相对链接依赖目录关系不变，绝对链接依赖本机路径不变；都不是跨机器同步机制。

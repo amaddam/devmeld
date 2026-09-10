@@ -6,7 +6,7 @@ This is the intended model for the complete Feature, not a claim that all fields
 
 - Resource Organization owns logical membership, group paths, local annotations, inheritance and association integrity.
 - Context Publication receives resolved facts/provenance and owns output/entry maintenance.
-- Application code owns context selection, CLI arguments, persistence adaptation and confirmation. No third domain is introduced.
+- Application code owns context selection, typed use-case requests/results and persistence coordination. The CLI adapter owns argument syntax, terminal rendering and confirmation input. No third domain is introduced. Prepared changes preserve inspect/apply and rechecking for every caller; internal result types are not a public wire protocol.
 
 ## Values and relationships
 

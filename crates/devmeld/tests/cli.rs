@@ -1,3 +1,4 @@
+mod support;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
@@ -159,7 +160,7 @@ fn inheritance_commands_reject_invalid_input_and_preserve_preview_noop_and_stale
         modified
     );
     let prepare = |args: &[&str]| {
-        devmeld::prepare(
+        support::prepare(
             &f.0,
             &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         )
@@ -575,7 +576,7 @@ fn annotation_shortcuts_and_fields_are_equivalent_and_conflicting_edits_never_wr
         fs::read(first.0.join(".devmeld/context.json")).unwrap(),
         before
     );
-    let plan = devmeld::prepare(
+    let plan = support::prepare(
         &first.0,
         &[
             "group".into(),
@@ -1139,13 +1140,20 @@ fn resource_add_help_needs_no_context_and_creates_nothing() {
         String::from_utf8_lossy(&output.stderr)
     );
     let text = String::from_utf8(output.stdout).unwrap();
-    assert!(text.contains("resource add SOURCE [--as PATH]"), "{text}");
     assert!(
-        text.contains("--kind document|description] [--schema PATH]"),
+        text.contains("resource add <SOURCE_FILE> [OPTIONS]"),
+        "{text}"
+    );
+    assert!(
+        text.contains("--kind <document|description>") && text.contains("--schema <SCHEMA_FILE>"),
         "{text}"
     );
     assert!(text.contains("sync"), "{text}");
-    assert!(text.contains("logical organization address"), "{text}");
+    assert!(
+        text.to_ascii_lowercase()
+            .contains("logical organization address"),
+        "{text}"
+    );
     fixture.assert_empty();
 }
 
@@ -1153,38 +1161,50 @@ fn resource_add_help_needs_no_context_and_creates_nothing() {
 fn command_groups_and_operations_have_specific_current_help() {
     let fixture = Fixture::new();
     let cases: &[(&[&str], &[&str])] = &[
-        (&["resource"], &["resource add", "resource remove"]),
-        (&["resource", "remove"], &["resource remove PATH", "source"]),
+        (&["resource"], &["add", "remove", "resource <COMMAND>"]),
+        (
+            &["resource", "remove"],
+            &["resource remove <RESOURCE_PATH>", "source"],
+        ),
         (
             &["entry"],
-            &["entry attach", "entry create", "entry remove"],
+            &["attach", "create", "remove", "entry <COMMAND>"],
         ),
         (&["entry", "attach"], &["managed insertion", "sync"]),
         (&["entry", "create"], &["generated Markdown", "sync"]),
-        (&["entry", "remove"], &["entry remove PATH", "sync"]),
-        (&["access"], &["access add", "access remove"]),
-        (&["access", "add"], &["access add RESOURCE TOOL", "install"]),
+        (&["entry", "remove"], &["entry remove <ENTRY_FILE>", "sync"]),
+        (&["access"], &["add", "remove", "access <COMMAND>"]),
+        (
+            &["access", "add"],
+            &["access add <RESOURCE_PATH> <TOOL_RESOURCE_PATH>", "install"],
+        ),
         (
             &["access", "remove"],
-            &["access remove RESOURCE TOOL", "source"],
+            &[
+                "access remove <RESOURCE_PATH> <TOOL_RESOURCE_PATH>",
+                "source",
+            ],
         ),
         (
             &["init"],
-            &["--instruction-entry PATH", "--language en|zh-CN"],
+            &["--instruction-entry <ENTRY_FILE>", "--language <en|zh-CN>"],
         ),
-        (&["output"], &["output PATH", "sync"]),
-        (&["config", "set"], &["language en|zh-CN", "authored"]),
+        (&["output"], &["output <OUTPUT_DIR>", "sync"]),
+        (&["config", "set"], &["language <en|zh-CN>", "authored"]),
         (&["status"], &["status", "without writing", "unverified"]),
         (
             &["config"],
-            &["defaults.inherit true|false", "existing context"],
+            &["set", "existing context", "config <COMMAND>"],
         ),
         (
             &["config", "set"],
-            &["defaults.propagate true|false", "future nodes"],
+            &["defaults.propagate <true|false>", "future nodes"],
         ),
         (&["sync"], &["sync [--dry-run | --yes]", "source"]),
-        (&["recover"], &["recover [--dry-run | --yes]", "recovery"]),
+        (
+            &["recover"],
+            &["recover [--dry-run | --yes]", "interrupted"],
+        ),
     ];
     for (topic, expected) in cases {
         let mut args = topic.to_vec();
@@ -1252,11 +1272,17 @@ fn unknown_help_topics_fail_before_context_access_without_writing() {
 fn organization_help_describes_real_operations_and_read_only_queries() {
     let f = Fixture::new();
     for (topic, expected) in [
-        (vec!["group"], "group add PATH"),
-        (vec!["group", "add"], "group add PATH"),
+        (vec!["group"], "group <COMMAND>"),
+        (vec!["group", "add"], "group add <GROUP_PATH>"),
         (vec!["group", "remove"], "empty"),
-        (vec!["group", "move"], "group move FROM TO"),
-        (vec!["resource", "move"], "resource move FROM TO"),
+        (
+            vec!["group", "move"],
+            "group move <FROM_GROUP_PATH> <TO_GROUP_PATH>",
+        ),
+        (
+            vec!["resource", "move"],
+            "resource move <FROM_RESOURCE_PATH> <TO_RESOURCE_PATH>",
+        ),
     ] {
         let mut args = topic;
         args.push("--help");
@@ -1339,7 +1365,7 @@ fn organization_rejections_previews_and_noops_never_rewrite_registration() {
     assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
     assert!(!f.0.join(".devmeld/output").exists());
 
-    let stale = devmeld::prepare_in(
+    let stale = support::prepare_in(
         &f.0,
         None,
         &[
@@ -1414,7 +1440,7 @@ fn root_help_forms_are_identical_and_malformed_selectors_do_not_write() {
         let output = fixture.run(args);
         assert!(!output.status.success());
         assert!(output.stdout.is_empty());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("expected PATH"));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("expected CONTEXT_DIR"));
     }
     fixture.assert_empty();
 }
@@ -1823,7 +1849,7 @@ fn incomplete_corrupt_and_pending_nearest_contexts_block_fallback_and_adoption()
 fn a_new_marker_after_bootstrap_preview_is_not_adopted() {
     let f = Fixture::new();
     fs::write(f.0.join("notes.md"), "source").unwrap();
-    let plan = devmeld::prepare_in(
+    let plan = support::prepare_in(
         &f.0,
         None,
         &["resource".into(), "add".into(), "notes.md".into()],
@@ -1849,7 +1875,7 @@ fn stale_first_source_aborts_before_creating_context_storage() {
     let f = Fixture::new();
     let source = f.0.join("notes.md");
     fs::write(&source, "before").unwrap();
-    let plan = devmeld::prepare_in(
+    let plan = support::prepare_in(
         &f.0,
         None,
         &["resource".into(), "add".into(), "notes.md".into()],

@@ -60,8 +60,18 @@
 
 ## Dependencies and Execution Order
 
+### Adapter refinement (authorized 2026-09-10)
+
+- [x] T016 Refactor CLI/application coupling on the green baseline: typed mutation/query inputs, structured inspection and prepared-change previews, binary-owned parsing/rendering, no production argv entrypoints; verify a non-CLI registration/query/publication caller plus existing ownership/stale/recovery regressions. Files: `crates/devmeld/src/`, `crates/devmeld/tests/application.rs` and affected fixture helpers. Preserve formats, commands and prior assertions.
+- [x] T017 Implement the selected root/group/operation help hierarchy and contextual options/examples in `crates/devmeld/src/cli/`, with real executable regression cases and corresponding README/contract updates; depends on T016. No new command, alias or parser dependency.
+- [x] T018 Verify native Windows, isolated Linux and actual cross-drive behavior; inspect application/domain/adapter boundaries, rebuild the release executable and record accurate evidence and remaining platform limits in `acceptance.md`; update design status only after completion; depends on T017. No commit or push is implied.
+
 T001 -> US1 (T002-T004) -> US2 (T005-T007) -> US3 (T008-T009) -> US4 (T010-T011) -> US5 (T012-T013) -> T014-T015.
 The address model first appears inside its real add/publication slice, not as an empty shared infrastructure phase. Run affected checks within each task, not only at T015.
+
+## Help as a quick reference (2026-09-10)
+
+- [x] T019 Shorten root/group/operation help into a command reference: one-line purpose, precise operands, all supported options with brief defaults/constraints, at most one relevant example, and immediate write-risk notes. Keep tutorials and detailed semantics in documentation for the future website; do not invent a documentation URL. Change only help, corresponding tests/style/contract text and acceptance evidence; preserve the parser/application behavior and uncommitted T016-T018 work. Run focused help tests and native `cargo xtask check`, then rebuild/inspect release help; prior cross-platform evidence is not a fresh run for this text-only change.
 
 ## Parallel Opportunities
 

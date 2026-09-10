@@ -2,8 +2,8 @@
 use crate::{Result, error};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize)]
-pub(crate) enum OutputLanguage {
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub enum OutputLanguage {
     #[default]
     #[serde(rename = "en")]
     English,

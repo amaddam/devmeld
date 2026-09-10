@@ -16,13 +16,32 @@ From an empty temporary directory, invoke the built executable with root help, `
 
 Repeat help with `--context` naming a nonexistent directory. Confirm it remains nonexistent. An unknown group/topic must fail without writing or falling back to unrelated successful help.
 
+For the T017 layout, root and group help list direct children without their full
+option inventories. `group list --help` must explain only its logical group
+scope, examples and applicable options, without tool/schema/inheritance text.
+`resource add --help` must still explain source paths, logical addresses, schema
+and its supported annotation/inheritance choices. `-h` remains equivalent.
+
+## Non-CLI application boundary (T016)
+
+Run `cargo test --locked --offline -p devmeld --test application`. These callers
+use `ContextLocation`, `Mutation`, `Query`, structured `Inspection` and
+`PlanPreview`, never CLI arguments or rendered report parsing. Verify registration
+then publication, inheritance origins after a logical move, missing-source
+registration inspection, explicit native input bases, entry attach/detach and
+stale/no-op refusal. Dropping a prepared plan must not write anything. Existing
+CLI and interruption tests still exercise the same apply/recovery path.
+
+This is a reusable in-process application API, not a delivered GUI or a frozen
+machine wire protocol. CLI confirmation and output formatting remain in the binary.
+
 ## Implemented registration slice (T005-T007)
 
 From a disposable project directory, use an existing document:
 
 ```text
-devmeld resource add SOURCE --as knowledge/notes --dry-run
-devmeld resource add SOURCE --as knowledge/notes
+devmeld resource add <SOURCE_FILE> --as knowledge/notes --dry-run
+devmeld resource add <SOURCE_FILE> --as knowledge/notes
 devmeld sync
 ```
 
@@ -70,7 +89,7 @@ Status reuses the read-only publication preparation and rechecks its inputs. It 
 
 Use a real terminal to test cancel (blank/n), accept (y) and stale confirmation: pause at the prompt, change configuration using another DevMeld invocation, then confirm; it must reject the stale preview without publishing. Noninteractive sync/recover without `--yes` must fail if changes exist; no-op must recheck and succeed without a prompt. `--yes` cannot override modified managed files. Duplicate/mixed confirmation flags and removed `--apply`, `language VALUE`, `entry add` syntax must fail.
 
-Optional `init PATH --dry-run` leaves the selected new path absent; `init PATH` saves only an empty context there. Combining it with `--context` is rejected. Existing contexts/claims are not adopted.
+Optional `init <CONTEXT_DIR> --dry-run` leaves the selected new path absent; `init <CONTEXT_DIR>` saves only an empty context there. Combining it with `--context` is rejected. Existing contexts/claims are not adopted.
 
 Recovery uses the same confirmation interaction. Preview with `recover --dry-run`; confirm once with `recover` or explicitly use `recover --yes`. Existing storage fault-injection tests exercise each mutation/commit/rollback boundary. Pending operations block ordinary saves/status. No paid Agent session is needed for these CLI changes.
 

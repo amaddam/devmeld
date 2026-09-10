@@ -1,3 +1,4 @@
+mod support;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
@@ -693,7 +694,7 @@ fn language_changes_reject_stale_preview_and_preserve_external_publication_edits
     let f = Fixture::new();
     f.ok(&["init", "--entry", "project/CONTEXT.md"]);
     f.ok(&["sync"]);
-    let stale = devmeld::prepare(
+    let stale = support::prepare(
         &f.0,
         &[
             "config".into(),
@@ -707,7 +708,7 @@ fn language_changes_reject_stale_preview_and_preserve_external_publication_edits
     let config = fs::read(f.0.join(".devmeld/context.json")).unwrap();
     assert!(stale.apply().unwrap_err().to_string().contains("stale"));
     assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), config);
-    let stale_sync = devmeld::prepare(&f.0, &["sync".into()]).unwrap();
+    let stale_sync = support::prepare(&f.0, &["sync".into()]).unwrap();
     f.ok(&["config", "set", "language", "zh-CN"]);
     assert!(
         stale_sync
@@ -774,7 +775,7 @@ fn stale_preview_and_external_edits_preserve_external_bytes() {
     f.ok(&["init"]);
     fs::write(f.0.join("doc.md"), "first").unwrap();
     f.ok(&["resource", "add", "doc.md", "--as", "doc"]);
-    let plan = devmeld::prepare(&f.0, &["sync".into()]).unwrap();
+    let plan = support::prepare(&f.0, &["sync".into()]).unwrap();
     fs::write(f.0.join("doc.md"), "second").unwrap();
     assert!(plan.apply().unwrap_err().to_string().contains("stale"));
     assert!(!f.0.join(".devmeld/output/index.md").exists());
@@ -865,10 +866,22 @@ fn help_explains_command_options_and_missing_confirmation_is_read_only() {
         .output()
         .unwrap();
     assert!(help.status.success());
-    assert!(String::from_utf8_lossy(&help.stdout).contains("--kind document|description"));
-    assert!(String::from_utf8_lossy(&help.stdout).contains("--language en|zh-CN"));
-    assert!(String::from_utf8_lossy(&help.stdout).contains("language en|zh-CN"));
-    assert!(String::from_utf8_lossy(&help.stdout).contains("then sync"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("resource"));
+    for (topic, option) in [
+        (vec!["resource", "add"], "--kind <document|description>"),
+        (vec!["init"], "--language <en|zh-CN>"),
+        (vec!["config", "set"], "language <en|zh-CN>"),
+    ] {
+        let help = Command::new(env!("CARGO_BIN_EXE_devmeld"))
+            .args(topic)
+            .arg("--help")
+            .output()
+            .unwrap();
+        assert!(help.status.success());
+        let text = String::from_utf8(help.stdout).unwrap();
+        assert!(text.contains(option));
+        assert!(text.contains("sync"));
+    }
     let f = Fixture::new();
     let cancelled = Command::new(env!("CARGO_BIN_EXE_devmeld"))
         .arg("--context")

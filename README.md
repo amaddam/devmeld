@@ -57,11 +57,11 @@ Open `.devmeld/output/index.md`, then follow the resource page to the
 original document. You can give that index file to an Agent with local read
 access. DevMeld can exit after publication; reading does not call it again.
 
-The command reports the selected context: explicit `--context PATH` wins;
+The command reports the selected context: explicit `--context <CONTEXT_DIR>` wins;
 otherwise it reuses the nearest ancestor `.devmeld`, or creates one in the current
 directory on the first successful add. A corrupt or incomplete marker blocks fallback.
 For a separate trial, pass `--context "<new-context-directory>"` to both commands;
-the new location is created only when saving valid changes. Optional `devmeld init PATH`
+the new location is created only when saving valid changes. Optional `devmeld init <CONTEXT_DIR>`
 creates an empty context at an explicit location; it is not required before adding resources.
 
 Native source/schema/entry/output paths resolve from the invoking directory.
@@ -81,7 +81,17 @@ devmeld resource add --help
 devmeld entry attach --help
 ```
 
-Use `-h` as a short form. Help describes the currently implemented commands.
+Use `-h` as a short form. Root help lists command groups, group help lists its
+operations, and operation help explains only its own arguments, options and examples.
+
+In help, `<VALUE>` is required, `[VALUE]` is optional, and `a|b` means choose one.
+Replace placeholders with actual values; do not type the brackets. `[OPTIONS]`
+refers to the flags listed on that page, including annotation and inheritance flags.
+`CONTEXT_DIR` / `OUTPUT_DIR` are local directories; `SOURCE_FILE` / `SCHEMA_FILE` /
+`ENTRY_FILE` are local files. `RESOURCE_PATH` / `GROUP_PATH` are logical addresses
+such as `database/test/orders`, not disk locations. `TOOL_RESOURCE_PATH` also
+names a registered resource, not an executable. `FROM_*` / `TO_*` denote the
+original and exact destination logical addresses.
 
 ### Inspect and reorganize resources
 
@@ -229,7 +239,7 @@ CLI help and diagnostics currently remain English.
   it is not a historical source-freshness record or proof that an Agent read the entry.
 - Older incompatible development records are preserved and rejected, not migrated.
   Use fresh context paths for a first trial. For an interrupted current operation,
-  preview `devmeld --context PATH recover --dry-run`, then run `recover` for one
+  preview `devmeld --context <CONTEXT_DIR> recover --dry-run`, then run `recover` for one
   confirmation (or `recover --yes` in a script).
 - See the [current CLI verification record](specs/005-context-cli/acceptance.md)
   for platform results. macOS and additional Agent Client setups remain unverified.

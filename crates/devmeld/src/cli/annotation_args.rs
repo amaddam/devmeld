@@ -1,8 +1,6 @@
 //! Parse explicit descriptive annotations, independently of native path operands.
-use crate::{Result, error};
-use devmeld_resources::organization::{
-    AnnotationEdit, LocalAnnotations, Organization, OrganizationPath,
-};
+use devmeld::{NodeEdit, Result, error};
+use devmeld_resources::organization::{AnnotationEdit, LocalAnnotations};
 use std::collections::BTreeSet;
 
 pub(crate) fn takes_no_value(flag: &str) -> bool {
@@ -19,25 +17,8 @@ pub(crate) fn takes_no_value(flag: &str) -> bool {
 }
 
 pub(crate) struct NodeOptions {
-    pub annotations: AnnotationEdit,
+    pub edit: NodeEdit,
     pub remaining: Vec<String>,
-    inherit: Option<bool>,
-    propagate: Option<bool>,
-}
-impl NodeOptions {
-    pub fn apply_choices(
-        &self,
-        organization: &mut Organization,
-        path: &OrganizationPath,
-    ) -> Result<()> {
-        if let Some(value) = self.inherit {
-            organization.set_inherit(path, value)?;
-        }
-        if let Some(value) = self.propagate {
-            organization.set_propagate(path, value)?;
-        }
-        Ok(())
-    }
 }
 
 pub(crate) fn parse(options: &[String]) -> Result<NodeOptions> {
@@ -105,14 +86,16 @@ pub(crate) fn parse(options: &[String]) -> Result<NodeOptions> {
     }
     let values = LocalAnnotations::new(description, tags, fields)?;
     Ok(NodeOptions {
-        annotations: AnnotationEdit::new(
-            values,
-            clear_description,
-            remove_tags.into_iter().collect(),
-            remove_fields.into_iter().collect(),
-        )?,
+        edit: NodeEdit {
+            annotations: Some(AnnotationEdit::new(
+                values,
+                clear_description,
+                remove_tags.into_iter().collect(),
+                remove_fields.into_iter().collect(),
+            )?),
+            inherit,
+            propagate,
+        },
         remaining: other,
-        inherit,
-        propagate,
     })
 }

@@ -35,6 +35,27 @@ the owning decision before coding.
   Do not choose a convenient default when it could return context for the wrong
   source or silently change user-managed content.
 
+## Human-Facing CLI
+
+Use the [CLI style guide](cli-style.md) for command naming, help hierarchy,
+examples and concise terminal feedback. It is a presentation convention, not a
+replacement for Feature-owned command semantics, defaults or write authority.
+Its implementation-status section distinguishes selected layouts from current
+executable behavior; a style decision is not acceptance evidence.
+
+Treat CLI syntax as an adapter, not the application's only interface. The
+`devmeld` library accepts typed use-case requests and returns structured query
+results and prepared-change previews. The binary owns argument parsing, help,
+terminal rendering and confirmation. Future GUI callers use the same application
+boundary, not a subprocess or a string-command compatibility wrapper.
+
+Keep validation, source loading, domain coordination and managed-write checks in
+the shared application path. Applying a prepared plan consumes it and rechecks
+its captured inputs, including no-op plans. Adapters may present or discard a
+preview, but cannot turn confirmation into force-overwrite authority. Generated
+Markdown is a product artifact, separate from terminal presentation. This does
+not require a class/trait per command, a generic dispatcher or empty ports.
+
 ## Model-Driven Change and Refactoring
 
 Existing code is evidence of an earlier design, not authority for the next one.

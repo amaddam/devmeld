@@ -12,6 +12,10 @@ pub(crate) fn marker_exists(root: &Path) -> Result<bool> {
 }
 
 pub(crate) fn select(cwd: &Path, explicit: Option<&Path>) -> Result<PathBuf> {
+    storage::local_path(cwd)?;
+    if !cwd.is_absolute() {
+        return Err(crate::error("input base directory must be absolute"));
+    }
     let cwd = storage::resolve(cwd, ".")?;
     if let Some(path) = explicit {
         return storage::resolve(
@@ -28,49 +32,20 @@ pub(crate) fn select(cwd: &Path, explicit: Option<&Path>) -> Result<PathBuf> {
     Ok(cwd.to_owned())
 }
 
-pub(crate) fn operands(cwd: &Path, root: &Path, args: &[String]) -> Result<Vec<String>> {
-    let mut args = args.to_vec();
-    let command: Vec<_> = args.iter().map(String::as_str).collect();
-    let mut paths = Vec::new();
-    match command.as_slice() {
-        ["resource", "add", _, options @ ..] => {
-            paths.push(2);
-            let mut i = 0;
-            while i < options.len() {
-                if options[i] == "--schema" && i + 1 < options.len() {
-                    paths.push(4 + i);
-                }
-                i += if crate::annotation_args::takes_no_value(options[i]) {
-                    1
-                } else {
-                    2
-                };
-            }
-        }
-        ["entry", "attach" | "create" | "remove", _] => paths.push(2),
-        ["output", _] => paths.push(1),
-        ["init", options @ ..] => {
-            for (i, pair) in options.chunks(2).enumerate() {
-                if matches!(pair, ["--entry" | "--instruction-entry" | "--output", _]) {
-                    paths.push(2 + i * 2);
-                }
-            }
-        }
-        _ => (),
-    }
-    for index in paths {
-        let target = storage::resolve(cwd, &args[index])?;
-        // Keep in-context references portable; outside inputs keep their explicit
-        // local location, including another drive. Never move or copy the source.
-        let reference = target.strip_prefix(root).unwrap_or(&target);
-        args[index] = if reference.as_os_str().is_empty() {
-            ".".into()
-        } else {
-            reference
-                .to_str()
-                .ok_or_else(|| error("non-Unicode input path"))?
-                .into()
-        };
-    }
-    Ok(args)
+/// Adapt a typed native input to a portable in-context or absolute local reference.
+pub(crate) fn reference(base: &Path, root: &Path, path: &Path) -> Result<String> {
+    let target = storage::resolve(
+        base,
+        path.to_str()
+            .ok_or_else(|| crate::error("non-Unicode input path"))?,
+    )?;
+    let reference = target.strip_prefix(root).unwrap_or(&target);
+    Ok(if reference.as_os_str().is_empty() {
+        ".".into()
+    } else {
+        reference
+            .to_str()
+            .ok_or_else(|| crate::error("non-Unicode input path"))?
+            .into()
+    })
 }

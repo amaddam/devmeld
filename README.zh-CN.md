@@ -54,11 +54,11 @@ devmeld sync
 也可以将这个索引文件指定给有本地读取权限的 Agent。
 生成完成后 DevMeld 即可退出，读取时不再调用它。
 
-命令会显示实际使用的上下文位置：优先使用 `--context PATH`；未指定时，
+命令会显示实际使用的上下文位置：优先使用 `--context <CONTEXT_DIR>`；未指定时，
 查找当前目录及其上层最近的 `.devmeld`；没有时，首次成功登记才在当前目录创建。
 发现损坏或不完整的记录会报错，不会跳过它另建一份。
 如需独立试用，可在两条命令中都加上 `--context "<新的上下文目录>"`；
-该位置只在有效操作保存时创建。也可以用 `devmeld init PATH` 显式创建空上下文，
+该位置只在有效操作保存时创建。也可以用 `devmeld init <CONTEXT_DIR>` 显式创建空上下文，
 但登记资源前不需要单独初始化。
 
 源文件、Schema、入口、输出的相对路径以执行命令时的目录为基准。
@@ -78,7 +78,15 @@ devmeld resource add --help
 devmeld entry attach --help
 ```
 
-也可以使用简写 `-h`。帮助只展示当前已经实现的命令。
+也可以使用简写 `-h`。顶层列出命令组，组帮助列出操作，具体操作只解释自己的参数、选项和示例。
+
+帮助中的 `<VALUE>` 表示必填，`[VALUE]` 表示可选，`a|b` 表示二选一。
+执行时替换为实际值，不输入括号或占位名称。`[OPTIONS]` 表示本页列出的选项，
+其中包含标注和继承等开关，不是额外的位置参数。
+`CONTEXT_DIR` / `OUTPUT_DIR` 是本地目录；`SOURCE_FILE` / `SCHEMA_FILE` /
+`ENTRY_FILE` 是本地文件。`RESOURCE_PATH` / `GROUP_PATH` 是逻辑地址，
+例如 `database/test/orders`，不是磁盘位置。`TOOL_RESOURCE_PATH` 同样是已登记资源的
+逻辑地址，不是可执行文件。`FROM_*` / `TO_*` 表示原逻辑地址和完整目标逻辑地址。
 
 ### 查看和整理资源
 
@@ -215,7 +223,7 @@ CLI 帮助和错误提示目前仍为英文。
 - `status` 根据当前输入比较应生成的内容和受管文件，不是历史来源快照，
   也不代表 Agent 已经读取。
 - 不兼容的旧开发记录会原样保留并拒绝维护，不自动迁移。首次试用请选择新路径。
-  当前操作意外中断时，先用 `devmeld --context PATH recover --dry-run` 查看恢复预览，
+  当前操作意外中断时，先用 `devmeld --context <CONTEXT_DIR> recover --dry-run` 查看恢复预览，
   再运行 `recover` 确认一次；脚本使用 `recover --yes`。
 - 各平台的实际结果见[当前 CLI 验证记录](specs/005-context-cli/acceptance.md)。
   macOS 及其他 Agent Client 配置尚未验证。

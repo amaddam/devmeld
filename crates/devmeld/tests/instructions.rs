@@ -1,3 +1,4 @@
+mod support;
 use std::{
     fs,
     path::PathBuf,
@@ -50,7 +51,7 @@ impl Fixture {
         fs::read(self.0.join(path)).unwrap()
     }
     fn prepare(&self, args: &[&str]) -> devmeld::Result<devmeld::Plan> {
-        devmeld::prepare(
+        support::prepare(
             &self.0,
             &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         )

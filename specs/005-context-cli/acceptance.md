@@ -211,3 +211,121 @@ Additional regression/characterization coverage passed on first execution; no RE
 - No tool/dependency installation, paid Agent run, commit or push. macOS and additional Agent Client consumption remain unverified. Existing generated files remain independently readable without DevMeld running.
 
 **Delivery status:** T001-T015 implemented and verified. US5 completes the 005 CLI journey. This is implementation evidence, not final Maintainer acceptance; that decision remains pending.
+
+## Help argument naming clarification (2026-09-10)
+
+Baseline: local commit `87d8cda`, clean worktree. This follow-up clarifies existing help and documentation only; command parsing, requiredness, domain behavior, persisted data and dependencies are unchanged. No new Feature scope or task was introduced.
+
+- Root, command-group and operation help distinguish native directories/files (`CONTEXT_DIR`, `OUTPUT_DIR`, `SOURCE_FILE`, `SCHEMA_FILE`, `ENTRY_FILE`) from logical addresses (`RESOURCE_PATH`, `GROUP_PATH`, `TOOL_RESOURCE_PATH`, and explicit move endpoints). Shared notation explains required/optional values and optional flag groups. A tool resource address is not an executable path. Both READMEs, examples, the CLI contract and quickstart use the same names.
+- Baseline focused help suite: 8 passed. The new executable regression `help_distinguishes_native_files_directories_and_logical_addresses` first failed because root help lacked `init [CONTEXT_DIR]`, then passed. It checks 19 operations across help levels, naming/notation and no context writes. Existing help expectations were updated without removing behavioral or ownership assertions.
+- Final native Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: PASS, 114 tests passed, 4 cross-drive cases explicitly ignored. Formatting, compiler, conservative Clippy and architecture checks passed.
+- `cargo build --release --locked --offline -p devmeld`: PASS. The rebuilt executable's root, `resource add` and `access add` help was inspected successfully. Local Markdown link check: 16 links passed; `git diff --check` passed.
+- Linux, macOS and explicit cross-drive acceptance were not rerun for this help-only change; earlier platform evidence above is historical. No dependency installation, context migration, commit or push.
+
+## CLI adapter and layered help (T016-T018, 2026-09-10)
+
+Baseline: local HEAD `87d8cda`; prior help-name/README/style edits were already
+uncommitted and were preserved. Native `cargo xtask check` passed before this
+refactor (114 tests, 4 explicit cross-drive skips). The 005 requirements checklist
+remained read-only, 16/16 satisfied.
+
+### Boundary and implementation review
+
+- Production library entrypoints now accept `ContextLocation`, `Mutation` and
+  `Query`; there are no exported argv-based `prepare_in`/`inspect_in` wrappers.
+  Native inputs resolve from an explicit absolute base; context discovery is a
+  separate selection choice, never a hidden process cwd read.
+- `application.rs` owns use-case coordination, `inspection.rs` returns owned
+  facts, and `Plan::preview` returns borrowed before/after data. The binary's
+  `cli/` owns parsing, help and terminal renderers; main owns process IO and
+  confirmation. Generated Markdown remains product output, not a terminal report.
+- Preparation remains non-mutating. Applying consumes the original captured plan
+  and keeps stale-input, source/target alias, ownership, lock, journal and recovery
+  checks, including no-ops. No mutable transaction internals are exposed.
+- Removed the old production string-dispatch path and top-level annotation parser;
+  the parser now lives under `cli/`. Historical fault-injection fixtures reuse
+  that real parser only in test builds. Four direct application tests deliberately
+  do not use it or parse terminal reports.
+- Domain crates, manifests, lockfile, toolchain, persisted v0 records and transaction
+  algorithms are unchanged. No GUI, public wire protocol, generic dispatcher,
+  per-command class/trait hierarchy, new dependency or permanent compatibility
+  interface was introduced.
+
+### Focused evidence
+
+- `cargo test --locked --offline -p devmeld --test application`: observed initial
+  compile RED specifically for the newly approved typed API's missing exports;
+  final GREEN, 4 tests. Covers direct register/query/publish, structured previews,
+  explicit native input bases, exact instruction-host restoration, inherited
+  origins and associations after moves, missing-source registration inspection,
+  discarded plans and stale/no-op refusal without CLI invocation.
+- `cargo test --locked --offline -p devmeld --test interaction help`: observed
+  layout RED because root help still expanded leaf usage and configuration keys;
+  GREEN after root/group direct-child summaries and local operation help.
+- Existing executable help assertions were adjusted to their owning help page,
+  rather than requiring every page to repeat every term. Required/optional names,
+  all implemented flags, short-help equivalence, unavailable/corrupt context,
+  unknown-topic errors and no-write assertions remain. Ownership/recovery
+  assertions were retained; the committed-recovery preview assertion now checks
+  structured committed state instead of searching terminal text.
+- `group list --help` now explains logical scope, descendants/exclusion, examples
+  and applicable global options only. It does not describe tool paths, Schema or
+  inheritance. Mutating help retains local risk/confirmation guidance.
+
+### Verification
+
+- Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: PASS, **118 passed**, 4
+  cross-drive skips in the ordinary gate. Formatting, compiler, conservative
+  Clippy, domain-dependency and type-boundary probes passed.
+- Isolated WSL Linux `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: PASS,
+  **117 passed**, 0 ignored. Build/source copy:
+  `/home/lrns1b/project/devmeld-adapter-005.raWI2I`. The first snapshot shell
+  invocation failed before tests because of argument quoting; the explicit-path
+  copy and full Linux gate subsequently succeeded. No install was needed.
+- Actual C:/D: `cargo test --locked --offline -p devmeld cross_drive_ -- --ignored`:
+  PASS, **all 4 cases**. Scratch parent:
+  `D:\devmeld-adapter-005-4ad8016850bc438cb5c277eb5ff013f9`.
+  Source links, logical moves, instruction entries and interruption recovery passed.
+- Release build passed. **29 release invocations** exercised root/group/leaf help,
+  en/zh-CN register/update/show/config/status, dry-run, publish, no-op and entry
+  attach/detach in
+  `C:\Users\lrns1\AppData\Local\Temp\devmeld-adapter-smoke-4408a52a227e4892b01d045130b90233`.
+  Original source and authored host bytes were unchanged after detach; Chinese
+  navigation and honest client-consumption status were verified.
+- Local Markdown links and tracked/untracked whitespace checks passed.
+  `.specify/extensions.yml` is absent, so no post-implementation hooks apply.
+- macOS, an actual GUI and new Agent Client consumption remain unverified.
+  No user context migration, tool/dependency install, paid Agent session, commit
+  or push. This process does not currently resolve `devmeld` on PATH; release
+  verification used the explicit repository executable.
+
+T016-T018 are implemented and verified. Prior task/evidence history remains
+intact; implementation evidence is not final Maintainer acceptance.
+
+## Quick-reference help (T019, 2026-09-10)
+
+The Maintainer clarified that a dedicated website will carry the user manual.
+Help now keeps a one-line purpose, usage, precise operand/option summaries, at
+most one useful example and immediate write risks. It no longer explains the
+inheritance algorithm or recovery lifecycle; all implemented flags remain
+discoverable. No documentation URL is invented before a website exists.
+
+- Change scope: help strings/layout, corresponding help assertions, CLI style,
+  README terminology, CLI contract and this task/evidence record. Parser,
+  application/domain behavior, generated output and storage formats are unchanged.
+  Previous uncommitted work remains intact; no commit or push.
+- Baseline: 8 CLI help tests and 2 interaction help tests passed. The new
+  `command_help_is_a_quick_reference_not_a_manual` first failed on resource add's
+  five-line introductory tutorial, then passed. Final focused help suites:
+  **11 passed**, retaining options, defaults, schema requirements, empty-group/source
+  protection, confirmation limits and no-write checks.
+- Native Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: PASS,
+  **119 tests passed**, 4 cross-drive cases explicitly skipped. Format/compiler,
+  conservative Clippy and architecture checks passed.
+- Release build passed; actual resource-add/group-list/init help was inspected.
+  Printed lines excluding trailing blank lines changed from 45/19/29 to 30/14/23.
+  These are observations, not permanent line-count quotas.
+- `git diff --check` passed. Requirements checklist remains read-only, 16/16
+  satisfied. `.specify/extensions.yml` is absent; no post-implementation hook applies.
+- Linux, macOS and actual cross-drive tests were not rerun for this help-text-only
+  refinement. Earlier platform results remain historical; no fresh claim is made.

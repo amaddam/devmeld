@@ -101,7 +101,7 @@ mod tests {
         ] {
             let failure = resolve(&f.0, value).unwrap_err().to_string();
             assert!(failure.contains("native local path"), "{failure}");
-            let failure = crate::prepare(Path::new(value), &["init".into()])
+            let failure = crate::test_support::prepare(Path::new(value), &["init".into()])
                 .err()
                 .unwrap()
                 .to_string();
@@ -175,16 +175,20 @@ mod tests {
         setup.apply().unwrap();
         let modified = fs::metadata(&path).unwrap().modified().unwrap();
         let prepare = |args: &[&str]| {
-            crate::prepare(
+            crate::test_support::prepare(
                 &f.0,
                 &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
             )
             .unwrap()
         };
         let show = |kind: &str, address: &str| {
-            crate::inspect_in(&f.0, None, &[kind.into(), "show".into(), address.into()])
-                .unwrap()
-                .unwrap()
+            crate::test_support::inspect_in(
+                &f.0,
+                None,
+                &[kind.into(), "show".into(), address.into()],
+            )
+            .unwrap()
+            .unwrap()
         };
         assert!(
             show("group", "team/db")
@@ -230,14 +234,18 @@ mod tests {
         let mut setup = Plan::new(f.0.clone()).unwrap();
         setup.set(path.clone(), Some(bytes.clone())).unwrap();
         setup.apply().unwrap();
-        let preview = crate::prepare(&f.0, &["sync".into()]).unwrap();
+        let preview = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
         assert_eq!(fs::read(&path).unwrap(), bytes);
         preview.apply().unwrap();
         assert_eq!(fs::read(&path).unwrap(), bytes);
         assert!(f.0.join(".devmeld/output/r-resource-1.md").exists());
-        assert!(crate::prepare(&f.0, &["sync".into()]).unwrap().is_empty());
+        assert!(
+            crate::test_support::prepare(&f.0, &["sync".into()])
+                .unwrap()
+                .is_empty()
+        );
         let add = ["resource", "add", "notes.md", "--as", "knowledge/new"];
-        crate::prepare(&f.0, &add.map(String::from))
+        crate::test_support::prepare(&f.0, &add.map(String::from))
             .unwrap()
             .apply()
             .unwrap();
@@ -263,7 +271,7 @@ mod tests {
             let second = Fixture::new_in(&second_root);
             assert_ne!(f.0.components().next(), second.0.components().next());
             let prepare = |args: &[&str]| {
-                crate::prepare(
+                crate::test_support::prepare(
                     &f.0,
                     &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
                 )
@@ -312,7 +320,7 @@ mod tests {
                     .to_string()
                     .contains("injected interruption")
             );
-            assert!(crate::prepare(&f.0, &["sync".into()]).is_err());
+            assert!(crate::test_support::prepare(&f.0, &["sync".into()]).is_err());
             prepare(&["recover"]).apply().unwrap();
             assert_eq!(
                 paths
@@ -336,7 +344,7 @@ mod tests {
         for stop in 0..=4 {
             let f = Fixture::new();
             let prepare = |args: &[&str]| {
-                crate::prepare(
+                crate::test_support::prepare(
                     &f.0,
                     &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
                 )
@@ -365,7 +373,7 @@ mod tests {
                 .apply_until(Some(1))
                 .unwrap_err();
             assert!(failure.to_string().contains("injected interruption"));
-            assert!(crate::prepare(&f.0, &["sync".into()]).is_err());
+            assert!(crate::test_support::prepare(&f.0, &["sync".into()]).is_err());
             prepare(&["recover"]).apply().unwrap();
             assert_eq!(fs::read(&config_path).unwrap(), english_config);
             prepare(&["config", "set", "language", "zh-CN"])
@@ -375,7 +383,7 @@ mod tests {
             let failure = prepare(&["sync"]).apply_until(Some(stop)).unwrap_err();
             assert!(failure.to_string().contains("injected interruption"));
             assert!(
-                crate::prepare(
+                crate::test_support::prepare(
                     &f.0,
                     &[
                         "config".into(),
@@ -387,7 +395,8 @@ mod tests {
                 .is_err()
             );
             let pending = fs::read(f.0.join(".devmeld/state/pending.json")).unwrap();
-            let status = crate::inspect_in(&f.0, Some(&f.0), &["status".into()]).unwrap_err();
+            let status =
+                crate::test_support::inspect_in(&f.0, Some(&f.0), &["status".into()]).unwrap_err();
             assert!(status.to_string().contains("blocked/unverified"));
             assert_eq!(
                 fs::read(f.0.join(".devmeld/state/pending.json")).unwrap(),
@@ -547,7 +556,13 @@ mod tests {
         assert!(plan.apply_until(Some(3)).is_err());
         fs::write(&target, "later edit").unwrap();
         let recovery = Plan::recovery(f.0.clone()).unwrap();
-        assert!(!recovery.preview().contains("Restore:"));
+        assert!(matches!(
+            recovery.preview(),
+            PlanPreview::Recovery {
+                committed: true,
+                ..
+            }
+        ));
         recovery.apply().unwrap();
         assert_eq!(fs::read(&target).unwrap(), b"later edit");
         assert!(Plan::new(f.0.clone()).is_ok());
@@ -557,7 +572,7 @@ mod tests {
     fn current_initialization_recovers_without_a_complete_config_or_receipt() {
         for stop in 0..=3 {
             let f = Fixture::new();
-            let plan = crate::prepare(
+            let plan = crate::test_support::prepare(
                 &f.0,
                 &[
                     "init".into(),
@@ -567,19 +582,19 @@ mod tests {
             )
             .unwrap();
             assert!(plan.apply_until(Some(stop)).is_err());
-            crate::prepare(&f.0, &["recover".into()])
+            crate::test_support::prepare(&f.0, &["recover".into()])
                 .unwrap()
                 .apply()
                 .unwrap();
             if stop < 3 {
                 assert!(!f.0.join(".devmeld/context.json").exists());
                 assert!(!f.0.join(".devmeld/state/owned.json").exists());
-                crate::prepare(&f.0, &["init".into()])
+                crate::test_support::prepare(&f.0, &["init".into()])
                     .unwrap()
                     .apply()
                     .unwrap();
             } else {
-                crate::prepare(&f.0, &["sync".into()])
+                crate::test_support::prepare(&f.0, &["sync".into()])
                     .unwrap()
                     .apply()
                     .unwrap();
@@ -595,7 +610,7 @@ mod tests {
             for stop in 0.. {
                 let f = Fixture::new();
                 let prepare = |args: &[&str]| {
-                    crate::prepare(
+                    crate::test_support::prepare(
                         &f.0,
                         &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
                     )
@@ -661,7 +676,7 @@ mod tests {
     fn shared_host_external_edits_block_uncommitted_rollback_but_not_committed_cleanup() {
         for committed in [false, true] {
             let f = Fixture::new();
-            crate::prepare(
+            crate::test_support::prepare(
                 &f.0,
                 &[
                     "init".into(),
@@ -672,14 +687,16 @@ mod tests {
             .unwrap()
             .apply()
             .unwrap();
-            let plan = crate::prepare(&f.0, &["sync".into()]).unwrap();
+            let plan = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
             let stop = plan.changes.len() + usize::from(committed) + 1;
             assert!(plan.apply_until(Some(stop)).is_err());
             let target = f.0.join("AGENTS.md");
             let mut bytes = fs::read(&target).unwrap();
             bytes.extend_from_slice(b"Author edits after interruption");
             fs::write(&target, &bytes).unwrap();
-            let result = crate::prepare(&f.0, &["recover".into()]).unwrap().apply();
+            let result = crate::test_support::prepare(&f.0, &["recover".into()])
+                .unwrap()
+                .apply();
             assert_eq!(result.is_ok(), committed);
             assert_eq!(fs::read(target).unwrap(), bytes);
             assert_eq!(f.0.join(".devmeld/state/pending.json").exists(), !committed);
@@ -690,7 +707,7 @@ mod tests {
     fn pre_journal_staging_preserves_targets_and_reports_remnants_without_adoption() {
         let f = Fixture::new();
         fs::write(f.0.join("AGENTS.md"), "Author instructions").unwrap();
-        crate::prepare(
+        crate::test_support::prepare(
             &f.0,
             &[
                 "init".into(),
@@ -703,7 +720,7 @@ mod tests {
         .unwrap();
         let host = observe(&f.0.join("AGENTS.md")).unwrap();
         let receipt = observe(&f.0.join(".devmeld/state/owned.json")).unwrap();
-        let plan = crate::prepare(&f.0, &["sync".into()]).unwrap();
+        let plan = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
         let error = plan.apply_until(Some(usize::MAX)).unwrap_err().to_string();
         assert!(
             error.contains("targets unchanged")
@@ -728,7 +745,7 @@ mod tests {
             })
             .collect();
         assert!(!remnants.is_empty());
-        crate::prepare(&f.0, &["recover".into()])
+        crate::test_support::prepare(&f.0, &["recover".into()])
             .unwrap()
             .apply()
             .unwrap();
@@ -741,7 +758,7 @@ mod tests {
             let f = Fixture::new();
             let host = f.0.join("AGENTS.md");
             fs::write(&host, "Authored").unwrap();
-            crate::prepare(
+            crate::test_support::prepare(
                 &f.0,
                 &[
                     "init".into(),
@@ -752,16 +769,19 @@ mod tests {
             .unwrap()
             .apply()
             .unwrap();
-            crate::prepare(&f.0, &["sync".into()])
+            crate::test_support::prepare(&f.0, &["sync".into()])
                 .unwrap()
                 .apply()
                 .unwrap();
-            crate::prepare(&f.0, &["entry".into(), "remove".into(), "AGENTS.md".into()])
-                .unwrap()
-                .apply()
-                .unwrap();
+            crate::test_support::prepare(
+                &f.0,
+                &["entry".into(), "remove".into(), "AGENTS.md".into()],
+            )
+            .unwrap()
+            .apply()
+            .unwrap();
             let before = observe(&host).unwrap();
-            let plan = crate::prepare(&f.0, &["sync".into()]).unwrap();
+            let plan = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
             let steps = plan.changes.len() + 1;
             assert_eq!(steps, 2);
             assert!(plan.apply_until(Some(steps)).is_err());
@@ -773,7 +793,7 @@ mod tests {
             if !step.swap.exists() {
                 fs::hard_link(&step.backup, &step.swap).unwrap();
             }
-            crate::prepare(&f.0, &["recover".into()])
+            crate::test_support::prepare(&f.0, &["recover".into()])
                 .unwrap()
                 .apply()
                 .unwrap();
@@ -782,7 +802,7 @@ mod tests {
 
         let f = Fixture::new();
         fs::write(f.0.join("AGENTS.md"), "Authored").unwrap();
-        crate::prepare(
+        crate::test_support::prepare(
             &f.0,
             &[
                 "init".into(),
@@ -793,7 +813,7 @@ mod tests {
         .unwrap()
         .apply()
         .unwrap();
-        let plan = crate::prepare(&f.0, &["sync".into()]).unwrap();
+        let plan = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
         assert!(plan.apply_until(Some(0)).is_err());
         let pending = f.0.join(".devmeld/state/pending.json");
         let journal: Journal = serde_json::from_slice(&fs::read(&pending).unwrap()).unwrap();
@@ -804,7 +824,7 @@ mod tests {
             .unwrap();
         // Replacement interrupted after installing its swap link but before target rename.
         fs::hard_link(&step.stage, &step.swap).unwrap();
-        crate::prepare(&f.0, &["recover".into()])
+        crate::test_support::prepare(&f.0, &["recover".into()])
             .unwrap()
             .apply()
             .unwrap();
@@ -1029,6 +1049,34 @@ struct Journal {
     manifest_identity: String,
     commit_file: PathBuf,
     commit_identity: String,
+}
+
+/// Borrowed before/after facts for an adapter to present; not an editable transaction.
+pub enum PlanPreview<'a> {
+    Changes {
+        configuration: bool,
+        targets: Vec<TargetChange<'a>>,
+    },
+    Recovery {
+        committed: bool,
+        targets: Vec<RecoveryTarget<'a>>,
+    },
+}
+pub struct TargetChange<'a> {
+    pub path: &'a Path,
+    pub before: Option<&'a [u8]>,
+    pub after: Option<&'a [u8]>,
+    pub entry: Option<EntryChange>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EntryChange {
+    Detach,
+    CreateHost,
+    Update,
+}
+pub struct RecoveryTarget<'a> {
+    pub path: &'a Path,
+    pub before: Option<&'a [u8]>,
 }
 
 /// An inspectable captured operation; apply rechecks its inputs before writing.
@@ -1392,86 +1440,58 @@ impl Plan {
     pub fn is_empty(&self) -> bool {
         self.changes.is_empty() && self.recovery.is_none()
     }
-    pub fn preview(&self) -> String {
+    /// Read-only change data. Applying consumes the original plan and rechecks its captured basis.
+    pub fn preview(&self) -> PlanPreview<'_> {
         if let Some(journal) = &self.recovery {
-            let mut output = format!(
-                "Recovery: {}\n",
-                if journal.committed {
-                    "finish committed-operation cleanup"
-                } else {
-                    "restore unfinished operation"
-                }
-            );
-            for step in &journal.steps {
-                if journal.committed {
-                    output.push_str(&format!(
-                        "\nLeave committed target unchanged: {}\n",
-                        step.path.display()
-                    ));
-                    continue;
-                }
-                output.push_str(&format!(
-                    "\nTarget: {}\nRestore:\n{}\n",
-                    step.path.display(),
-                    step.before
-                        .as_ref()
-                        .map(|b| String::from_utf8_lossy(&b.bytes).into_owned())
-                        .unwrap_or_else(|| "<absent>".into())
-                ));
-            }
-            return output;
+            return PlanPreview::Recovery {
+                committed: journal.committed,
+                targets: journal
+                    .steps
+                    .iter()
+                    .map(|step| RecoveryTarget {
+                        path: &step.path,
+                        before: step.before.as_ref().map(|b| b.bytes.as_slice()),
+                    })
+                    .collect(),
+            };
         }
-        let mut output = format!("{} changed target(s)\n", self.changes.len());
-        if self
-            .changes
-            .contains_key(&self.root.join(".devmeld/context.json"))
-        {
-            output.push_str(
-                "Registration/configuration only; run sync separately to publish entry changes.\n",
-            );
-        }
-        if !self.changes.is_empty() {
-            output.push_str(
-                "Applying also records local ownership/recovery evidence under .devmeld/state.\n",
-            );
-        }
-        for (path, mutation) in &self.changes {
-            if matches!(mutation.ownership, OwnershipEffect::Insertion(_))
-                || matches!(
-                    self.receipt.surfaces.get(path),
-                    Some(Claim::InstructionEntry { .. })
-                )
-            {
-                output.push_str(&format!(
-                    "\nInstruction insertion: {} ({})\n",
-                    path.display(),
-                    if mutation.after.is_some()
-                        && matches!(mutation.ownership, OwnershipEffect::Release)
-                    {
-                        "detach; retain host"
-                    } else if self.basis.get(path).is_some_and(Option::is_none) {
-                        "attach; create host"
-                    } else {
-                        "attach/update; preserve outside text"
+        PlanPreview::Changes {
+            configuration: self
+                .changes
+                .contains_key(&self.root.join(".devmeld/context.json")),
+            targets: self
+                .changes
+                .iter()
+                .map(|(path, mutation)| {
+                    let insertion = matches!(mutation.ownership, OwnershipEffect::Insertion(_))
+                        || matches!(
+                            self.receipt.surfaces.get(path),
+                            Some(Claim::InstructionEntry { .. })
+                        );
+                    let entry = insertion.then(|| {
+                        if mutation.after.is_some()
+                            && matches!(mutation.ownership, OwnershipEffect::Release)
+                        {
+                            EntryChange::Detach
+                        } else if self.basis.get(path).is_some_and(Option::is_none) {
+                            EntryChange::CreateHost
+                        } else {
+                            EntryChange::Update
+                        }
+                    });
+                    TargetChange {
+                        path,
+                        before: self
+                            .basis
+                            .get(path)
+                            .and_then(Option::as_ref)
+                            .map(|o| o.bytes.as_slice()),
+                        after: mutation.after.as_deref(),
+                        entry,
                     }
-                ));
-            }
-            output.push_str(&format!(
-                "\nTarget: {}\nBefore:\n{}\nAfter:\n{}\n",
-                path.display(),
-                self.basis
-                    .get(path)
-                    .and_then(Option::as_ref)
-                    .map(|o| String::from_utf8_lossy(&o.bytes).into_owned())
-                    .unwrap_or_else(|| "<absent>".into()),
-                mutation
-                    .after
-                    .as_ref()
-                    .map(|b| String::from_utf8_lossy(b).into_owned())
-                    .unwrap_or_else(|| "<absent>".into())
-            ));
+                })
+                .collect(),
         }
-        output
     }
     pub(crate) fn changed_paths(&self) -> impl Iterator<Item = &PathBuf> {
         self.changes.keys()

@@ -45,16 +45,149 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn help_distinguishes_native_files_directories_and_logical_addresses() {
+    let f = Fixture::new();
+    let root = f.ok(&["--help"]);
+    let cases: &[(&[&str], &str)] = &[
+        (&["init"], "init [CONTEXT_DIR]"),
+        (&["resource", "add"], "resource add <SOURCE_FILE> [OPTIONS]"),
+        (&["resource", "update"], "resource update <RESOURCE_PATH>"),
+        (&["resource", "list"], "resource list [GROUP_PATH]"),
+        (&["resource", "show"], "resource show <RESOURCE_PATH>"),
+        (
+            &["resource", "move"],
+            "resource move <FROM_RESOURCE_PATH> <TO_RESOURCE_PATH>",
+        ),
+        (&["resource", "remove"], "resource remove <RESOURCE_PATH>"),
+        (&["group", "add"], "group add <GROUP_PATH>"),
+        (&["group", "update"], "group update <GROUP_PATH>"),
+        (&["group", "list"], "group list [GROUP_PATH]"),
+        (&["group", "show"], "group show <GROUP_PATH>"),
+        (
+            &["group", "move"],
+            "group move <FROM_GROUP_PATH> <TO_GROUP_PATH>",
+        ),
+        (&["group", "remove"], "group remove <GROUP_PATH>"),
+        (
+            &["access", "add"],
+            "access add <RESOURCE_PATH> <TOOL_RESOURCE_PATH>",
+        ),
+        (
+            &["access", "remove"],
+            "access remove <RESOURCE_PATH> <TOOL_RESOURCE_PATH>",
+        ),
+        (&["entry", "attach"], "entry attach <ENTRY_FILE>"),
+        (&["entry", "create"], "entry create <ENTRY_FILE>"),
+        (&["entry", "remove"], "entry remove <ENTRY_FILE>"),
+        (&["output"], "output <OUTPUT_DIR>"),
+    ];
+    let mut reports = vec![root.clone()];
+    for (topic, usage) in cases {
+        assert!(!root.contains(usage), "root expands a leaf: {usage}");
+        let mut args = topic.to_vec();
+        args.push("--help");
+        let operation = f.ok(&args);
+        assert!(operation.contains(usage), "operation missing {usage}");
+        if topic.len() == 2 {
+            let group = f.ok(&[topic[0], "--help"]);
+            assert!(group.contains(topic[1]), "group missing operation");
+            assert!(!group.contains(usage), "group expands a leaf: {usage}");
+            reports.push(group);
+        }
+        reports.push(operation);
+    }
+    for report in reports {
+        assert!(report.contains("[--context <CONTEXT_DIR>]"));
+        assert!(report.contains("Global options:"));
+        assert!(
+            !report
+                .split(|c: char| !c.is_ascii_alphabetic() && c != '_')
+                .any(|word| word == "PATH")
+        );
+    }
+    assert!(root.contains("<VALUE> is required; [VALUE] is optional"));
+    let leaf = f.ok(&["group", "list", "--help"]);
+    for unrelated in [
+        "Notation:",
+        "TOOL_RESOURCE_PATH",
+        "SOURCE_FILE",
+        "--schema",
+        "--inherit",
+        "--yes",
+        "ANNOTATIONS",
+        "Do not type",
+    ] {
+        assert!(!leaf.contains(unrelated), "unrelated {unrelated}: {leaf}");
+    }
+    assert!(leaf.contains("Arguments:"));
+    assert!(leaf.contains("Examples:"));
+    assert!(leaf.contains("descendants"));
+    assert!(leaf.contains("excluding"));
+    assert_eq!(leaf, f.ok(&["group", "list", "-h"]));
+    assert_eq!(fs::read_dir(&f.0).unwrap().count(), 0);
+}
+
+#[test]
 fn root_help_describes_saves_and_never_advertises_removed_confirmation() {
     let f = Fixture::new();
     let help = f.ok(&["--help"]);
     assert!(!help.contains("--apply"));
     assert!(!help.contains("type apply"));
     assert!(help.contains("save directly"));
-    assert!(help.contains("sync [--dry-run | --yes]"));
-    assert!(help.contains("recover [--dry-run | --yes]"));
-    assert!(help.contains("config set language"));
+    assert!(help.contains("sync"));
+    assert!(help.contains("recover"));
+    assert!(!help.contains("config set language"));
+    assert!(!help.contains("SOURCE_FILE"));
     assert!(!f.0.join(".devmeld").exists());
+}
+
+#[test]
+fn command_help_is_a_quick_reference_not_a_manual() {
+    let f = Fixture::new();
+    for topic in [
+        vec!["resource", "add"],
+        vec!["group", "update"],
+        vec!["init"],
+        vec!["config", "set"],
+        vec!["status"],
+        vec!["recover"],
+    ] {
+        let mut args = topic.clone();
+        args.push("--help");
+        let help = f.ok(&args);
+        let purpose = help.split("\n\n").next().unwrap();
+        assert_eq!(
+            purpose.lines().count(),
+            1,
+            "{topic:?} starts with a tutorial: {help}"
+        );
+        assert!(!help.contains("\nAnnotations:"));
+        assert!(!help.contains("\nInheritance:"));
+        assert!(!help.contains("Tags union"));
+        assert!(
+            !help.contains("http://") && !help.contains("https://"),
+            "no website exists yet"
+        );
+        if let Some(examples) = help.split("Examples:\n").nth(1) {
+            assert_eq!(examples.split("\n\n").next().unwrap().lines().count(), 1);
+        }
+    }
+    let add = f.ok(&["resource", "add", "--help"]);
+    for required in [
+        "--as <RESOURCE_PATH>",
+        "--kind <document|description>",
+        "--schema <SCHEMA_FILE>",
+        "requires --kind description",
+        "default document",
+        "sync",
+    ] {
+        assert!(add.contains(required), "missing {required}: {add}");
+    }
+    let remove = f.ok(&["group", "remove", "--help"]);
+    assert!(remove.contains("empty") && remove.contains("source"));
+    let sync = f.ok(&["sync", "--help"]);
+    assert!(sync.contains("--yes") && sync.contains("conflicts") && sync.contains("stale"));
+    assert_eq!(fs::read_dir(&f.0).unwrap().count(), 0);
 }
 
 #[test]

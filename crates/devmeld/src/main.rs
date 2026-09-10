@@ -15,21 +15,27 @@ fn run() -> devmeld::Result<()> {
         return Ok(());
     }
     let invocation = cli::Invocation::parse(&args)?;
-    let explicit = invocation.context;
-    let command = &invocation.command;
-    let cwd = std::env::current_dir()?;
-    if let Some(report) = devmeld::inspect_in(&cwd, explicit, command)? {
-        print!("{report}");
-        return Ok(());
-    }
-    let plan = devmeld::prepare_in(&cwd, explicit, command)?;
+    let needs_confirmation = invocation.needs_confirmation();
+    let location = devmeld::ContextLocation {
+        base_directory: std::env::current_dir()?,
+        directory: invocation.context,
+    };
+    let request = match invocation.request {
+        cli::Operation::Query(query) => {
+            let result = devmeld::inspect(&location, query)?;
+            print!("{}", cli::render::inspection(&result));
+            return Ok(());
+        }
+        cli::Operation::Mutate(request) => request,
+    };
+    let plan = devmeld::prepare(&location, request)?;
     println!("Context: {}", plan.context_root().display());
-    print!("{}", plan.preview());
+    print!("{}", cli::render::preview(plan.preview()));
     io::stdout().flush()?;
     if invocation.dry_run {
         return Ok(());
     }
-    if invocation.needs_confirmation() && !plan.is_empty() && !invocation.yes {
+    if needs_confirmation && !plan.is_empty() && !invocation.yes {
         let input = io::stdin();
         let output = io::stdout();
         if !confirm(
@@ -43,7 +49,7 @@ fn run() -> devmeld::Result<()> {
     plan.apply()?;
     println!(
         "{}",
-        if invocation.needs_confirmation() {
+        if needs_confirmation {
             "Completed; client consumption is not verified."
         } else {
             "Configuration saved; publication may be pending. Run status or sync to check generated content."
