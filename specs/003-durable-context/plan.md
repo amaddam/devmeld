@@ -16,10 +16,11 @@ local Git history. This does not ratify the Constitution or a permanent public A
 ## Technical Context
 
 - Language: existing Rust 1.98.1 / edition 2024 baseline (ADR-0003).
-- Dependencies: application-only Serde/serde_json for JSON, `jsonschema` with
+- Dependencies: application-only Serde/serde_json for authored JSON, `toml` for
+  managed records (2026-09-10 replacement), `jsonschema` with
   default features disabled and offline resolution for attribute schemas,
   `file-id` for portable physical-file identity during managed recovery.
-- Storage: original sources, managed JSON configuration, Markdown output and
+- Storage: original sources, managed TOML configuration, Markdown output and
   local ownership/operation records. No database or manual checksum maintenance.
 - Testing: Rust unit and real binary/filesystem tests; `cargo xtask check`.
 - Target platforms: normal local Windows and Linux filesystems; isolated WSL
@@ -38,7 +39,7 @@ Pre-research and post-design: PASS within the authorized scope.
 3. Local-first: deterministic, independently readable output.
 4. Explicit writes: preview, confirmation, stale-input/ownership checks, lock and
    journaled recovery. No forced adoption or overwrite option.
-5. Inspectable: ordinary JSON/Markdown and actionable errors.
+5. Inspectable: ordinary TOML/JSON/Markdown and actionable errors.
 6. Vertical slices: real CLI-to-files tests per behavior, including failures.
 
 ## Project Structure
@@ -50,7 +51,8 @@ crates/
   devmeld/
     src/main.rs              # arguments and human confirmation
     src/lib.rs               # command coordination
-    src/declarations.rs      # JSON and local schema adapter
+    src/declarations.rs      # resource declaration and local schema adapter
+    src/records.rs           # managed TOML serialization
     src/render.rs            # deterministic Markdown presentation
     src/storage.rs           # paths, bounded IO, ownership and recovery
     tests/workflow.rs        # real binary/filesystem behavior

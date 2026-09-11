@@ -41,7 +41,7 @@ A disabled edge cuts more distant ancestors too. A child refusing its parent can
 
 Retain draft `format_version: 0`. Add optional registration `path`, a `groups` list and `next_resource_id` counter to the existing configuration. On older records, missing `path` means the existing flat ID is also the organization address, missing groups means an empty list, and the counter starts at 1. Read/preview never materializes these defaults on disk. New registrations store a separate address and an allocated `resource-N` identity; allocation skips occupied identities and persists a checked monotonic counter so removals do not recycle them. No source hash or random dependency is required.
 
-Existing ownership and publication records retain their shape and IDs. Source descriptors remain unchanged. New configuration fields may be rejected by older development builds; there is no new release/version label or automatic migration command. Logical paths are case-sensitive Unicode names, permit internal spaces, and reject empty/dot segments, surrounding whitespace, controls, backslashes and colons. They are never used as native output paths: resource pages use the stable portable ID.
+Existing ownership and publication records retain their shape and IDs. Source descriptors remain unchanged. New configuration fields may be rejected by older development builds; there is no new release/version label or automatic migration command. Logical paths are case-sensitive Unicode names, permit internal spaces, and reject empty/dot segments, surrounding whitespace, controls, backslashes and colons. The 2026-09-10 readable-page amendment replaces stable-ID filenames: the publication adapter maps validated logical segments to portable page paths, without treating the raw logical name as a native path or changing resource identity. The CLI contract owns escaping and collision behavior.
 
 ## T006-T007 context references and first use
 
@@ -65,6 +65,19 @@ Effective fields retain one origin, replaced by the nearest local declaration ev
 
 ## T012-T013 publication inspection
 
+T024 adds a derived group document, not a new stored domain object. Every group
+maps to `resources/<group>/<leaf>.md`, including implicit and empty groups.
+The document presents the group's description/effective annotations and links
+to direct children and its parent. The root index links only top-level groups
+and ungrouped resources. Group/card destination paths are validated together;
+both use existing publication ownership and recovery. Configuration, identities
+and inheritance rules are unchanged.
+
 Status is a read-only application result, not a persisted entity or new domain. It derives expected generated content from current configuration and sources using the same preparation as sync, compares against owned files and rechecks the captured inputs. Entry registration belongs to configuration; publication evidence belongs to the existing ownership receipts. Missing inputs, conflicts or pending recovery block verification.
 
 No timestamp, counter, source snapshot or new format is stored for status. A changed document body can leave its generated reference unchanged; status reports generated-content equivalence, not historical source freshness or Agent consumption. Entry attach/create map to the existing insertion/whole-file ownership modes, with no receipt or transaction-engine redesign.
+
+T026 refines only permanent whole-file evidence: SHA-256 plus physical identity
+replaces duplicated bodies. Exact instruction insertions and temporary recovery
+images remain. The [CLI contract](contracts/cli.md#compact-ownership-evidence-2026-09-11-t026)
+owns the narrow preceding-TOML conversion; configuration and domain data are unchanged.

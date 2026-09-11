@@ -90,11 +90,15 @@ fn explicit_registration_and_confirmed_sync_attach_only_a_small_entry() {
     assert!(host.starts_with(BEGIN));
     assert!(host.ends_with(std::str::from_utf8(authored).unwrap()));
     assert!(host.contains("[context navigation](.devmeld/output/index.md)"));
-    assert!(host.contains("[Managed registration](.devmeld/context.json)"));
+    assert!(!host.contains("context.toml"));
+    assert!(
+        host.contains("Maintain generated entries, navigation and registration through DevMeld")
+    );
+    assert!(host.contains("Edit original sources according to their owners' rules."));
     assert!(!host.contains("Unique fixture fact"));
-    assert!(!host.contains("r-resource-1.md"));
+    assert!(!host.contains("resources/facts.md"));
     let receipt: serde_json::Value =
-        serde_json::from_slice(&f.read(".devmeld/state/owned.json")).unwrap();
+        toml::from_slice(&f.read(".devmeld/state/owned.toml")).unwrap();
     let claim = &receipt["surfaces"][f.0.join("AGENTS.md").to_str().unwrap()];
     assert_eq!(claim["kind"], "instruction_entry");
     assert!(claim.get("observed").is_none());
@@ -155,12 +159,12 @@ fn invalid_encoding_and_raw_reserved_markers_are_never_adopted() {
         let f = Fixture::new();
         fs::write(f.0.join("AGENTS.md"), authored).unwrap();
         f.ok(&["init", "--instruction-entry", "AGENTS.md"]);
-        let receipt = f.read(".devmeld/state/owned.json");
+        let receipt = f.read(".devmeld/state/owned.toml");
         let result = f.run(&["sync"], true);
         assert!(!result.status.success());
         assert!(String::from_utf8_lossy(&result.stderr).contains("AGENTS.md"));
         assert_eq!(f.read("AGENTS.md"), authored);
-        assert_eq!(f.read(".devmeld/state/owned.json"), receipt);
+        assert_eq!(f.read(".devmeld/state/owned.toml"), receipt);
         assert!(!f.0.join(".devmeld/output").exists());
     }
 }
@@ -231,7 +235,7 @@ fn multiple_hosts_detach_independently_and_registration_roundtrips_need_no_publi
     assert!(f.0.join("CONTEXT.md").is_file());
     assert!(f.0.join(".devmeld/output/index.md").is_file());
     let receipt: serde_json::Value =
-        serde_json::from_slice(&f.read(".devmeld/state/owned.json")).unwrap();
+        toml::from_slice(&f.read(".devmeld/state/owned.toml")).unwrap();
     assert!(
         receipt["surfaces"]
             .get(f.0.join("AGENTS.md").to_str().unwrap())
@@ -263,8 +267,8 @@ fn relocated_navigation_and_language_share_sources_without_translating_authored_
     let host = String::from_utf8(f.read("project/AGENTS.md")).unwrap();
     assert!(host.contains("[上下文索引](../navigation%20%23new/index.md)"));
     assert!(host.ends_with("SSH / HTTP author rules"));
-    let page = String::from_utf8(f.read("navigation #new/r-resource-1.md")).unwrap();
-    assert!(page.contains("../%E7%9F%A5%E8%AF%86%20%23100%25.md"));
+    let page = String::from_utf8(f.read("navigation #new/resources/ssh-http.md")).unwrap();
+    assert!(page.contains("../../%E7%9F%A5%E8%AF%86%20%23100%25.md"));
     assert_eq!(f.read("知识 #100%.md"), b"SSH / HTTP facts");
     assert!(!f.0.join(".devmeld/output/index.md").exists());
     assert!(
@@ -286,8 +290,8 @@ fn even_noop_apply_rechecks_all_captured_inputs() {
     for changed in [
         "AGENTS.md",
         "facts.md",
-        ".devmeld/context.json",
-        ".devmeld/state/owned.json",
+        ".devmeld/context.toml",
+        ".devmeld/state/owned.toml",
     ] {
         let f = Fixture::new();
         fs::write(f.0.join("facts.md"), "facts").unwrap();
@@ -303,7 +307,7 @@ fn even_noop_apply_rechecks_all_captured_inputs() {
         let error = plan.apply().expect_err(changed).to_string();
         assert!(error.contains("stale preview"), "{error}");
         assert_eq!(fs::read(target).unwrap(), bytes);
-        assert!(!f.0.join(".devmeld/state/pending.json").exists());
+        assert!(!f.0.join(".devmeld/state/pending.toml").exists());
     }
 }
 
@@ -311,7 +315,7 @@ fn even_noop_apply_rechecks_all_captured_inputs() {
 fn missing_receipt_never_turns_a_managed_config_into_fresh_authority() {
     let f = Fixture::new();
     f.ok(&["init"]);
-    fs::remove_file(f.0.join(".devmeld/state/owned.json")).unwrap();
+    fs::remove_file(f.0.join(".devmeld/state/owned.toml")).unwrap();
     for args in [
         &["sync"][..],
         &["recover"],
@@ -323,7 +327,7 @@ fn missing_receipt_never_turns_a_managed_config_into_fresh_authority() {
             "accepted missing receipt: {args:?}"
         );
         assert!(!f.0.join(".devmeld/output").exists());
-        assert!(!f.0.join(".devmeld/state/owned.json").exists());
+        assert!(!f.0.join(".devmeld/state/owned.toml").exists());
     }
 }
 
@@ -331,8 +335,8 @@ fn missing_receipt_never_turns_a_managed_config_into_fresh_authority() {
 fn shared_host_cannot_alias_another_surface_or_maintenance_record() {
     for target in [
         "other.md",
-        ".devmeld/context.json",
-        ".devmeld/state/owned.json",
+        ".devmeld/context.toml",
+        ".devmeld/state/owned.toml",
         ".devmeld/state/lock",
         ".devmeld/output/index.md",
     ] {
@@ -366,27 +370,18 @@ fn receipts_reject_duplicate_target_keys_and_invalid_insertion_evidence() {
         let f = Fixture::new();
         f.ok(&["init", "--instruction-entry", "AGENTS.md"]);
         f.ok(&["sync"]);
-        let path = f.0.join(".devmeld/state/owned.json");
-        let mut receipt: serde_json::Value =
-            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let path = f.0.join(".devmeld/state/owned.toml");
+        let mut receipt: serde_json::Value = toml::from_slice(&fs::read(&path).unwrap()).unwrap();
         let host = f.0.join("AGENTS.md");
         if duplicate {
-            let surfaces = receipt["surfaces"].as_object().unwrap();
-            let key = serde_json::to_string(host.to_str().unwrap()).unwrap();
-            let claim = serde_json::to_string(&surfaces[host.to_str().unwrap()]).unwrap();
-            let bytes = String::from_utf8(serde_json::to_vec(&receipt).unwrap()).unwrap();
-            fs::write(
-                &path,
-                bytes.replacen(
-                    "\"surfaces\":{",
-                    &format!("\"surfaces\":{{{key}:{claim},"),
-                    1,
-                ),
-            )
-            .unwrap();
+            let extra = serde_json::json!({
+                "surfaces": {host.to_str().unwrap(): receipt["surfaces"][host.to_str().unwrap()].clone()}
+            });
+            let bytes = fs::read_to_string(&path).unwrap();
+            fs::write(&path, bytes + &toml::to_string_pretty(&extra).unwrap()).unwrap();
         } else {
             receipt["surfaces"][host.to_str().unwrap()]["insertion"] = "not an insertion".into();
-            fs::write(&path, serde_json::to_vec(&receipt).unwrap()).unwrap();
+            fs::write(&path, toml::to_string_pretty(&receipt).unwrap()).unwrap();
         }
         let record = fs::read(&path).unwrap();
         for args in [
@@ -421,7 +416,7 @@ fn owned_entry_mode_cannot_be_changed_by_remove_then_add_before_detachment() {
         f.ok(&["sync"]);
         let host = f.read("ENTRY.md");
         f.ok(&["entry", "remove", "ENTRY.md"]);
-        let config = f.read(".devmeld/context.json");
+        let config = f.read(".devmeld/context.toml");
         let result = f.run(
             &[
                 "entry",
@@ -439,7 +434,7 @@ fn owned_entry_mode_cannot_be_changed_by_remove_then_add_before_detachment() {
             "accepted mode conversion {initial} to {next}"
         );
         assert_eq!(f.read("ENTRY.md"), host);
-        assert_eq!(f.read(".devmeld/context.json"), config);
+        assert_eq!(f.read(".devmeld/context.toml"), config);
     }
 }
 
@@ -485,8 +480,8 @@ fn changed_missing_and_copied_insertions_do_not_authorize_repair_or_adoption() {
                 other.ok(&["init", "--instruction-entry", "AGENTS.md"]);
                 if change == "receipt" {
                     fs::write(
-                        other.0.join(".devmeld/state/owned.json"),
-                        f.read(".devmeld/state/owned.json"),
+                        other.0.join(".devmeld/state/owned.toml"),
+                        f.read(".devmeld/state/owned.toml"),
                     )
                     .unwrap();
                 }
@@ -587,10 +582,7 @@ fn cross_drive_instruction_entries_follow_real_sources_after_relocation_and_deta
         for host in [&first_host, &second_host] {
             assert_eq!(
                 targets(host),
-                vec![
-                    output.join("index.md").canonicalize().unwrap(),
-                    f.0.join(".devmeld/context.json").canonicalize().unwrap()
-                ]
+                vec![output.join("index.md").canonicalize().unwrap()]
             );
             let index = &targets(host)[0];
             let page = &targets(index)[0];
@@ -630,13 +622,13 @@ fn a_pending_operation_appearing_after_noop_preview_invalidates_it() {
     let plan = f.prepare(&["sync"]).unwrap();
     assert!(plan.is_empty());
     fs::write(
-        f.0.join(".devmeld/state/pending.json"),
+        f.0.join(".devmeld/state/pending.toml"),
         "external pending record",
     )
     .unwrap();
     assert!(plan.apply().is_err());
     assert_eq!(
-        f.read(".devmeld/state/pending.json"),
+        f.read(".devmeld/state/pending.toml"),
         b"external pending record"
     );
 }

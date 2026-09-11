@@ -4,6 +4,67 @@ Status: implemented command contract for 005. Scoped saves, status, config langu
 
 ## Help (first deliverable)
 
+### Current persisted representation (2026-09-10)
+
+DevMeld owns `.devmeld/context.toml`, `.devmeld/state/owned.toml` and, while an
+operation is pending, `.devmeld/state/pending.toml`. All retain `format_version = 0`.
+This replaces the JSON representation described by earlier design/acceptance
+records; it does not change command syntax, ownership or source formats.
+Authored description resources and optional schemas remain JSON. Use maintenance
+commands to edit the TOML configuration, not a text editor that bypasses receipts.
+
+For example, a generated resource registration contains:
+
+```toml
+[[resources]]
+id = "resource-1"
+path = "knowledge/notes"
+document = "knowledge/notes.md"
+inherit = false
+```
+
+Ordinary in-context Windows references use `/`. Canonical absolute Windows paths
+may retain `\\?\` where removing it could change filesystem semantics; TOML literal
+strings avoid JSON backslash escaping. Multiline evidence is encoded by the TOML
+serializer and must round-trip exact bytes, including CRLF and quote delimiters.
+No hand-written parser or blanket slash/newline substitution is permitted.
+
+Any legacy `context.json`, `state/owned.json` or `state/pending.json` blocks normal
+and recovery operations, even beside TOML records. Files remain untouched; use
+the previous build for old contexts or choose a separate fresh context. The
+absence of legacy records is rechecked when applying a preview. Renaming files
+does not migrate their syntax, owned targets, byte evidence or generated links.
+
+### Compact ownership evidence (2026-09-11, T026)
+
+`context.toml` owns configuration/registrations; `state/owned.toml` owns the
+management receipt. They remain separate. A whole-file claim stores its target,
+`kind = "whole_file"`, and `observed = { sha256, identity }`, where `sha256` is
+the lowercase 64-digit SHA-256 of exact published bytes and `identity` is the
+physical file identity. It no longer stores the file body. No timestamp or source
+content registry is added. Fingerprints are generated automatically, not manually
+maintained values, and do not confer authority on unowned/replaced files.
+
+An instruction-entry claim still stores only its exact small insertion, including
+markers/separators, never the whole author's host. Temporary pending journals and
+staging/backups retain complete before/after data for recovery; these are cleaned
+up after successful completion. The permanent receipt is not a disposable cache.
+
+The preceding full-body TOML claim (`observed = { bytes, identity }`) remains
+readable. Its fingerprint is derived from the recorded bytes, never current disk
+content. Ambiguous/mixed fields and malformed digests are rejected. Reads/status,
+no-op saves, dry-run and cancellation leave these records intact. Actual writes
+emit compact receipts. If sync has no output changes but has full-body claims,
+its preview shows a receipt-only target; normal confirmation and the same journal,
+stale-input checks and recovery rules apply. Config, sources, output and host are
+not rewritten for that compaction. A subsequent unchanged sync is a no-op.
+Status continues to describe publication, not receipt encoding maintenance.
+
+This is an authorized unreleased design refinement, not a version bump: markers
+remain v0. Older builds reject the new claim shape. Existing full-image TOML
+pending journals retain their recovery path; the JSON rejection above is unchanged.
+
+
 The 2026-09-10 presentation refinement follows the [CLI style guide](../../../docs/cli-style.md).
 Precise argument names, direct-child summaries, per-command option sections
 and removal of unrelated shared help are implemented. The vocabulary
@@ -84,7 +145,80 @@ Native relative paths resolve from the invoking directory. Logical addresses use
 - Group show displays direct child groups and resources. Resource show displays stable identity, stored source/schema references and incoming/outgoing access associations by current address. These are read-only registration snapshots, not source availability, publication freshness or client-consumption checks. Queries never bootstrap, do not open source contents and reject `--yes`. The removed `--apply` is rejected on all commands.
 - Group add creates missing parents and may be the first operation in a new context. Group remove accepts empty groups only; no recursive option is supported and no source directories/files are deleted.
 - Move uses an exact full destination, not filesystem `mv` inference. Missing destination parents are created; existing destinations, resource-as-parent collisions and self-descendant group moves fail without changes. Same-address move is a no-op but still validates existence and rechecks captured state on apply.
-- Group move readdresses only that logical subtree, including empty subgroups. Resource IDs, source/schema references, incoming/outgoing associations and generated page filenames remain stable. Empty old parents remain until explicitly removed. New navigation and association labels appear on sync, not when the configuration move is saved.
+- Group move readdresses only that logical subtree, including empty subgroups. Resource IDs, source/schema references and incoming/outgoing associations remain stable. Empty old logical parents remain until explicitly removed. Generated page paths, navigation and association labels follow the new addresses on sync, not when the configuration move is saved.
+
+### Readable page paths (2026-09-10)
+
+- Publish resource `services/shop` at `<output>/resources/services/shop.md`.
+  Use every logical segment, append `.md` to the leaf (do not replace an existing
+  extension), and keep the root navigation at `<output>/index.md`.
+- This adapter mapping does not change logical names, IDs, source paths or
+  access associations. Ordinary Unicode, spaces and technical names stay readable.
+  Percent-escape `%`, Windows-forbidden filename characters and a trailing dot;
+  escape the initial character of a Windows reserved device basename, on all hosts.
+  Markdown links separately URI-encode the resulting native paths.
+- Reject case-folded target/ancestor spelling collisions and file/directory
+  conflicts across the planned page set before writes. Do not merge, overwrite,
+  silently lowercase names or invent numbered suffixes.
+- Sync computes all page destinations once and uses them for navigation and
+  access links. Withdraw previous unchanged owned page files through the normal
+  transaction, including former `r-<id>.md` files. Never delete unknown files or
+  edited old pages. Configuration, IDs and original sources remain untouched.
+- Old directory containers may remain empty; directory ownership and recursive
+  cleanup are not introduced. External bookmarks to moved pages are not repaired;
+  entry/index paths stay stable unless the user explicitly changes their locations.
+
+### Reading view (2026-09-10, T022)
+
+Cards keep a short localized HTML comment identifying DevMeld ownership, title,
+authored summary/registration description if present, original source and access
+links, source attributes and effective context information. No fallback summary,
+managed-configuration link, inheritance controls or repeated maintenance prose.
+Descriptions are paragraphs; use a context-notes heading only when an authored
+summary also exists. Keep source attributes and context fields in separate
+sections when both exist. Generated labels use natural EN/zh-CN wording;
+authored text, field keys, values and technical names are not translated.
+
+The index uses the registration description (otherwise authored summary) for
+navigation, not a placeholder. Groups show their own descriptions. Publish tags
+and fields once from the domain's effective view, without inheritance-origin
+labels (2026-09-11 refinement). CLI show retains all contributing origins.
+Omit empty sections. Full maintenance/source-ownership rules appear in
+the index and configured entries; none of these reading surfaces links managed
+configuration. CLI show remains the separate detailed maintenance view.
+
+Serialize structured Markdown with `pulldown-cmark-to-cmark`, not handwritten
+escaping. Field keys and technical literals use code spans; ordinary prose is
+literal text with any necessary syntax protection handled by the serializer.
+The Markdown parser distinguishes ordinary prose from syntax-like values; show
+the latter as literal code spans instead of maintaining custom escape rules.
+Do not interpret supplied text as Markdown or HTML. File-link URI encoding is
+separate and unchanged. Formatting changes use ordinary owned sync/recovery,
+not a configuration rewrite or format version bump.
+
+### Group documents (2026-09-10, T024)
+
+This refines T022's reading view: group metadata lives in each generated group
+document, not expanded in the total index. For logical group `code/http`, append
+its leaf again as a filename: `<output>/resources/code/http/http.md`. Encode every
+segment using the same portable rules as resource cards, then encode Markdown
+link destinations separately. Include empty and implicitly created groups.
+
+The total index lists direct top-level groups and ungrouped resources. Every
+group document has a short generated-file comment, full logical group title,
+its own description, effective tags/fields without inheritance-origin labels, a
+parent/index link and sorted direct-child group/resource links with descriptions.
+Lists contain summaries, not child metadata or all descendants. Omit empty lists.
+Cards retain their source/access links and current reading view. CLI show remains
+the detailed configuration view; registration commands do not publish group files.
+
+Compute group and resource destinations together. Reject case-folded and
+file/directory collisions, including `code/code` versus group `code`, before
+publication writes. Naming is not enforced by rewriting logical addresses or
+assigning alternate filenames. Normal confirmed sync handles first creation,
+updates, output relocation, group moves/removal and unchanged-owned withdrawal;
+external edits/unowned targets/stale plans block it. Reuse current recovery.
+No new configuration fields, group-as-resource entities or format labels.
 
 ## Compatibility boundary
 
@@ -102,7 +236,7 @@ The first help slice changes no persisted data or mutating commands. Later repla
 - Resource/group update changes annotations or inheritance choices on an existing node of the requested kind. It requires at least one option and preserves omitted information; it does not change identity, logical address, source, schema or associations.
 - Update adds unique tags and sets only named fields. `--clear-description`, `--remove-tag <TEXT>` and `--remove-field <KEY>` explicitly remove information. Removing an absent value is a no-op; removal flags are not valid for add. Setting and removing the same value, setting and clearing description, or duplicate field assignments (including shortcuts) fail without writes.
 - All field values are text. `--shared` / `--no-shared` store the same `shared` strings as `--field shared=true` / `--field shared=false`. An empty field value is permitted; `--field` splits only at the first `=`. No value is interpreted as a permission, an environment action or an executable extension.
-- Show, generated group navigation and resource navigation/pages identify these as local context annotations, separate from source-declared attributes. Supplied names/text are not translated or interpreted as Markdown instructions. Only generated labels switch between English and Simplified Chinese. List remains an address listing, not a metadata query engine.
+- Show identifies local context annotations; publication uses the reading view above and keeps them distinct from source-declared attributes. Supplied names/text are not translated or interpreted as Markdown instructions. Only generated labels switch between English and Simplified Chinese. List remains an address listing, not a metadata query engine.
 - Updates save configuration directly; `--dry-run` previews without writing. Sync publishes changes. Inheritance extends local annotations as described below.
 
 ## Inheritance (T010-T011)
@@ -111,7 +245,7 @@ The first help slice changes no persisted data or mutating commands. Later repla
 - `config set defaults.inherit <true|false>` and `config set defaults.propagate <true|false>` require an existing valid owned context. They alter one creation default, without changing existing nodes or effective output. Initial defaults are false/true; no boolean coercion from `yes`, `1` or other values.
 - Explicit add choices apply to the target only. Implicit parents use the context defaults. Each new node persists its resolved choice; omitted update flags preserve it. Moves retain choices but derive inherited meaning from the new ancestry.
 - Inheritance requires the immediate parent to propagate and the child to inherit. A broken edge cuts all information crossing it, including distant ancestors. Tags union with all contributing origins; the closest local field overrides inherited value/origin, including identical or empty text. Removing a local override may reveal its inherited value; there is no per-value suppression mechanism.
-- Show displays creation defaults separately from saved node choices. Show and generated navigation/pages retain local annotations and, when receipt is enabled, show effective tags/fields with origins (or an explicit empty result). Fixed output labels support en/zh-CN; supplied text/technical terms stay unchanged. List remains a logical-address listing.
+- Show displays creation defaults separately from saved node choices, local annotations and effective tags/fields with origins (or an explicit empty result). Publication shows only the final reading view above, without configuration controls or empty-result diagnostics. Fixed output labels support en/zh-CN; supplied text/technical terms stay unchanged. List remains a logical-address listing.
 - Overall descriptions, identities, source locations and permissions never inherit. No derived values are persisted into child declarations or source attributes. Defaults-only changes do not change generated content. Parent annotation/choice changes and moves require sync to update publication; all existing preview/stale/ownership checks still apply.
 
 ## Publication interaction and status (T012-T013)

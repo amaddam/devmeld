@@ -114,8 +114,10 @@ Generate one small section titled `Project context` / `项目上下文`, contain
 - A statement that these files are readable without running DevMeld.
 - A distinction between authored sources, edited according to their owners'
   rules, and this generated insertion/navigation, maintained through DevMeld.
-- A link to the context configuration as a maintenance reference, explicitly
-  identified as managed rather than an invitation to edit generated state.
+- Originally a configuration maintenance link was included. The accepted
+  [005 reading view](../../005-context-cli/contracts/cli.md#reading-view-2026-09-10-t022)
+  removes it; configuration inspection remains a management operation, not part
+  of the Agent's reading path. The ownership guidance and insertion envelope remain.
 
 Do not copy resource lists, facts or tool choices into the entry. Do not grant
 installation/execution authority or override higher-priority instructions.
@@ -138,7 +140,13 @@ Do not bump these merely because the design changes. Validate the actual current
 record shape and evidence; incompatible development records remain untouched.
 Generated index/resource content does not receive a release/version heading.
 
-V0 ownership state remains `.devmeld/state/owned.json`. It has a typed target map:
+V0 ownership state now uses `.devmeld/state/owned.toml` (the 2026-09-10
+[representation amendment](../../005-context-cli/contracts/cli.md#current-persisted-representation-2026-09-10)
+replaces JSON; earlier encoding examples are historical). The accepted
+[compact-receipt amendment](../../005-context-cli/contracts/cli.md#compact-ownership-evidence-2026-09-11-t026)
+replaces permanent whole-file bodies with fingerprints, without changing exact
+instruction insertions or temporary full-image recovery. Its typed target map is
+illustrated below in JSON notation (the persisted file is TOML):
 
 ```json
 {
@@ -147,7 +155,7 @@ V0 ownership state remains `.devmeld/state/owned.json`. It has a typed target ma
   "surfaces": {
     "<canonical whole-file target>": {
       "kind": "whole_file",
-      "observed": {"bytes": "<complete text>", "identity": "<physical file identity>"}
+      "observed": {"sha256": "<64 lowercase hex digits>", "identity": "<physical file identity>"}
     },
     "<canonical instruction target>": {
       "kind": "instruction_entry",
@@ -159,7 +167,7 @@ V0 ownership state remains `.devmeld/state/owned.json`. It has a typed target ma
 
 Angle-bracket values above denote schema examples, not actual paths or content.
 The config itself remains a whole-file claim. No target can have both kinds.
-Record text as JSON strings, not byte-number arrays. Reject unknown fields,
+Record insertion/recovery text as TOML strings, not byte-number arrays. Reject unknown fields,
 invalid envelope evidence, duplicate or normalized-alias target keys, wrong
 context provenance and unknown versions. Canonical root comparison uses the
 same platform path semantics as target resolution.
@@ -190,6 +198,11 @@ interrupted v0 initialization may legitimately lack config/receipt, so requiring
 a complete normal baseline first must not make current recovery impossible.
 
 ### Existing development data
+
+T026 permits a narrow conversion of the preceding full-body TOML receipt during
+normal confirmed sync or actual saves, as specified in 005. It does not migrate
+JSON records or unsupported journals. The original 004 restriction below applies
+to those unsupported formats, not this accepted TOML refinement.
 
 There is no automatic migration or reset in 004. Leave unsupported records and
 their associated files intact. Existing generated Markdown remains readable;

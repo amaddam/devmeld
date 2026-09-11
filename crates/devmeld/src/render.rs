@@ -3,126 +3,64 @@ use crate::{
     declarations::Config,
     error,
     language::Messages,
+    markdown::{self, Document, Inline, authored, literal, prose, text},
     storage::{Plan, resolve},
 };
+use pulldown_cmark::{Event, HeadingLevel, LinkType, Tag, TagEnd};
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf, Prefix};
 
-pub(crate) fn text(value: &str) -> String {
-    value
-        .chars()
-        .flat_map(|c| match c {
-            '&' => "&amp;".chars().collect::<Vec<_>>(),
-            '<' => "&lt;".chars().collect(),
-            '>' => "&gt;".chars().collect(),
-            '\n' | '\r' => " ".chars().collect(),
-            '\\' | '`' | '*' | '_' | '[' | ']' | '(' | ')' | '#' | '!' | '|' => vec!['\\', c],
-            _ if c.is_control() => vec![' '],
-            _ => vec![c],
-        })
-        .collect()
-}
 struct FileLink {
     destination: String,
     local_path: Option<String>,
 }
 
-pub(crate) fn node_annotations(
+// Publication consumes the domain's effective values, not configuration controls.
+// CLI inspection has its own detailed rendering of local values and saved choices.
+fn context_metadata(
     organization: &devmeld_resources::organization::Organization,
     path: &devmeld_resources::organization::OrganizationPath,
     messages: &Messages,
-) -> Result<String> {
-    let local = organization
-        .annotations(path)
-        .ok_or_else(|| error("missing node annotations"))?;
-    let mut result = annotations(local, messages);
-    let inherit = organization
-        .inherits(path)
-        .ok_or_else(|| error("missing inheritance choice"))?;
-    result.push_str(&format!(
-        "{}: inherit: {inherit}",
-        messages.inheritance_choices
-    ));
-    if let Some(propagate) = organization.propagates(path) {
-        result.push_str(&format!(", propagate: {propagate}"));
+) -> Result<Vec<Inline>> {
+    let effective = organization.effective_annotations(path)?;
+    let mut result = Vec::new();
+    if !effective.tags().is_empty() {
+        let mut tags = vec![text(&format!("{}:", messages.annotation_tags))];
+        tags.extend(markdown::list(
+            effective.tags().keys().map(|tag| vec![literal(tag)]),
+        ));
+        result.push(tags);
     }
-    result.push_str("\n\n");
-    if inherit {
-        let effective = organization.effective_annotations(path)?;
-        result.push_str(&format!("{}:\n", messages.effective_annotations));
-        if effective.is_empty() {
-            result.push_str(&format!("{}\n", messages.no_effective_annotations));
-        }
-        if !effective.tags().is_empty() {
-            result.push_str(&format!("- {}:\n", messages.annotation_tags));
-            for (tag, origins) in effective.tags() {
-                let origins = origins
-                    .iter()
-                    .map(|origin| text(origin.as_str()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                result.push_str(&format!(
-                    "  - {} ({}: {origins})\n",
-                    text(tag),
-                    messages.annotation_origin
-                ));
-            }
-        }
-        if !effective.fields().is_empty() {
-            result.push_str(&format!("- {}:\n", messages.annotation_fields));
-            for (key, field) in effective.fields() {
-                result.push_str(&format!(
-                    "  - {}: {} ({}: {})\n",
-                    text(key),
-                    text(field.value()),
-                    messages.annotation_origin,
-                    text(field.origin().as_str())
-                ));
-            }
-        }
-        result.push('\n');
+    for (key, field) in effective.fields() {
+        result.push(vec![literal(key), text(": "), authored(field.value())]);
     }
     Ok(result)
 }
 
-pub(crate) fn annotations(
-    value: &devmeld_resources::organization::LocalAnnotations,
-    messages: &Messages,
-) -> String {
-    if value.is_empty() {
-        return String::new();
-    }
-    let mut result = format!("{}:\n", messages.context_annotations);
-    if let Some(description) = value.description() {
-        result.push_str(&format!(
-            "- {}: {}\n",
-            messages.annotation_description,
-            text(description)
-        ));
-    }
-    let tags = value.tags().map(|tag| text(tag)).collect::<Vec<_>>();
-    if !tags.is_empty() {
-        result.push_str(&format!(
-            "- {}: {}\n",
-            messages.annotation_tags,
-            tags.join(", ")
-        ));
-    }
-    if !value.fields().is_empty() {
-        result.push_str(&format!("- {}:\n", messages.annotation_fields));
-        for (key, value) in value.fields() {
-            result.push_str(&format!("  - {}: {}\n", text(key), text(value)));
-        }
-    }
-    result.push('\n');
-    result
-}
-
 impl FileLink {
-    fn markdown(&self, label: &str, messages: &Messages) -> String {
-        let mut result = format!("[{}]({})", text(label), self.destination);
+    fn events(&self, label: &str, messages: &Messages) -> Inline {
+        let mut result = vec![
+            Event::Start(Tag::Link {
+                link_type: LinkType::Inline,
+                dest_url: self.destination.clone().into(),
+                title: "".into(),
+                id: "".into(),
+            }),
+            // Brackets are structural even when the same text is plain prose.
+            // A code span keeps the entire label literal inside a Markdown link.
+            if label.contains(['[', ']']) {
+                literal(label)
+            } else {
+                authored(label)
+            },
+            Event::End(TagEnd::Link),
+        ];
         if let Some(path) = &self.local_path {
-            result.push_str(&format!(" ({}: {})", messages.local_path, text(path)));
+            result.extend([
+                text(&format!(" ({}: ", messages.local_path)),
+                literal(path),
+                text(")"),
+            ]);
         }
         result
     }
@@ -258,16 +196,77 @@ mod tests {
             destination: "file:///D:/a%60%5B%23%5D.md".into(),
             local_path: Some("D:/a`[#].md".into()),
         };
-        let rendered = link.markdown(
+        let mut document = Document::default();
+        document.paragraph(link.events(
             "[ssh] <http>",
             crate::language::OutputLanguage::English.messages(),
-        );
+        ));
+        let rendered = document.finish().unwrap();
         assert_eq!(
             rendered,
-            "[\\[ssh\\] &lt;http&gt;](file:///D:/a%60%5B%23%5D.md) (Local path: D:/a\\`\\[\\#\\].md)"
+            "[`[ssh] <http>`](file:///D:/a%60%5B%23%5D.md) (Local path: ``D:/a`[#].md``)\n"
         );
     }
+
+    #[test]
+    fn authored_link_labels_roundtrip_as_one_link_with_the_exact_destination() {
+        for label in [
+            "use_when",
+            "x]",
+            "a [b]",
+            "[ssh] <http>",
+            "`a`",
+            "hello!",
+            "a &amp; b",
+            "*go*",
+            "_private",
+            "notes #",
+        ] {
+            let link = FileLink {
+                destination: "../test_app%20%23.md".into(),
+                local_path: None,
+            };
+            let mut document = Document::default();
+            document
+                .paragraph(link.events(label, crate::language::OutputLanguage::English.messages()));
+            let output = document.finish().unwrap();
+            let mut count = 0;
+            let mut actual = String::new();
+            for event in pulldown_cmark::Parser::new(&output) {
+                match event {
+                    Event::Start(Tag::Link { dest_url, .. }) => {
+                        assert_eq!(dest_url.as_ref(), link.destination, "{output}");
+                        count += 1;
+                    }
+                    Event::Text(value) | Event::Code(value) => actual.push_str(&value),
+                    Event::Start(Tag::Paragraph) | Event::End(TagEnd::Paragraph | TagEnd::Link) => {
+                        ()
+                    }
+                    other => panic!("{label:?} became {other:?}: {output}"),
+                }
+            }
+            assert_eq!(count, 1, "{output}");
+            assert_eq!(actual, label, "{output}");
+        }
+    }
 }
+fn children(
+    content: &mut Document,
+    groups: Option<Vec<Inline>>,
+    resources: Option<Vec<Inline>>,
+    messages: &Messages,
+) {
+    for (heading, items) in [
+        (messages.groups_heading, groups),
+        (messages.resources_heading, resources),
+    ] {
+        if let Some(items) = items {
+            content.heading(HeadingLevel::H2, heading);
+            content.list(items);
+        }
+    }
+}
+
 pub(crate) fn publication(
     plan: &mut Plan,
     config: &Config,
@@ -275,62 +274,86 @@ pub(crate) fn publication(
 ) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
     let directory = resolve(plan.root(), &config.publication.directory)?;
     let index = directory.join("index.md");
-    let config_path = plan.root().join(".devmeld/context.json");
     let mut files = BTreeMap::new();
     let messages = config.publication.language.messages();
-    let mut navigation = format!(
-        "# {}\n\n{}\n\n",
-        messages.context_heading, messages.navigation_notice
-    );
+    let mut navigation = Document::default();
+    navigation.heading(HeadingLevel::H1, messages.context_heading);
+    navigation.paragraph(prose(messages.navigation_notice));
+    navigation.paragraph(prose(messages.maintenance_notice));
     let organization = config.organization()?;
-    let mut by_group = BTreeMap::<_, String>::new();
+    let pages = crate::page_paths::pages(&directory, &organization)?;
+    let mut child_resources = BTreeMap::<_, Vec<Inline>>::new();
+    let mut child_groups = BTreeMap::<_, Vec<Inline>>::new();
     for (address, identity) in organization.resources() {
         let resource = resources
             .get(identity)
             .ok_or_else(|| error("missing organized resource"))?;
         let id = resource.id().as_str();
-        let page = directory.join(format!("r-{id}.md"));
-        let summary = resource.summary().unwrap_or(messages.original_document);
+        let page = pages
+            .resources
+            .get(id)
+            .ok_or_else(|| error("missing resource page"))?;
+        let description = organization
+            .annotations(address)
+            .ok_or_else(|| error("missing node annotations"))?
+            .description();
+        let summary = description.or_else(|| resource.summary());
         let label = if address.parent().is_some() {
             address.as_str()
         } else {
             resource.title()
         };
-        by_group
-            .entry(address.parent())
-            .or_default()
-            .push_str(&format!(
-                "- {} — {}\n",
-                link(&index, &page)?.markdown(label, messages),
-                text(summary)
-            ));
-        let metadata = node_annotations(&organization, address, messages)?;
-        let items = by_group.entry(address.parent()).or_default();
-        for line in metadata.lines() {
-            items.push_str(&format!("  {line}\n"));
+        let parent = address.parent();
+        let container = match &parent {
+            Some(parent) => pages
+                .groups
+                .get(parent)
+                .ok_or_else(|| error("missing parent group page"))?,
+            None => &index,
+        };
+        let mut item = link(container, page)?.events(label, messages);
+        if let Some(summary) = summary {
+            item.extend([text(" — "), authored(summary)]);
         }
-        let mut content = format!(
-            "# {}\n\n{}\n\n{}\n\n{}\n\n{}\n",
-            text(resource.title()),
-            text(summary),
-            messages.resource_notice,
-            link(&page, resource.source())?.markdown(messages.original_source, messages),
-            link(&page, &config_path)?.markdown(messages.managed_registration, messages)
-        );
+        child_resources.entry(parent).or_default().push(item);
+        let metadata = context_metadata(&organization, address, messages)?;
+        let mut content = Document::default();
+        content.ownership(messages.resource_marker);
+        content.heading(HeadingLevel::H1, resource.title());
+        if let Some(summary) = resource.summary() {
+            content.paragraph([authored(summary)]);
+        }
+        if let Some(description) = description {
+            if resource.summary().is_some() {
+                content.heading(HeadingLevel::H2, messages.context_notes);
+            }
+            content.paragraph([authored(description)]);
+        }
+        content
+            .paragraph(link(page, resource.source())?.events(messages.original_source, messages));
         if !resource.attributes().is_empty() {
-            content.push_str(&format!("\n## {}\n", messages.source_attributes));
+            content.heading(HeadingLevel::H2, messages.source_attributes);
+            content.list(
+                resource
+                    .attributes()
+                    .iter()
+                    .map(|(key, value)| vec![literal(key), text(": "), authored(value)]),
+            );
         }
-        for (key, value) in resource.attributes() {
-            content.push_str(&format!("\n- {}: {}", text(key), text(value)));
+        if !metadata.is_empty() {
+            if !resource.attributes().is_empty() {
+                content.heading(HeadingLevel::H2, messages.context_information);
+            }
+            content.list(metadata);
         }
-        content.push_str("\n\n");
-        content.push_str(&metadata);
+        if !resource.references().is_empty() {
+            content.heading(HeadingLevel::H2, messages.references_heading);
+        }
+        let mut references = Vec::new();
         for (label, target) in resource.references() {
-            content.push_str(&format!(
-                "- {}\n",
-                link(&page, target)?.markdown(label, messages)
-            ));
+            references.push(link(page, target)?.events(label, messages));
         }
+        content.list(references);
         let mut tools: Vec<_> = config
             .access
             .iter()
@@ -339,9 +362,9 @@ pub(crate) fn publication(
             .collect();
         tools.sort();
         if !tools.is_empty() {
-            content.push_str(&format!("\n## {}\n\n", messages.access_heading));
-            content.push_str(messages.access_guidance);
-            content.push_str("\n\n");
+            content.heading(HeadingLevel::H2, messages.access_heading);
+            content.paragraph(prose(messages.access_guidance));
+            let mut associations = Vec::new();
             for tool in tools {
                 let address = config
                     .resources
@@ -349,37 +372,93 @@ pub(crate) fn publication(
                     .find(|r| r.id == tool)
                     .ok_or_else(|| error("missing associated resource"))?
                     .address();
-                content.push_str(&format!(
-                    "- {}\n",
-                    link(&page, &directory.join(format!("r-{tool}.md")))?.markdown(
+                associations.push(
+                    link(
+                        page,
+                        pages
+                            .resources
+                            .get(tool)
+                            .ok_or_else(|| error("missing associated page"))?,
+                    )?
+                    .events(
                         &format!("{}: {address}", messages.associated_resource),
-                        messages
-                    )
-                ));
+                        messages,
+                    ),
+                );
             }
+            content.list(associations);
         }
-        files.insert(page, content.into_bytes());
+        files.insert(page.clone(), content.finish()?.into_bytes());
     }
-    if let Some(items) = by_group.remove(&None) {
-        navigation.push_str(&items);
+    // Build direct-child links before rendering parents; lexical order must not
+    // decide whether a parent can discover its children.
+    for group in organization.groups() {
+        let parent = group.parent();
+        let container = match &parent {
+            Some(parent) => pages
+                .groups
+                .get(parent)
+                .ok_or_else(|| error("missing parent group page"))?,
+            None => &index,
+        };
+        let page = pages
+            .groups
+            .get(group)
+            .ok_or_else(|| error("missing group page"))?;
+        let description = organization
+            .annotations(group)
+            .ok_or_else(|| error("missing group annotations"))?
+            .description();
+        let mut item = link(container, page)?.events(group.as_str(), messages);
+        if let Some(description) = description {
+            item.extend([text(" — "), authored(description)]);
+        }
+        child_groups.entry(parent).or_default().push(item);
     }
     for group in organization.groups() {
-        let level = (group.as_str().split('/').count() + 1).min(6);
-        navigation.push_str(&format!(
-            "\n{} {}\n\n",
-            "#".repeat(level),
-            text(group.as_str())
-        ));
-        navigation.push_str(&node_annotations(&organization, group, messages)?);
-        if let Some(items) = by_group.remove(&Some(group.clone())) {
-            navigation.push_str(&items);
+        let page = pages
+            .groups
+            .get(group)
+            .ok_or_else(|| error("missing group page"))?;
+        let mut content = Document::default();
+        content.ownership(messages.resource_marker);
+        content.heading(HeadingLevel::H1, group.as_str());
+        if let Some(description) = organization
+            .annotations(group)
+            .ok_or_else(|| error("missing group annotations"))?
+            .description()
+        {
+            content.paragraph([authored(description)]);
         }
+        let metadata = context_metadata(&organization, group, messages)?;
+        content.list(metadata);
+        let parent = group.parent();
+        let (container, label) = match &parent {
+            Some(parent) => (
+                pages
+                    .groups
+                    .get(parent)
+                    .ok_or_else(|| error("missing parent group page"))?,
+                parent.as_str(),
+            ),
+            None => (&index, messages.navigation_label),
+        };
+        content.paragraph(link(page, container)?.events(label, messages));
+        children(
+            &mut content,
+            child_groups.remove(&Some(group.clone())),
+            child_resources.remove(&Some(group.clone())),
+            messages,
+        );
+        files.insert(page.clone(), content.finish()?.into_bytes());
     }
-    navigation.push_str(&format!(
-        "\n{}\n",
-        link(&index, &config_path)?.markdown(messages.managed_registration, messages)
-    ));
-    files.insert(index.clone(), navigation.into_bytes());
+    children(
+        &mut navigation,
+        child_groups.remove(&None),
+        child_resources.remove(&None),
+        messages,
+    );
+    files.insert(index.clone(), navigation.finish()?.into_bytes());
     for entry in &config.publication.entries {
         if entry.kind == "instructions" {
             continue;
@@ -388,13 +467,7 @@ pub(crate) fn publication(
             return Err(error("unsupported entry kind"));
         }
         let path = resolve(plan.root(), &entry.path)?;
-        let content = format!(
-            "# {}\n\n{}{}{}\n",
-            messages.project_heading,
-            messages.entry_intro,
-            link(&path, &index)?.markdown(messages.navigation_label, messages),
-            messages.entry_after_link,
-        );
+        let content = entry_document(&path, &index, messages, HeadingLevel::H1)?.finish()?;
         if files.insert(path, content.into_bytes()).is_some() {
             return Err(error("duplicate publication target"));
         }
@@ -405,14 +478,23 @@ pub(crate) fn publication(
 pub(crate) fn instruction_entry(root: &Path, config: &Config, path: &Path) -> Result<String> {
     let messages = config.publication.language.messages();
     let index = resolve(root, &config.publication.directory)?.join("index.md");
-    Ok(format!(
-        "## {}\n\n{}{}{}\n\n{}\n\n{}\n",
-        messages.project_heading,
-        messages.entry_intro,
-        link(path, &index)?.markdown(messages.navigation_label, messages),
-        messages.entry_after_link,
-        messages.shared_maintenance,
-        link(path, &root.join(".devmeld/context.json"))?
-            .markdown(messages.managed_registration, messages)
-    ))
+    let mut content = entry_document(path, &index, messages, HeadingLevel::H2)?;
+    content.paragraph(prose(messages.shared_maintenance));
+    content.finish()
+}
+
+fn entry_document(
+    path: &Path,
+    index: &Path,
+    messages: &Messages,
+    level: HeadingLevel,
+) -> Result<Document> {
+    let mut content = Document::default();
+    content.heading(level, messages.project_heading);
+    let mut introduction = prose(messages.entry_intro);
+    introduction.extend(link(path, index)?.events(messages.navigation_label, messages));
+    introduction.extend(prose(messages.entry_after_link));
+    content.paragraph(introduction);
+    content.paragraph(prose(messages.maintenance_notice));
+    Ok(content)
 }

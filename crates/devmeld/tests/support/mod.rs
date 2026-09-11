@@ -5,6 +5,26 @@
 mod cli;
 use std::path::Path;
 
+/// Reproduce the former TOML receipt using genuine, unchanged fixture targets.
+/// Test setup only; production must never derive old claims from current files.
+pub fn full_body_receipt(root: &Path) -> Vec<u8> {
+    let path = root.join(".devmeld/state/owned.toml");
+    let mut receipt: toml::Value = toml::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    for (target, claim) in receipt["surfaces"].as_table_mut().unwrap() {
+        if claim["kind"].as_str() == Some("whole_file") {
+            let observed = claim["observed"].as_table_mut().unwrap();
+            observed.remove("sha256");
+            observed.insert(
+                "bytes".into(),
+                std::fs::read_to_string(target).unwrap().into(),
+            );
+        }
+    }
+    let bytes = toml::to_string_pretty(&receipt).unwrap().into_bytes();
+    std::fs::write(path, &bytes).unwrap();
+    bytes
+}
+
 pub fn prepare(root: &Path, args: &[String]) -> devmeld::Result<devmeld::Plan> {
     prepare_in(root, Some(root), args)
 }

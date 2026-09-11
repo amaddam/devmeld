@@ -73,6 +73,76 @@ The address model first appears inside its real add/publication slice, not as an
 
 - [x] T019 Shorten root/group/operation help into a command reference: one-line purpose, precise operands, all supported options with brief defaults/constraints, at most one relevant example, and immediate write-risk notes. Keep tutorials and detailed semantics in documentation for the future website; do not invent a documentation URL. Change only help, corresponding tests/style/contract text and acceptance evidence; preserve the parser/application behavior and uncommitted T016-T018 work. Run focused help tests and native `cargo xtask check`, then rebuild/inspect release help; prior cross-platform evidence is not a fresh run for this text-only change.
 
+## Managed record readability (2026-09-10)
+
+- [x] T020 Replace managed configuration/receipt/journal JSON with readable TOML,
+  preserving exact byte evidence, path semantics, deterministic no-ops and recovery;
+  reject and preserve legacy/mixed records without automatic migration. Cover
+  real CLI publication, Unicode/CRLF/quotes/backslashes, duplicate keys and a legacy
+  writer appearing after preview; run native Windows and isolated Linux checks.
+
+## Readable resource pages (2026-09-10)
+
+- [x] T021 Replace ID-based card filenames with logical-address publication paths
+  through a bounded path adapter and one shared destination map. Use vertical TDD
+  for real publication and move/link behavior; preserve internal identities,
+  associations and sources. Cover portable names/collisions, old owned file
+  withdrawal, conflicts, no-ops and recovery; update affected contracts, fixtures,
+  both READMEs and acceptance evidence, run Windows/isolated Linux checks and
+  regenerate the local Shop context via confirmed sync. No commit or push implied.
+
+## Reading-oriented publication (2026-09-10)
+
+- [x] T022 Make generated Markdown reading-oriented: short card ownership
+  comment, meaningful descriptions and original-source/access links, final
+  effective context values without saved controls/config links/empty sections;
+  centralize maintenance rules in index/entries, preserve detailed CLI show,
+  source/context distinctions and ancestor origins. Use focused RED/GREEN cases,
+  update publication assertions and owning docs, run Windows/Linux/cross-drive
+  checks, rebuild release and regenerate Shop through normal confirmed sync.
+  Preserve prior work; no commit/push or dependency/format changes.
+
+## Rich Shop context example (2026-09-10)
+
+- [x] T023 Expand Shop's group/resource annotations and document reproducible
+  setup, publication and existing-context updates in both example READMEs.
+  Demonstrate group-owned descriptions/tags/fields, explicit propagation,
+  child inheritance and local overrides without changing domain rules. Replay
+  the documented commands on clean Windows/Linux fixtures, refresh the existing
+  Shop through DevMeld commands, verify source/data preservation and no-op sync,
+  and record evidence. No production-code change, dependency, commit or push.
+
+## Generated group documents (2026-09-10)
+
+- [x] T024 Publish every group's own document and hierarchical direct-child
+  navigation through one combined group/resource destination map. Use a focused
+  failing real-CLI case, implement coherently, then cover naming conflicts,
+  nested/empty groups, origins, moves/removal, protected writes and recovery.
+  Update superseded presentation assertions and owning docs/READMEs, verify
+  Windows/Linux/cross-drive behavior and refresh Shop via normal sync. Preserve
+  source/configuration, resource paths and earlier work; no dependency/commit/push.
+
+## Library-based readable Markdown (2026-09-11)
+
+- [x] T025 Generate Markdown with `pulldown-cmark-to-cmark` in the application
+  adapter; use code spans for field keys and technical literals instead of a
+  handwritten blanket escape function. Remove inherited-origin annotations from
+  reading pages, retaining effective values and detailed CLI inspection. Start
+  with a real CLI RED, verify literal text/link semantics, both languages, no-op,
+  protected writes and recovery on Windows/Linux and across drives. Update owning
+  presentation docs and refresh Shop with normal sync, preserving config/sources.
+  No domain, format-version, commit or push change.
+
+## Compact ownership receipts (2026-09-11)
+
+- [x] T026 Replace persistent whole-file bodies with SHA-256 fingerprints and
+  physical identities; retain exact shared-entry insertions and temporary recovery
+  images. Read former full-body TOML claims without adopting current file edits;
+  compact only on actual saves or an explicitly previewed/confirmed sync. Preserve
+  no-op/stale/conflict/recovery behavior, test Windows/Linux/cross-drive cases,
+  and shrink Shop through normal sync without rewriting config, sources or output.
+  No merge with context.toml, format-version bump, commit or push.
+
 ## Parallel Opportunities
 
 None for implementation: adjacent slices change the same CLI/declaration/rendering files. Windows/Linux verification may run independently on isolated copies once the relevant slice is frozen. No task marker authorizes delegation.

@@ -53,9 +53,11 @@ once: `Apply these changes? [y/N]`. Enter `y` to publish, or press Enter to canc
 Append `--dry-run` to preview without writing; scripts use `sync --yes` instead of an
 interactive prompt. `--yes` never overrides conflicts or grants additional ownership.
 
-Open `.devmeld/output/index.md`, then follow the resource page to the
-original document. You can give that index file to an Agent with local read
-access. DevMeld can exit after publication; reading does not call it again.
+Open `.devmeld/output/index.md`, follow its group pages, then the resource page to the
+original document. `knowledge/notes` produces `resources/knowledge/notes.md`
+under the output directory, not an internal-ID filename. You can give that index
+file to an Agent with local read access. DevMeld can exit after publication;
+reading does not call it again.
 
 The command reports the selected context: explicit `--context <CONTEXT_DIR>` wins;
 otherwise it reuses the nearest ancestor `.devmeld`, or creates one in the current
@@ -115,7 +117,34 @@ sources and access associations, not live availability or whether an Agent read 
 Move destinations are exact logical addresses: existing targets are rejected, not merged.
 Moving never relocates source files or changes stable identities/associations. Empty old
 groups remain until explicitly removed; nonempty group removal is rejected. Only sync
-updates published navigation. Append `--dry-run` to preview a change without saving.
+updates published navigation and page paths, including DevMeld's index/access links.
+Sync withdraws the former unchanged owned cards; external edits block replacement.
+External bookmarks to moved cards are not redirected: enter through `index.md`.
+Append `--dry-run` to preview a change without saving.
+
+For example, registering `services/shop` and `knowledge/http-api` publishes:
+
+```text
+.devmeld/output/                 # generated; do not edit directly
+├── index.md                    # links to top-level groups and ungrouped resources
+└── resources/
+    ├── services/
+    │   ├── services.md          # group information and direct children
+    │   └── shop.md              # resource card linking the source
+    └── knowledge/
+        ├── knowledge.md
+        └── http-api.md
+```
+
+These are navigation cards, not copies of source files. Unicode and spaces remain
+readable; filesystem-reserved names/characters are escaped consistently on each
+platform. Colliding publication paths are rejected, not silently renamed or merged.
+
+Each group, including an empty one, has its own document with its description,
+effective tags/fields, links to direct children and a parent/index link. Agents
+can read these files without running `group show`. Commands maintain registration;
+`sync` publishes the reading documents. A resource such as `services/services`
+would collide with the group document; choose a distinct logical address.
 
 ### Describe groups and resources
 
@@ -139,8 +168,11 @@ All field values are descriptive text, not permissions or execution settings.
 Update preserves unspecified information. Use `--clear-description`,
 `--remove-tag TAG`, or `--remove-field KEY` with update to remove it explicitly.
 Tags are unique; duplicate field assignments in one command are errors.
-Show and generated navigation distinguish context annotations from source-file
-attributes. Sources are not rewritten; local declarations and inherited values remain distinct.
+Generated cards show descriptions, original-source links and effective context
+values, distinct from source-file attributes. They do not include configuration
+links or inheritance switches. Full maintenance rules live in the entry/index;
+cards retain only a short generated-file comment. Sources are not rewritten.
+Use `resource show` or `group show` for detailed registration inspection.
 
 ### Control inheritance
 
@@ -155,8 +187,11 @@ devmeld resource show knowledge/notes
 devmeld sync
 ```
 
-Show and generated navigation identify local annotations and the origin of effective
-inherited tags/fields. Tags combine without duplicates; the nearest local field wins.
+Show distinguishes local declarations, saved choices and effective values.
+Generated navigation shows the effective values once, without inheritance-origin
+labels or empty sections. Use show to inspect origins. Field keys and tags use
+Markdown code spans, such as `use_when`; ordinary descriptions remain prose.
+Tags combine without duplicates; the nearest local field wins.
 Overall descriptions, identities, source paths and permissions never inherit.
 `--no-propagate` on a group or `--no-inherit` on a child cuts that inheritance edge,
 including more distant ancestors. Removing a local field override may reveal its inherited value.
@@ -188,6 +223,13 @@ devmeld sync
 publication and configured/published entries. Missing inputs, conflicts or pending
 recovery block verification. It never claims that an Agent loaded the context.
 An unchanged sync still validates inputs and ownership but does not prompt or rewrite files.
+
+Configuration lives in `.devmeld/context.toml`; `state/owned.toml` is a compact
+management receipt (file fingerprints/identities and shared-entry insertions),
+not a second copy of configuration or source documents. Do not edit or delete it.
+Full recovery data is temporary. For the preceding full-body TOML receipt, the
+first sync may preview a receipt-only compaction; confirmation leaves other files
+unchanged. Fingerprints are automatic, and later unchanged syncs remain no-ops.
 
 ### Update context
 
@@ -231,14 +273,19 @@ CLI help and diagnostics currently remain English.
 
 ## Current Limits
 
+Managed configuration is `.devmeld/context.toml`; ownership and recovery records
+also use TOML for readable paths and multiline text. Authored JSON resource
+descriptions, JSON Schema and HTTP data are unchanged.
+
 - Local-machine use only. Sources may be on different local drives; remote service
   addresses can be described, but are not fetched or indexed remotely.
 - Synchronization is manual. There is no automatic project discovery, scheduler,
   tool installation or execution.
 - `status` compares expected generated content with owned files using current inputs;
   it is not a historical source-freshness record or proof that an Agent read the entry.
-- Older incompatible development records are preserved and rejected, not migrated.
-  Use fresh context paths for a first trial. For an interrupted current operation,
+- Legacy JSON contexts are preserved and rejected, not migrated by renaming files.
+  Use the previous build for those contexts and their pending recovery, or a fresh
+  separate path to try TOML. For an interrupted current TOML operation,
   preview `devmeld --context <CONTEXT_DIR> recover --dry-run`, then run `recover` for one
   confirmation (or `recover --yes` in a script).
 - See the [current CLI verification record](specs/005-context-cli/acceptance.md)
@@ -246,8 +293,8 @@ CLI help and diagnostics currently remain English.
 
 ## More Information
 
-- [Examples](examples/README.md): service/tool descriptions, access associations,
-  schema validation and cross-drive paths.
+- [Examples](examples/README.md): a working shop with a browser page, HTTP API,
+  stock and an authored service description.
 - [Product overview](docs/product.md): product concepts and ownership boundaries.
 - [Contributing](CONTRIBUTING.md) and [engineering guide](docs/engineering.md):
   development practices. Run `cargo xtask check` for the project checks.

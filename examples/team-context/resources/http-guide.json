@@ -1,7 +1,0 @@
-{
-  "title": "HTTP 接入指引",
-  "summary": "指向团队维护的工具说明，不代表工具已安装或已获准执行。",
-  "references": [
-    { "label": "原始接入说明", "path": "../knowledge/http-access.md" }
-  ]
-}

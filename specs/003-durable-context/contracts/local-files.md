@@ -1,5 +1,15 @@
 # Local file and command contract (003)
 
+Current representation note (2026-09-10): the original JSON and command examples
+below are historical. The active [005 contract](../../005-context-cli/contracts/cli.md#current-persisted-representation-2026-09-10)
+uses TOML for managed configuration, ownership and recovery, with v0 markers.
+The [readable-page amendment](../../005-context-cli/contracts/cli.md#readable-page-paths-2026-09-10)
+also supersedes the historical `r-<id>.md` layout below with logical-address cards.
+The [005 reading view](../../005-context-cli/contracts/cli.md#reading-view-2026-09-10-t022)
+supersedes repeated card notices, default summaries and configuration links below;
+source/access links and managed-write protections remain applicable.
+Authored JSON descriptions/schema and the safety/link rules still apply.
+
 Feature-local version 1, not a ratified permanent public machine API. Unknown
 control fields, unsupported versions and invalid semantics fail; no migration.
 
@@ -122,6 +132,12 @@ intent and stage identity before writes. Include ownership changes in the same
 operation. No-op does not rewrite. Configuration commits survive failed later
 sync. Pending operations block new mutations; recovery reverses only verified
 effects, preserves external conflicts and is restartable.
+
+The [005 compact receipt](../../005-context-cli/contracts/cli.md#compact-ownership-evidence-2026-09-11-t026)
+stores permanent whole-file fingerprints/identities rather than bodies. Full
+before/after images remain temporary recovery evidence. The preceding TOML body
+receipt can be compacted via an explicitly previewed/confirmed receipt-only sync;
+that maintenance change does not regenerate otherwise unchanged output.
 
 Restore bytes/existence, not all ACLs, timestamps or extended attributes. Required
 native filesystem operations may fail explicitly; no delete-and-retry fallback.

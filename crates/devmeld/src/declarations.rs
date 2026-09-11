@@ -302,19 +302,12 @@ struct Reference {
     label: String,
     path: String,
 }
-pub(crate) fn encode(value: &impl Serialize) -> Result<Vec<u8>> {
-    let mut bytes = serde_json::to_vec_pretty(value)?;
-    bytes.push(b'\n');
-    Ok(bytes)
-}
-
 pub(crate) fn read_config(plan: &mut Plan) -> Result<Config> {
-    let path = plan.root().join(".devmeld/context.json");
+    let path = plan.root().join(".devmeld/context.toml");
     let bytes = plan
         .capture(&path)?
         .ok_or_else(|| error("context not initialized"))?;
-    let config: Config =
-        serde_json::from_slice(&bytes).map_err(|e| error(format!("{}: {e}", path.display())))?;
+    let config: Config = crate::records::decode(&bytes, &path)?;
     if config.format_version != 0 {
         return Err(error("unsupported configuration format_version"));
     }
@@ -343,6 +336,8 @@ pub(crate) fn validate_surfaces(plan: &Plan, config: &Config) -> Result<()> {
     use crate::storage::{overlaps, resolve};
     let directory = resolve(plan.root(), &config.publication.directory)?;
     let reserved = [
+        plan.root().join(".devmeld/context.toml"),
+        // Never publish into a name that would be detected as legacy state.
         plan.root().join(".devmeld/context.json"),
         plan.root().join(".devmeld/state"),
     ];

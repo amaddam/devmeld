@@ -10,6 +10,86 @@
 
 ## User Scenarios & Testing
 
+### Managed record readability (2026-09-10 amendment)
+
+The Maintainer requested TOML instead of JSON for DevMeld-owned configuration and
+maintenance records. New contexts use `context.toml`, `state/owned.toml` and
+`state/pending.toml` under `.devmeld`. Authored JSON resource descriptions and
+JSON Schema are unchanged. The reading-view amendment below supersedes the
+original requirement to link managed configuration from generated Markdown.
+Configuration references use readable local path spellings, with `/` separators
+on Windows where equivalent; internal canonical paths retain their exact meaning.
+Record serialization must round-trip source/output bytes exactly, including CRLF,
+quotes and backslashes, without weakening ownership, no-op or recovery checks.
+
+This is an unreleased v0 format replacement, not v1/v2 ratification. Existing JSON
+contexts are explicitly rejected and left intact, including pending recovery;
+there is no automatic migration, adoption, deletion or mixed-format fallback.
+New contexts may be created at a separate location. Help remains available without
+opening records. Both formats present is also an error, never a precedence rule.
+
+### Readable publication paths (2026-09-10 amendment)
+
+The Maintainer accepted resource pages named after their logical organization
+addresses instead of internal IDs: `services/shop` publishes to
+`<output>/resources/services/shop.md`. The shared entry and `<output>/index.md`
+remain the reading starting points. IDs and associations stay stable; moving a
+resource/group changes affected page paths only on sync, which updates generated
+links and withdraws unchanged old owned pages. External manually saved links are
+not redirected. Source files and registration identities are not moved or renamed.
+
+Publication must handle same leaf names in different groups and retain readable
+Unicode names. Escape nonportable filename characters without altering logical
+names, and reject case-insensitive or file/directory target collisions before
+any writes. Existing target conflicts, edited old pages, stale previews and
+interrupted-write recovery retain their protection. This is v0 output-layout
+evolution, not a new persisted format, compatibility alias or source migration.
+
+### Reading-oriented publication (2026-09-10 amendment)
+
+The Maintainer approved separating generated reading material from configuration
+inspection. Cards contain a short generated/do-not-edit comment, meaningful
+description when supplied, source links and applicable context information;
+omit the generic "Original document" placeholder, repeated maintenance prose,
+configuration links and saved inherit/propagate controls. Full maintenance rules
+belong in the project entry and total index, not every card. CLI show retains
+the detailed registration, defaults, local/effective values and saved choices.
+
+Publish final effective tags/fields once, without inheritance-origin labels;
+origins remain available through CLI show. Omit empty metadata sections. Do not discard real
+inherited values or confuse context fields with source-declared attributes.
+Descriptions appear as readable prose, not a "local context annotations" wrapper;
+if both an authored summary and registration description exist, label the latter
+as context notes so their meanings remain distinct. No source/configuration,
+identity, path, language selection or inheritance-rule changes are authorized.
+
+The 2026-09-11 reading refinement uses a maintained Markdown serializer, with
+field keys and technical literals in standard code spans rather than blanket
+backslash escaping. Authored prose remains literal text, not interpreted Markdown
+instructions; necessary syntax protection and URI encoding must remain correct.
+This changes generated presentation only, not the persisted v0 format.
+
+### Group documents and hierarchical navigation (2026-09-10 amendment)
+
+The Maintainer approved a generated document for every registered group, including
+empty groups. `code` publishes `resources/code/code.md`; nested `code/http`
+publishes `resources/code/http/http.md`. These are managed reading artifacts,
+not new editable sources or resource registrations. Resource card paths stay unchanged.
+
+The total index lists only top-level groups and ungrouped resources with descriptions
+and links. A group document shows its own description and effective tags/fields,
+then links/descriptions for direct child groups and resources, plus navigation to
+its parent (or the total index). Do not expand descendant metadata into every
+ancestor. All registered groups/resources must be reachable by following local files.
+
+Reuse portable filename encoding and validate the combined group/resource target
+set before publication. A resource such as `code/code` conflicts with the group
+page; reject with a clear path conflict rather than overwrite or silently rename.
+Moves/removals update links and withdraw only unchanged owned former pages through
+normal sync/recovery. Preserve source/configuration bytes on sync, all inheritance
+rules, CLI inspection, source/access links, EN/zh-CN wording and write protections.
+No new command, dependency, persisted format or automatic source discovery.
+
 ### User Story 1 - Discover the command to use (Priority: P1)
 
 A user can ask for help at the root, a command group, or a specific operation before choosing or creating a context.
@@ -66,7 +146,7 @@ Users configure defaults for parent propagation and child inheritance, override 
 1. **Given** configurable defaults, **When** creating items, **Then** explicit choices win and omitted choices are resolved and persisted using creation-time defaults.
 2. **Given** an existing item, **When** defaults change, **Then** its saved choices do not change.
 3. **Given** a parent and child, **When** either disables the connecting inheritance edge, **Then** parent information is not inherited; the child's own information can still propagate to its children.
-4. **Given** an enabled edge, **When** computing effective metadata, **Then** tags merge uniquely, child-local fields override same-name inherited fields, origins remain visible, and overall description, identity and source paths are not inherited.
+4. **Given** an enabled edge, **When** computing effective metadata, **Then** tags merge uniquely, child-local fields override same-name inherited fields, origins remain inspectable through show (not repeated in generated reading pages), and overall description, identity and source paths are not inherited.
 5. **Given** a changed parent, **When** syncing, **Then** derived metadata is recomputed rather than copied into child declarations.
 
 ### User Story 5 - Understand and control publication (Priority: P2)

@@ -51,7 +51,7 @@ fn typed_client_registers_inspects_and_publishes_without_command_strings() {
             assert_eq!(targets.len(), 1);
             assert_eq!(
                 targets[0].path,
-                plan.context_root().join(".devmeld/context.json")
+                plan.context_root().join(".devmeld/context.toml")
             );
             assert!(targets[0].before.is_none());
             assert!(targets[0].after.is_some());
@@ -165,7 +165,7 @@ fn typed_queries_keep_inheritance_origins_and_associations_without_reading_sourc
         },
     );
     fs::remove_file(f.0.join("source.md")).unwrap();
-    let before = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+    let before = fs::read(f.0.join(".devmeld/context.toml")).unwrap();
     let result = devmeld::inspect(
         &location,
         Query::Show {
@@ -198,7 +198,7 @@ fn typed_queries_keep_inheritance_origins_and_associations_without_reading_sourc
     };
     assert_eq!(paths, [path("archive/team")]);
     assert!(devmeld::inspect(&location, Query::PublicationStatus).is_err());
-    assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), before);
+    assert_eq!(fs::read(f.0.join(".devmeld/context.toml")).unwrap(), before);
 }
 
 #[test]

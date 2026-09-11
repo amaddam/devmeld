@@ -104,7 +104,7 @@ document for every small edit.
 standard-library-first development. ADR-0002 is historical. The active file-based
 implementation follows [the domain model](domain-model.md) and 003's Plan, not
 old 001. `resources` and `publication` are pure domain crates; `devmeld` composes
-them with local JSON, schema, rendering and filesystem adapters.
+them with TOML managed records, authored JSON/schema, rendering and filesystem adapters.
 
 ### Toolchain and Dependencies
 
@@ -118,7 +118,8 @@ Do not silently install Rust, build tools, a second runtime, or dependencies.
 Use one Cargo workspace, root lockfile and target directory. Declare shared
 settings at the root and explicitly inherit them in every member. Start with
 the standard library where adequate. The domain crates currently use std only;
-application dependencies are listed in 003's Plan. `tools/xtask` reuses the
+application dependencies are recorded in the owning Feature Plans (003/005).
+`tools/xtask` reuses the
 workspace's serde_json version to inspect Cargo metadata. New dependencies need
 a concrete requirement; inspect existing declarations before adding one.
 No blanket ban on third-party libraries is intended, and no shared-kernel or

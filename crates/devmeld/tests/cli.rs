@@ -39,14 +39,16 @@ fn inheritance_edges_moves_and_local_override_removal_recompute_without_copying(
                 if inherit { "--inherit" } else { "--no-inherit" },
             ]);
             f.apply(&["sync"]);
-            let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
+            let page =
+                fs::read_to_string(f.0.join(".devmeld/output/resources/root/middle/item.md"))
+                    .unwrap();
             assert_eq!(
-                page.contains("environment: test (Origin: root)"),
+                page.contains("`environment`: test"),
                 propagate && inherit,
                 "{page}"
             );
             assert_eq!(
-                page.contains("attention: curl (Origin: root/middle)"),
+                page.contains("`attention`: curl"),
                 propagate && inherit,
                 "{page}"
             );
@@ -93,9 +95,11 @@ fn inheritance_edges_moves_and_local_override_removal_recompute_without_copying(
     assert!(shown.contains("Saved inheritance choices: inherit: true"));
     f.apply(&["group", "update", "destination", "--propagate"]);
     f.apply(&["sync"]);
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
-    assert!(page.contains("attention: ssh (Origin: destination)"));
-    assert!(page.contains("../../notes.md"));
+    let page =
+        fs::read_to_string(f.0.join(".devmeld/output/resources/destination/item.md")).unwrap();
+    assert!(page.contains("`attention`: ssh"));
+    assert!(!page.contains("(Origin:"));
+    assert!(page.contains("../../../../notes.md"));
     assert!(!page.contains("curl"));
     assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
 }
@@ -122,7 +126,7 @@ fn inheritance_commands_reject_invalid_input_and_preserve_preview_noop_and_stale
     ]);
     fs::write(f.0.join("source.md"), "source").unwrap();
     f.apply(&["resource", "add", "source.md", "--as", "g/r"]);
-    let config_path = f.0.join(".devmeld/context.json");
+    let config_path = f.0.join(".devmeld/context.toml");
     let original = fs::read(&config_path).unwrap();
     for command in [
         vec![
@@ -227,31 +231,27 @@ fn inherited_navigation_is_derived_localized_and_separate_from_source_attributes
     );
     assert!(shown.contains("backend (Origin: team, team/db)"), "{shown}");
     assert!(!shown.contains("parent-only description"));
-    for (language, heading, origin) in [
-        ("en", "Effective tags and fields", "Origin"),
-        ("zh-CN", "生效标签和字段", "来源"),
-    ] {
+    for (language, heading, origin) in [("en", "Tags", "Origin"), ("zh-CN", "标签", "来源")] {
         f.apply(&["config", "set", "language", language]);
         f.apply(&["sync"]);
-        for name in ["index.md", "r-resource-1.md"] {
+        for name in ["resources/team/db/db.md", "resources/team/db/http.md"] {
             let text = fs::read_to_string(f.0.join(".devmeld/output").join(name)).unwrap();
             assert!(text.contains(heading), "{text}");
-            assert!(
-                text.contains(&format!("environment: test ({origin}: team)")),
-                "{text}"
-            );
-            assert!(text.contains("Use curl"));
+            assert!(text.contains("`environment`: test"), "{text}");
+            assert!(!text.contains(&format!("({origin}:")), "{text}");
+            assert_eq!(text.contains("Use curl"), name.ends_with("/http.md"));
         }
-        let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
-        assert!(page.contains("environment: source"));
+        let page =
+            fs::read_to_string(f.0.join(".devmeld/output/resources/team/db/http.md")).unwrap();
+        assert!(page.contains("`environment`: source"));
         assert!(!page.contains("parent-only description"));
     }
     f.apply(&["group", "update", "team", "--environment", "staging"]);
     f.apply(&["sync"]);
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
-    assert!(page.contains("environment: staging (来源: team)"));
+    let page = fs::read_to_string(f.0.join(".devmeld/output/resources/team/db/http.md")).unwrap();
+    assert!(page.contains("`environment`: staging"));
     let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap();
+        toml::from_slice(&fs::read(f.0.join(".devmeld/context.toml")).unwrap()).unwrap();
     assert!(
         config["resources"][0]["annotations"]["fields"]
             .get("environment")
@@ -260,9 +260,10 @@ fn inherited_navigation_is_derived_localized_and_separate_from_source_attributes
     assert!(config["resources"][0]["annotations"].get("tags").is_none());
     f.apply(&["resource", "update", "team/db/http", "--environment", ""]);
     f.apply(&["sync"]);
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
-    assert!(page.contains("environment:  (来源: team/db/http)"));
-    assert!(!page.contains("environment: staging"));
+    let page = fs::read_to_string(f.0.join(".devmeld/output/resources/team/db/http.md")).unwrap();
+    assert!(page.contains("- `environment`: \n"));
+    assert!(!page.contains("来源: team/db/http"));
+    assert!(!page.contains("`environment`: staging"));
     assert_eq!(fs::read(f.0.join("service.json")).unwrap(), source);
 }
 
@@ -283,7 +284,7 @@ fn inheritance_defaults_and_explicit_choices_are_saved_only_at_creation() {
     ]);
     f.apply(&["group", "add", "explicit", "--no-inherit", "--propagate"]);
     let read = || -> serde_json::Value {
-        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap()
+        toml::from_slice(&fs::read(f.0.join(".devmeld/context.toml")).unwrap()).unwrap()
     };
     let before = read();
     let group = |name: &str| {
@@ -338,7 +339,7 @@ fn group_annotations_are_saved_inspected_and_published_as_context_information() 
         "Use curl",
     ]);
     let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap();
+        toml::from_slice(&fs::read(f.0.join(".devmeld/context.toml")).unwrap()).unwrap();
     assert_eq!(config["groups"][0]["path"], "services");
     assert_eq!(config["groups"][0]["inherit"], false);
     assert_eq!(config["groups"][0]["propagate"], true);
@@ -365,11 +366,14 @@ fn group_annotations_are_saved_inspected_and_published_as_context_information() 
         assert!(shown.contains(expected), "{shown}");
     }
     f.apply(&["sync"]);
-    let index = fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap();
-    assert!(index.contains("Context annotations (local)"), "{index}");
+    let index =
+        fs::read_to_string(f.0.join(".devmeld/output/resources/services/database/database.md"))
+            .unwrap();
+    assert!(!index.contains("Context annotations (local)"), "{index}");
+    assert!(!index.contains("Saved inheritance choices"));
     assert!(index.contains("数据库 HTTP / ssh"));
-    assert!(index.contains("environment: test"));
-    assert!(index.contains("owner/team: 平台"));
+    assert!(index.contains("`environment`: test"));
+    assert!(index.contains("`owner/team`: 平台"));
     assert!(!f.0.join("services").exists());
 }
 
@@ -436,7 +440,7 @@ fn annotated_nodes_retain_metadata_and_associations_across_saved_moves() {
                 .contains(description)
         );
     }
-    let config_path = f.0.join(".devmeld/context.json");
+    let config_path = f.0.join(".devmeld/context.toml");
     let before = fs::read(&config_path).unwrap();
     let modified = fs::metadata(&config_path).unwrap().modified().unwrap();
     let shown = f.run(&["resource", "show", "archive/db/service"]);
@@ -450,14 +454,18 @@ fn annotated_nodes_retain_metadata_and_associations_across_saved_moves() {
         modified
     );
     f.apply(&["sync"]);
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
+    let page =
+        fs::read_to_string(f.0.join(".devmeld/output/resources/archive/db/service.md")).unwrap();
     assert!(page.contains("archive/db/http"));
-    assert!(page.contains("version: 01"));
+    assert!(page.contains("`version`: 01"));
     f.apply(&["group", "remove", "archive/db/empty"]);
     f.apply(&["access", "remove", "archive/db/service", "archive/db/http"]);
     f.apply(&["resource", "remove", "archive/db/http"]);
     f.apply(&["sync"]);
-    assert!(!f.0.join(".devmeld/output/r-resource-2.md").exists());
+    assert!(
+        !f.0.join(".devmeld/output/resources/archive/db/http.md")
+            .exists()
+    );
     assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
 }
 
@@ -524,8 +532,8 @@ fn annotation_shortcuts_and_fields_are_equivalent_and_conflicting_edits_never_wr
         "attention=ssh",
     ]);
     assert_eq!(
-        fs::read(first.0.join(".devmeld/context.json")).unwrap(),
-        fs::read(second.0.join(".devmeld/context.json")).unwrap()
+        fs::read(first.0.join(".devmeld/context.toml")).unwrap(),
+        fs::read(second.0.join(".devmeld/context.toml")).unwrap()
     );
     let invalid = [
         vec!["--environment", "test", "--field", "environment=test"],
@@ -542,7 +550,7 @@ fn annotation_shortcuts_and_fields_are_equivalent_and_conflicting_edits_never_wr
         vec!["--environment"],
         vec!["--inherit", "--no-inherit"],
     ];
-    let before = fs::read(first.0.join(".devmeld/context.json")).unwrap();
+    let before = fs::read(first.0.join(".devmeld/context.toml")).unwrap();
     for options in invalid {
         let fresh = Fixture::new();
         let mut create = vec!["group", "add", "db"];
@@ -554,7 +562,7 @@ fn annotation_shortcuts_and_fields_are_equivalent_and_conflicting_edits_never_wr
         update.extend(&options);
         assert!(!first.confirm(&update).status.success(), "{options:?}");
         assert_eq!(
-            fs::read(first.0.join(".devmeld/context.json")).unwrap(),
+            fs::read(first.0.join(".devmeld/context.toml")).unwrap(),
             before
         );
     }
@@ -566,14 +574,14 @@ fn annotation_shortcuts_and_fields_are_equivalent_and_conflicting_edits_never_wr
     ] {
         assert!(!first.confirm(&args).status.success(), "{args:?}");
         assert_eq!(
-            fs::read(first.0.join(".devmeld/context.json")).unwrap(),
+            fs::read(first.0.join(".devmeld/context.toml")).unwrap(),
             before
         );
     }
     let preview = first.run(&["group", "update", "db", "--tag", "preview", "--dry-run"]);
     assert!(preview.status.success());
     assert_eq!(
-        fs::read(first.0.join(".devmeld/context.json")).unwrap(),
+        fs::read(first.0.join(".devmeld/context.toml")).unwrap(),
         before
     );
     let plan = support::prepare(
@@ -588,10 +596,10 @@ fn annotation_shortcuts_and_fields_are_equivalent_and_conflicting_edits_never_wr
     )
     .unwrap();
     first.apply(&["group", "update", "db", "--attention", "changed"]);
-    let current = fs::read(first.0.join(".devmeld/context.json")).unwrap();
+    let current = fs::read(first.0.join(".devmeld/context.toml")).unwrap();
     assert!(plan.apply().unwrap_err().to_string().contains("stale"));
     assert_eq!(
-        fs::read(first.0.join(".devmeld/context.json")).unwrap(),
+        fs::read(first.0.join(".devmeld/context.toml")).unwrap(),
         current
     );
 }
@@ -661,7 +669,7 @@ fn annotation_updates_preserve_unspecified_values_and_support_explicit_removal()
     assert!(shown.contains("shared: false"));
     assert!(!shown.contains("Description:"));
     assert!(!shown.contains("Tags:"));
-    let path = f.0.join(".devmeld/context.json");
+    let path = f.0.join(".devmeld/context.toml");
     let before = fs::read(&path).unwrap();
     let modified = fs::metadata(&path).unwrap().modified().unwrap();
     f.apply(&["resource", "update", "db/notes", "--no-shared"]);
@@ -677,7 +685,7 @@ fn annotation_updates_preserve_unspecified_values_and_support_explicit_removal()
         "shared",
     ]);
     let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap();
+        toml::from_slice(&fs::read(f.0.join(".devmeld/context.toml")).unwrap()).unwrap();
     assert!(config["resources"][0].get("annotations").is_none());
     assert_eq!(config["resources"][0]["id"], "resource-1");
     assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
@@ -732,34 +740,32 @@ fn resource_annotations_keep_source_attributes_separate_in_both_output_languages
     assert!(shown.contains("environment: test"));
     assert!(!shown.contains("parent-only"));
     for (language, heading, attributes) in [
-        (
-            "en",
-            "Context annotations (local)",
-            "Source-declared attributes",
-        ),
-        ("zh-CN", "上下文标注（本级）", "源文件声明的属性"),
+        ("en", "Context information", "Source-declared attributes"),
+        ("zh-CN", "上下文信息", "源文件属性"),
     ] {
         f.apply(&["config", "set", "language", language]);
         f.apply(&["sync"]);
-        let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-1.md")).unwrap();
+        let page =
+            fs::read_to_string(f.0.join(".devmeld/output/resources/database/service.md")).unwrap();
         for expected in [
             heading,
             attributes,
-            "environment: production",
-            "environment: test",
+            "`environment`: production",
+            "`environment`: test",
             "本地使用说明",
-            "\\[ssh\\] &lt;http&gt;",
+            "`[ssh] <http>`",
             "../../child/service.json",
         ] {
             assert!(page.contains(expected), "{expected}: {page}");
         }
         assert!(!page.contains("parent-only"));
-        let index = fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap();
+        let index =
+            fs::read_to_string(f.0.join(".devmeld/output/resources/database/database.md")).unwrap();
         assert!(index.contains("本地使用说明"), "{index}");
     }
     assert_eq!(fs::read(&source).unwrap(), bytes);
     assert_eq!(fs::metadata(source).unwrap().modified().unwrap(), modified);
-    let page = f.0.join(".devmeld/output/r-resource-1.md");
+    let page = f.0.join(".devmeld/output/resources/database/service.md");
     let before = fs::read(&page).unwrap();
     let modified = fs::metadata(&page).unwrap().modified().unwrap();
     f.apply(&["sync"]);
@@ -849,9 +855,11 @@ fn cross_drive_logical_moves_preserve_native_sources_and_link_destinations() {
         "--inherit",
     ]);
     f.apply(&["sync"]);
-    let page = f.0.join(".devmeld/output/r-resource-1.md");
+    let page =
+        f.0.join(".devmeld/output/resources/knowledge/团队 notes.md");
     let before = fs::read_to_string(&page).unwrap();
-    assert!(before.contains("attention: Use curl (Origin: knowledge)"));
+    assert!(before.contains("`attention`: Use curl"));
+    assert!(!before.contains("(Origin:"));
     let link = before
         .split("file:///")
         .nth(1)
@@ -878,11 +886,14 @@ fn cross_drive_logical_moves_preserve_native_sources_and_link_destinations() {
         "test",
     ]);
     f.apply(&["sync"]);
-    let after = fs::read_to_string(&page).unwrap();
+    assert!(!page.exists());
+    let after =
+        fs::read_to_string(f.0.join(".devmeld/output/resources/archive/team-notes.md")).unwrap();
     assert!(after.contains(&format!("file:///{link}")), "{after}");
     assert!(after.contains("跨盘 HTTP 资料"));
-    assert!(after.contains("environment: test"));
-    assert!(after.contains("attention: Use ssh (Origin: archive)"));
+    assert!(after.contains("`environment`: test"));
+    assert!(after.contains("`attention`: Use ssh"));
+    assert!(!after.contains("(Origin:"));
     assert!(!after.contains("Use curl"));
     let shown = f.run(&["resource", "show", "archive/team-notes"]);
     assert!(shown.status.success());
@@ -900,7 +911,7 @@ fn resource_show_reports_registration_without_reading_or_rewriting_source() {
     let f = Fixture::new();
     fs::write(f.0.join("notes.md"), "authored knowledge").unwrap();
     f.apply(&["resource", "add", "notes.md", "--as", "knowledge/notes"]);
-    let config_path = f.0.join(".devmeld/context.json");
+    let config_path = f.0.join(".devmeld/context.toml");
     let config = fs::read(&config_path).unwrap();
     let modified = fs::metadata(&config_path).unwrap().modified().unwrap();
     // Inspecting a registration must not require the source to be currently available.
@@ -942,7 +953,7 @@ fn organization_lists_use_logical_subtrees_and_show_direct_group_children() {
     ] {
         f.apply(&["resource", "add", "notes.md", "--as", address]);
     }
-    let before = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+    let before = fs::read(f.0.join(".devmeld/context.toml")).unwrap();
     let cases = [
         (
             vec!["resource", "list"],
@@ -998,12 +1009,12 @@ fn organization_lists_use_logical_subtrees_and_show_direct_group_children() {
     ] {
         assert!(!f.run(&args).status.success(), "{args:?}");
     }
-    assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), before);
+    assert_eq!(fs::read(f.0.join(".devmeld/context.toml")).unwrap(), before);
     assert!(!f.0.join(".devmeld/output").exists());
 }
 
 #[test]
-fn logical_resource_move_retains_source_identity_associations_and_published_page_location() {
+fn logical_resource_move_retains_identity_and_relocates_owned_pages_on_sync() {
     let f = Fixture::new();
     fs::write(f.0.join("source.md"), "untouched source").unwrap();
     f.apply(&[
@@ -1017,12 +1028,13 @@ fn logical_resource_move_retains_source_identity_associations_and_published_page
     f.apply(&["access", "add", "database/test/orders", "tools/query"]);
     f.apply(&["sync"]);
     let original: serde_json::Value =
-        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap();
-    let page = f.0.join(".devmeld/output/r-resource-1.md");
+        toml::from_slice(&fs::read(f.0.join(".devmeld/context.toml")).unwrap()).unwrap();
+    let page =
+        f.0.join(".devmeld/output/resources/database/test/orders.md");
     let page_before = fs::read(&page).unwrap();
     f.apply(&["resource", "move", "database/test/orders", "archive/orders"]);
     let moved: serde_json::Value =
-        serde_json::from_slice(&fs::read(f.0.join(".devmeld/context.json")).unwrap()).unwrap();
+        toml::from_slice(&fs::read(f.0.join(".devmeld/context.toml")).unwrap()).unwrap();
     assert_eq!(moved["resources"][0]["id"], original["resources"][0]["id"]);
     assert_eq!(
         moved["resources"][0]["document"],
@@ -1034,13 +1046,20 @@ fn logical_resource_move_retains_source_identity_associations_and_published_page
     assert_eq!(fs::read(&page).unwrap(), page_before);
     f.apply(&["sync"]);
     let index = fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap();
-    assert!(index.contains("archive/orders"), "{index}");
+    assert!(index.contains("resources/archive/archive.md"), "{index}");
+    assert!(
+        fs::read_to_string(f.0.join(".devmeld/output/resources/archive/archive.md"))
+            .unwrap()
+            .contains("[archive/orders](orders.md)")
+    );
     assert!(!index.contains("database/test/orders"), "{index}");
+    assert!(!page.exists());
+    let page = f.0.join(".devmeld/output/resources/archive/orders.md");
     assert!(page.exists());
     assert!(
         fs::read_to_string(&page)
             .unwrap()
-            .contains("r-resource-2.md")
+            .contains("../tools/query.md")
     );
     let shown = f.run(&["resource", "show", "archive/orders"]);
     assert!(shown.status.success());
@@ -1070,10 +1089,15 @@ fn groups_can_start_a_context_and_only_empty_groups_can_be_removed() {
     assert!(!f.0.join("database").exists());
     f.apply(&["sync"]);
     let index = fs::read_to_string(f.0.join(".devmeld/output/index.md")).unwrap();
-    assert!(index.contains("database/test"), "{index}");
-    let before = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+    assert!(index.contains("resources/database/database.md"), "{index}");
+    assert!(
+        fs::read_to_string(f.0.join(".devmeld/output/resources/database/database.md"))
+            .unwrap()
+            .contains("[database/test](test/test.md)")
+    );
+    let before = fs::read(f.0.join(".devmeld/context.toml")).unwrap();
     assert!(!f.confirm(&["group", "remove", "database"]).status.success());
-    assert_eq!(fs::read(f.0.join(".devmeld/context.json")).unwrap(), before);
+    assert_eq!(fs::read(f.0.join(".devmeld/context.toml")).unwrap(), before);
     f.apply(&["group", "remove", "database/test"]);
     f.apply(&["group", "remove", "database"]);
     assert_eq!(
@@ -1095,13 +1119,11 @@ fn group_move_updates_descendant_navigation_and_incoming_associations_only_after
     f.apply(&["group", "add", "database/empty"]);
     f.apply(&["access", "add", "tools/query", "database/test/orders"]);
     f.apply(&["sync"]);
-    let config_path = f.0.join(".devmeld/context.json");
-    let original: serde_json::Value =
-        serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    let config_path = f.0.join(".devmeld/context.toml");
+    let original: serde_json::Value = toml::from_slice(&fs::read(&config_path).unwrap()).unwrap();
     let index_before = fs::read(f.0.join(".devmeld/output/index.md")).unwrap();
     f.apply(&["group", "move", "database", "archive/database"]);
-    let moved: serde_json::Value =
-        serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    let moved: serde_json::Value = toml::from_slice(&fs::read(&config_path).unwrap()).unwrap();
     assert_eq!(
         moved["resources"][0]["path"],
         "archive/database/test/orders"
@@ -1116,9 +1138,24 @@ fn group_move_updates_descendant_navigation_and_incoming_associations_only_after
     let shown = f.run(&["resource", "show", "tools/query"]);
     assert!(String::from_utf8_lossy(&shown.stdout).contains("archive/database/test/orders"));
     f.apply(&["sync"]);
-    let page = fs::read_to_string(f.0.join(".devmeld/output/r-resource-2.md")).unwrap();
+    let page = fs::read_to_string(f.0.join(".devmeld/output/resources/tools/query.md")).unwrap();
     assert!(page.contains("archive/database/test/orders"), "{page}");
-    assert!(page.contains("r-resource-1.md"), "{page}");
+    assert!(
+        page.contains("../archive/database/test/orders.md"),
+        "{page}"
+    );
+    assert!(
+        !f.0.join(".devmeld/output/resources/database/test/orders.md")
+            .exists()
+    );
+    assert!(
+        f.0.join(".devmeld/output/resources/archive/database/test/orders.md")
+            .exists()
+    );
+    assert!(
+        f.0.join(".devmeld/output/resources/database2/orders.md")
+            .exists()
+    );
     let groups = f.run(&["group", "list", "archive"]);
     assert!(String::from_utf8_lossy(&groups.stdout).contains("archive/database/empty"));
     assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
@@ -1314,7 +1351,7 @@ fn organization_rejections_previews_and_noops_never_rewrite_registration() {
         f.apply(&["resource", "add", "notes.md", "--as", address]);
     }
     f.apply(&["access", "add", "database/test/orders", "tools/query"]);
-    let config_path = f.0.join(".devmeld/context.json");
+    let config_path = f.0.join(".devmeld/context.toml");
     let before = fs::read(&config_path).unwrap();
     let modified = fs::metadata(&config_path).unwrap().modified().unwrap();
     for args in [
@@ -1405,14 +1442,14 @@ fn organization_queries_never_bootstrap_or_bypass_existing_ownership() {
         f.assert_empty();
     }
     f.apply(&["group", "add", "database"]);
-    let config_path = f.0.join(".devmeld/context.json");
+    let config_path = f.0.join(".devmeld/context.toml");
     let before = fs::read(&config_path).unwrap();
     let refused = f.run(&["group", "list", "--yes"]);
     assert!(!refused.status.success());
     assert!(String::from_utf8_lossy(&refused.stderr).contains("read-only"));
     assert_eq!(fs::read(&config_path).unwrap(), before);
     assert!(f.run(&["group", "list", "--dry-run"]).status.success());
-    fs::remove_file(f.0.join(".devmeld/state/owned.json")).unwrap();
+    fs::remove_file(f.0.join(".devmeld/state/owned.toml")).unwrap();
     assert!(!f.run(&["group", "list"]).status.success());
     assert!(
         !f.confirm(&["group", "move", "database", "archive"])
@@ -1420,7 +1457,7 @@ fn organization_queries_never_bootstrap_or_bypass_existing_ownership() {
             .success()
     );
     assert_eq!(fs::read(&config_path).unwrap(), before);
-    assert!(!f.0.join(".devmeld/state/owned.json").exists());
+    assert!(!f.0.join(".devmeld/state/owned.toml").exists());
 }
 
 #[test]
@@ -1450,7 +1487,7 @@ fn help_does_not_load_or_repair_corrupt_context_records() {
     let fixture = Fixture::new();
     let directory = fixture.0.join(".devmeld");
     fs::create_dir(&directory).unwrap();
-    let path = directory.join("context.json");
+    let path = directory.join("context.toml");
     fs::write(&path, b"authored invalid configuration").unwrap();
     let modified = fs::metadata(&path).unwrap().modified().unwrap();
     let output = fixture.run(&[
@@ -1493,8 +1530,7 @@ fn source_first_registration_publishes_organized_addresses_and_stable_associatio
         "database/production/orders",
     ]);
     let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(fixture.0.join(".devmeld/context.json")).unwrap())
-            .unwrap();
+        toml::from_slice(&fs::read(fixture.0.join(".devmeld/context.toml")).unwrap()).unwrap();
     assert_eq!(config["resources"][0]["id"], "resource-1");
     assert_eq!(config["resources"][0]["path"], "database/test/orders");
     assert_eq!(config["access"][0]["resource"], "resource-1");
@@ -1511,11 +1547,25 @@ fn source_first_registration_publishes_organized_addresses_and_stable_associatio
     assert!(!fixture.0.join(".devmeld/output").exists());
     fixture.apply(&["sync"]);
     let index = fs::read_to_string(fixture.0.join(".devmeld/output/index.md")).unwrap();
-    assert!(index.contains("database/test/orders"), "{index}");
-    assert!(index.contains("database/production/orders"), "{index}");
-    let page = fs::read_to_string(fixture.0.join(".devmeld/output/r-resource-1.md")).unwrap();
-    assert!(page.contains("../../first.md"), "{page}");
-    assert!(page.contains("r-resource-2.md"), "{page}");
+    assert!(index.contains("resources/database/database.md"), "{index}");
+    for group in ["test", "production"] {
+        let navigation = fs::read_to_string(fixture.0.join(format!(
+            ".devmeld/output/resources/database/{group}/{group}.md"
+        )))
+        .unwrap();
+        assert!(
+            navigation.contains(&format!("[database/{group}/orders](orders.md)")),
+            "{navigation}"
+        );
+    }
+    let page = fs::read_to_string(
+        fixture
+            .0
+            .join(".devmeld/output/resources/database/test/orders.md"),
+    )
+    .unwrap();
+    assert!(page.contains("../../../../../first.md"), "{page}");
+    assert!(page.contains("../production/orders.md"), "{page}");
     assert!(page.contains("database/production/orders"), "{page}");
     assert_eq!(
         fs::read(fixture.0.join("first.md")).unwrap(),
@@ -1541,9 +1591,9 @@ fn default_addresses_and_failed_adds_do_not_recycle_or_partially_register() {
     fs::write(f.0.join("团队 notes.md"), "ssh http").unwrap();
     f.apply(&["init"]);
     f.apply(&["resource", "add", "团队 notes.md"]);
-    let config_path = f.0.join(".devmeld/context.json");
+    let config_path = f.0.join(".devmeld/context.toml");
     let before = fs::read(&config_path).unwrap();
-    let config: serde_json::Value = serde_json::from_slice(&before).unwrap();
+    let config: serde_json::Value = toml::from_slice(&before).unwrap();
     assert_eq!(config["resources"][0]["path"], "团队 notes");
     for args in [
         vec!["resource", "add", "团队 notes.md"],
@@ -1594,8 +1644,7 @@ fn default_addresses_and_failed_adds_do_not_recycle_or_partially_register() {
         "--as",
         "knowledge/团队 notes",
     ]);
-    let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(config_path).unwrap()).unwrap();
+    let config: serde_json::Value = toml::from_slice(&fs::read(config_path).unwrap()).unwrap();
     assert_eq!(config["resources"][0]["id"], "resource-2");
     assert_eq!(config["next_resource_id"], 3);
     assert_eq!(fs::read(f.0.join("团队 notes.md")).unwrap(), b"ssh http");
@@ -1614,7 +1663,7 @@ fn first_resource_add_and_sync_need_neither_init_nor_context_selector() {
     let report = String::from_utf8(add.stdout).unwrap();
     assert!(report.contains("Context:"), "{report}");
     assert!(report.contains("sync"), "{report}");
-    assert!(f.0.join(".devmeld/context.json").exists());
+    assert!(f.0.join(".devmeld/context.toml").exists());
     assert!(!f.0.join(".devmeld/output").exists());
     assert!(!f.0.join("AGENTS.md").exists());
     let sync = f.confirm(&["sync"]);
@@ -1641,7 +1690,7 @@ fn descendant_invocations_use_nearest_context_but_resolve_sources_from_cwd() {
     let invocation = Fixture(child);
     fs::write(context.0.join("notes.md"), "wrong file at context root").unwrap();
     fs::write(invocation.0.join("notes.md"), "correct source from cwd").unwrap();
-    let outer_before = fs::read(outer.0.join(".devmeld/context.json")).unwrap();
+    let outer_before = fs::read(outer.0.join(".devmeld/context.toml")).unwrap();
     let add = invocation.confirm(&["resource", "add", "notes.md", "--as", "knowledge/notes"]);
     assert!(
         add.status.success(),
@@ -1655,10 +1704,15 @@ fn descendant_invocations_use_nearest_context_but_resolve_sources_from_cwd() {
         "{}",
         String::from_utf8_lossy(&sync.stderr)
     );
-    let page = fs::read_to_string(context.0.join(".devmeld/output/r-resource-1.md")).unwrap();
-    assert!(page.contains("../../src/notes.md"), "{page}");
+    let page = fs::read_to_string(
+        context
+            .0
+            .join(".devmeld/output/resources/knowledge/notes.md"),
+    )
+    .unwrap();
+    assert!(page.contains("../../../../src/notes.md"), "{page}");
     assert_eq!(
-        fs::read(outer.0.join(".devmeld/context.json")).unwrap(),
+        fs::read(outer.0.join(".devmeld/context.toml")).unwrap(),
         outer_before
     );
     assert_eq!(
@@ -1672,7 +1726,7 @@ fn explicit_new_context_takes_precedence_without_creating_it_during_preview() {
     let f = Fixture::new();
     f.apply(&["init"]);
     fs::write(f.0.join("source.md"), "outside selected context").unwrap();
-    let existing = fs::read(f.0.join(".devmeld/context.json")).unwrap();
+    let existing = fs::read(f.0.join(".devmeld/context.toml")).unwrap();
     let args = [
         "--context",
         "separate/context",
@@ -1699,7 +1753,7 @@ fn explicit_new_context_takes_precedence_without_creating_it_during_preview() {
     );
     let root = f.0.join("separate/context");
     let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(root.join(".devmeld/context.json")).unwrap()).unwrap();
+        toml::from_slice(&fs::read(root.join(".devmeld/context.toml")).unwrap()).unwrap();
     assert_eq!(config["publication"]["entries"], serde_json::json!([]));
     let source = std::path::Path::new(config["resources"][0]["document"].as_str().unwrap());
     assert_eq!(
@@ -1707,7 +1761,7 @@ fn explicit_new_context_takes_precedence_without_creating_it_during_preview() {
         f.0.join("source.md").canonicalize().unwrap()
     );
     assert_eq!(
-        fs::read(f.0.join(".devmeld/context.json")).unwrap(),
+        fs::read(f.0.join(".devmeld/context.toml")).unwrap(),
         existing
     );
     let sync = f.confirm(&["--context", "separate/context", "sync"]);
@@ -1717,8 +1771,9 @@ fn explicit_new_context_takes_precedence_without_creating_it_during_preview() {
         String::from_utf8_lossy(&sync.stderr)
     );
     assert!(!f.0.join(".devmeld/output").exists());
-    let page = fs::read_to_string(root.join(".devmeld/output/r-resource-1.md")).unwrap();
-    assert!(page.contains("../../../../source.md"), "{page}");
+    let page =
+        fs::read_to_string(root.join(".devmeld/output/resources/knowledge/source.md")).unwrap();
+    assert!(page.contains("../../../../../../source.md"), "{page}");
 }
 
 #[test]
@@ -1738,7 +1793,7 @@ fn first_use_dry_run_does_not_create_even_the_requested_root() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
-    assert!(String::from_utf8_lossy(&result.stdout).contains("context.json"));
+    assert!(String::from_utf8_lossy(&result.stdout).contains("context.toml"));
     assert!(!f.0.join("not-created").exists());
     assert!(!f.0.join(".devmeld").exists());
     assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
@@ -1793,18 +1848,18 @@ fn incomplete_corrupt_and_pending_nearest_contexts_block_fallback_and_adoption()
             "unowned" => {
                 fs::create_dir(&marker).unwrap();
                 fs::copy(
-                    outer.0.join(".devmeld/context.json"),
-                    marker.join("context.json"),
+                    outer.0.join(".devmeld/context.toml"),
+                    marker.join("context.toml"),
                 )
                 .unwrap();
             }
             _ => {
                 inner.apply(&["init"]);
                 match case {
-                    "corrupt" => fs::write(marker.join("context.json"), "invalid").unwrap(),
-                    "missing-config" => fs::remove_file(marker.join("context.json")).unwrap(),
+                    "corrupt" => fs::write(marker.join("context.toml"), "invalid").unwrap(),
+                    "missing-config" => fs::remove_file(marker.join("context.toml")).unwrap(),
                     "pending" => {
-                        fs::write(marker.join("state/pending.json"), "pending recovery").unwrap()
+                        fs::write(marker.join("state/pending.toml"), "pending recovery").unwrap()
                     }
                     _ => unreachable!(),
                 }
@@ -1814,9 +1869,9 @@ fn incomplete_corrupt_and_pending_nearest_contexts_block_fallback_and_adoption()
         fs::create_dir(&child).unwrap();
         let invocation = Fixture(child);
         fs::write(invocation.0.join("notes.md"), "source").unwrap();
-        let outer_before = fs::read(outer.0.join(".devmeld/context.json")).unwrap();
-        let config_before = fs::read(marker.join("context.json")).ok();
-        let receipt_before = fs::read(marker.join("state/owned.json")).ok();
+        let outer_before = fs::read(outer.0.join(".devmeld/context.toml")).unwrap();
+        let config_before = fs::read(marker.join("context.toml")).ok();
+        let receipt_before = fs::read(marker.join("state/owned.toml")).ok();
         for args in [
             vec!["resource", "add", "notes.md"],
             vec!["init"],
@@ -1825,19 +1880,19 @@ fn incomplete_corrupt_and_pending_nearest_contexts_block_fallback_and_adoption()
             let result = invocation.confirm(&args);
             assert!(!result.status.success(), "{case}: {args:?}");
             assert!(!invocation.0.join(".devmeld").exists());
-            assert_eq!(fs::read(marker.join("context.json")).ok(), config_before);
+            assert_eq!(fs::read(marker.join("context.toml")).ok(), config_before);
             assert_eq!(
-                fs::read(marker.join("state/owned.json")).ok(),
+                fs::read(marker.join("state/owned.toml")).ok(),
                 receipt_before
             );
             assert_eq!(
-                fs::read(outer.0.join(".devmeld/context.json")).unwrap(),
+                fs::read(outer.0.join(".devmeld/context.toml")).unwrap(),
                 outer_before
             );
         }
         if case == "pending" {
             assert_eq!(
-                fs::read(marker.join("state/pending.json")).unwrap(),
+                fs::read(marker.join("state/pending.toml")).unwrap(),
                 b"pending recovery"
             );
         }
@@ -1862,7 +1917,7 @@ fn a_new_marker_after_bootstrap_preview_is_not_adopted() {
         result.is_err(),
         "bootstrap adopted a marker that appeared after preview"
     );
-    assert!(!f.0.join(".devmeld/context.json").exists());
+    assert!(!f.0.join(".devmeld/context.toml").exists());
     assert!(!f.0.join(".devmeld/state").exists());
     assert_eq!(
         fs::read(f.0.join(".devmeld/outside.txt")).unwrap(),
@@ -1898,7 +1953,7 @@ fn inaccessible_nearest_config_blocks_fallback() {
     use std::os::windows::fs::OpenOptionsExt;
     let f = Fixture::new();
     f.apply(&["init"]);
-    let path = f.0.join(".devmeld/context.json");
+    let path = f.0.join(".devmeld/context.toml");
     let before = fs::read(&path).unwrap();
     let blocked = fs::OpenOptions::new()
         .read(true)
@@ -1959,9 +2014,9 @@ fn schema_entry_and_output_operands_use_cwd_while_description_references_use_sou
     }
     assert!(!f.0.join("AGENTS.md").exists());
     assert!(!f.0.join("generated").exists());
-    let page = fs::read_to_string(invocation.0.join("generated/r-resource-1.md")).unwrap();
-    assert!(page.contains("../service.json"), "{page}");
-    assert!(page.contains("../guide.md"), "{page}");
+    let page = fs::read_to_string(invocation.0.join("generated/resources/service.md")).unwrap();
+    assert!(page.contains("../../service.json"), "{page}");
+    assert!(page.contains("../../guide.md"), "{page}");
     assert!(
         fs::read_to_string(invocation.0.join("AGENTS.md"))
             .unwrap()

@@ -1,5 +1,5 @@
 //! Typed use-case coordination; external syntax and presentation belong to adapters.
-use crate::{Plan, Result, context, declarations, error, render, request::*, storage};
+use crate::{Plan, Result, context, declarations, error, records, render, request::*, storage};
 use devmeld_resources::organization::OrganizationPath;
 
 pub fn prepare(location: &ContextLocation, request: Mutation) -> Result<Plan> {
@@ -29,7 +29,7 @@ pub fn prepare(location: &ContextLocation, request: Mutation) -> Result<Plan> {
         let mut plan = Plan::recovery(root)?;
         if plan.is_empty() {
             if plan
-                .capture(&plan.root().join(".devmeld/context.json"))?
+                .capture(&plan.root().join(".devmeld/context.toml"))?
                 .is_some()
             {
                 declarations::read_config(&mut plan)?;
@@ -50,7 +50,7 @@ pub fn prepare(location: &ContextLocation, request: Mutation) -> Result<Plan> {
         |path: &std::path::Path| context::reference(&location.base_directory, plan.root(), path);
     match request {
         Mutation::Initialize(options) => {
-            let path = plan.root().join(".devmeld/context.json");
+            let path = plan.root().join(".devmeld/context.toml");
             if plan.capture(&path)?.is_some() {
                 return Err(error("context already initialized; refusing adoption"));
             }
@@ -74,7 +74,7 @@ pub fn prepare(location: &ContextLocation, request: Mutation) -> Result<Plan> {
                 });
             }
             declarations::validate_surfaces(&plan, &config)?;
-            plan.set(path, Some(declarations::encode(&config)?))?;
+            plan.set(path, Some(records::encode(&config)?))?;
         }
         Mutation::RegisterResource(request) => {
             let mut config = if existing {
@@ -209,6 +209,7 @@ pub fn prepare(location: &ContextLocation, request: Mutation) -> Result<Plan> {
         Mutation::Publish => {
             let config = declarations::read_config(&mut plan)?;
             prepare_publication(&mut plan, &config)?;
+            plan.compact_receipt()?;
         }
         Mutation::RemoveResource(address) => {
             let mut config = declarations::read_config(&mut plan)?;
@@ -297,8 +298,8 @@ pub fn prepare(location: &ContextLocation, request: Mutation) -> Result<Plan> {
 
 fn save_config(plan: &mut Plan, config: &declarations::Config) -> Result<()> {
     plan.set(
-        plan.root().join(".devmeld/context.json"),
-        Some(declarations::encode(config)?),
+        plan.root().join(".devmeld/context.toml"),
+        Some(records::encode(config)?),
     )
 }
 
@@ -322,7 +323,7 @@ pub(crate) fn prepare_publication(plan: &mut Plan, config: &declarations::Config
     let obsolete: Vec<_> = plan
         .owned_paths()
         .filter(|path| {
-            path.as_path() != plan.root().join(".devmeld/context.json")
+            path.as_path() != plan.root().join(".devmeld/context.toml")
                 && !files.contains_key(*path)
                 && !instructions.contains_key(*path)
         })

@@ -11,8 +11,8 @@ Deliver the discussed CLI incrementally, starting with side-effect-free command 
 ## Technical Context
 
 - Language/version: existing pinned stable Rust 1.98.1, Edition 2024; no install or upgrade.
-- Dependencies: reuse current std, serde/serde_json, jsonschema and file-id. No new parser, i18n, inheritance engine or database dependency is selected.
-- Storage: current local JSON configuration and owned publication records; unreleased format 0. Do not alter existing fixtures or development contexts implicitly.
+- Dependencies: std, serde/serde_json, jsonschema, file-id and TOML records (T020); T025 adds pulldown-cmark and pulldown-cmark-to-cmark for publication. No new CLI parser, i18n engine, inheritance engine or database dependency.
+- Storage: TOML configuration and owned publication records; unreleased format 0. Legacy JSON contexts remain intact and are explicitly rejected, not implicitly migrated.
 - Tests: Cargo behavior tests and `cargo xtask check`; real CLI processes for interaction claims.
 - Platforms: Windows first, isolated Linux verification for completed behavior; macOS unverified until run. Existing cross-drive tests remain explicit Windows cases.
 - Performance: bounded existing source/record limits; help must not inspect context files. No unmeasured optimization claim.
@@ -39,7 +39,8 @@ The user authorized the discussed direction and starting the next step. This doe
 - `crates/devmeld/src/application.rs`: bootstrap and registration/publication coordination; share read-only publication preparation between publish and status. No argv parsing or terminal formatting.
 - `crates/devmeld/src/context.rs`: local marker selection and typed native input references; no hidden process cwd or general filesystem discovery engine.
 - `crates/devmeld/src/inspection.rs`: structured read-only registration and publication views. List/show do not read sources; status reads current inputs via publication preparation and rechecks the snapshot. Neither is a new owning domain or persisted authority.
-- `crates/devmeld/src/declarations.rs`: JSON adaptation, defaults, stable identity allocation and source loading.
+- `crates/devmeld/src/declarations.rs`: declaration validation, defaults, stable identity allocation and authored JSON source loading.
+- `crates/devmeld/src/records.rs`: TOML encoding/decoding of managed configuration and maintenance evidence.
 - `crates/resources/src/organization.rs`: create when the first organization behavior needs it; logical paths, annotations and inheritance belong to Resource Organization.
 - `crates/devmeld/src/render.rs` and `language.rs`: present resolved organization facts/provenance, preserve source links and EN/zh-CN wording.
 - `crates/devmeld/src/storage.rs` and `crates/publication/`: reuse existing managed-write mechanisms; do not replace the transaction engine to simplify flags.
@@ -52,6 +53,89 @@ The user authorized the discussed direction and starting the next step. This doe
 Only files needed by completed slices are created. There are no empty groups/services/ports crates.
 
 ## Delivery and Verification
+
+### Library-based Markdown (T025)
+
+Use `pulldown-cmark` events and `pulldown-cmark-to-cmark` only in the application
+publication adapter. Build headings, paragraphs, lists, links and code spans as
+structured events; remove the handwritten text escape helper. Keep native-path
+URI encoding and the existing publication transaction. Reading metadata omits
+origin annotations; domain calculations and CLI inspection keep them. Verify
+raw field-key readability, literal text and link round trips, both languages,
+preserved input bytes, no-op sync, external conflicts and recovery. This supersedes
+T022/T024's reading-origin presentation, not their domain or path decisions.
+
+### Group documents (T024)
+
+Extend the publication destination map to include group pages and validate all
+file/ancestor claims together. Replace the flat expanded index with direct-child
+navigation built from existing organization membership. Render each group's
+description/effective annotations using the existing metadata presenter; no
+domain changes or new inheritance policy. Group pages use the current publication
+writer, ownership checks and recovery. Resource destinations and card bodies stay
+unchanged. Verify nested/empty groups, local links in both languages, collisions,
+move/removal, source preservation, no-op, edited/unowned pages and interrupted sync;
+update affected tests/docs and regenerate Shop only through the real CLI.
+
+### Reading-oriented publication (T022)
+
+Replace the publication renderer's maintenance-shaped metadata formatting with
+a reading view of existing effective domain values. Keep the separate CLI show
+renderer unchanged. Simplify card prose and localized labels, centralize full
+maintenance rules at entry/index, and remove configuration links from reading
+surfaces. Verify both languages, source/context authority separation, ancestor
+origins without duplicate local/effective output, original files/configuration
+unchanged, idempotence, conflicts and recovery. Reuse existing link and writer
+code; no new dependency, domain, format or path convention.
+
+### Readable publication paths (2026-09-10)
+
+Add a small publication-path adapter, not a domain identity change. Compute one
+ID-to-page map from current organization, with portable segment escaping and
+case-folded ancestor/target collision validation, then reuse it for all generated
+links. Keep logical-name policy in Resource Organization and filesystem spelling
+in the adapter. Existing publication preparation withdraws obsolete owned files;
+reuse its conflict/stale/recovery transaction rather than adding a migration or
+recursive directory deletion. Verify first publication, resource/group moves,
+same-leaf resources, Unicode/special names, target collisions, old-layout upgrade,
+source preservation and interrupted publication. No dependency or format bump.
+
+### Compact ownership receipts (2026-09-11)
+
+The Maintainer authorized removing whole-file body copies from `owned.toml`.
+Keep configuration and ownership separate. Store a SHA-256 content fingerprint
+and physical identity per whole-file target; keep exact small instruction-entry
+insertions. In-memory observations and temporary recovery journals/backups retain
+full bytes for preview, stale checks and rollback. Fingerprints detect change,
+not authority, and never authorize adoption of missing/unowned files.
+
+Use the maintained RustCrypto [sha2 crate](https://docs.rs/sha2/0.11.0/sha2/)
+in the application storage adapter; the existing dependency graph has no digest
+implementation. Do not implement a hash or use an unstable standard-library hasher.
+Domain crates remain std-only. A narrow reader accepts the preceding full-body
+TOML claim, hashing its recorded bytes, not current disk contents. Actual writes
+serialize compact claims. With otherwise unchanged publication, sync previews a
+receipt-only change and uses the existing confirmation/journal/recovery path.
+Reads, status, cancellation and preview never rewrite state; subsequent sync is
+a no-op. V0 remains an unreleased design marker; older builds reject the new claim
+shape. Existing TOML recovery journals remain usable; JSON recovery is unchanged.
+
+### Managed TOML records (2026-09-10)
+
+Use the Serde-compatible `toml` crate only in the application adapter for the
+requested readable configuration/ownership/journal format. Keep JSON for authored
+descriptions, schema and Cargo metadata. Keep the existing transaction algorithm,
+exact byte evidence, physical file identities and pure-domain dependency boundary.
+The existing dependency graph contained no TOML codec; one direct application
+dependency supplies parsing and serialization, using the maintained
+[toml crate](https://docs.rs/toml/1.1.5+spec-1.1.0/toml/). Paths can use TOML's
+[literal strings](https://toml.io/en/v1.0.0#string); no escaping logic is handwritten.
+TOML serialization is shared by managed records; it must not be used to rewrite
+authored resource content. Block legacy JSON markers before preparing normal or
+recovery operations, including mixed-format contexts, and capture their absence
+so concurrent legacy creation invalidates a prepared plan. Do not add a migration
+framework or change the v0 marker. Verify real registration/publication plus the
+full interrupted-write/recovery suite, multiline text and Windows path spelling.
 
 ### Authorized adapter refinement (2026-09-10)
 

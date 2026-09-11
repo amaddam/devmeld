@@ -26,7 +26,7 @@ See [research](research.md), [model](data-model.md),
   [ADR-0003](../../docs/adr/0003-rust-runtime.md) remains the runtime authority.
 - **Dependencies**: Existing serde/serde_json, jsonschema and file-id adapters;
   no additional production or test dependency. Domain crates remain std-only.
-- **Storage**: Local JSON config/receipt/journal and UTF-8 publications. All new
+- **Storage**: Local TOML config/receipt/journal (2026-09-10 representation amendment) and UTF-8 publications. All new
   contexts use one v0 maintenance baseline, including whole-file-only contexts.
   No v1 runtime path or automatic conversion; unsupported state stays intact.
 - **Testing**: Cargo behavior/contract/integration tests, `cargo xtask check`,

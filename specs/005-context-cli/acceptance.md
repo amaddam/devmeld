@@ -329,3 +329,311 @@ discoverable. No documentation URL is invented before a website exists.
   satisfied. `.specify/extensions.yml` is absent; no post-implementation hook applies.
 - Linux, macOS and actual cross-drive tests were not rerun for this help-text-only
   refinement. Earlier platform results remain historical; no fresh claim is made.
+
+## Managed TOML records (2026-09-10, T020)
+
+Maintainer requested readable TOML instead of JSON for DevMeld-owned records.
+Configuration, receipts and journals now use `.toml`; authored JSON descriptions,
+schemas and the HTTP demo are unchanged. Format markers remain v0. This replaces
+the JSON representation in earlier evidence, not the ownership/recovery model.
+
+- Existing DevMeld tests passed before the format change. The new real CLI test
+  `managed_records_use_readable_toml_and_link_the_configuration` first failed on
+  missing `context.toml`, then passed after implementing TOML reads and writes.
+- A later reserved-name regression failed when `init --output .devmeld/context.json`
+  was accepted. Reserving the legacy name fixed it; entry/output overlap tests now
+  cover both the TOML configuration and the legacy JSON name.
+- Round-trip checks cover Unicode path keys, verbatim Windows paths, initial
+  newlines, CRLF, triple quotes, backslashes, control characters and empty text.
+  A Unix filename containing a literal backslash is not changed into directories.
+  Generated receipts use readable multiline strings and preserve exact evidence.
+- Real CLI tests cover registration/publication/config links, unchanged no-op,
+  duplicate keys, unknown/invalid language semantics, legacy and mixed-format
+  rejection, help without record access, and a legacy writer appearing after a
+  no-op preview. Existing interruption/recovery, shared-host, stale-input, alias,
+  conflict and large-text tests ran against TOML records.
+- Final native Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: **124 passed**,
+  4 actual cross-drive cases explicitly skipped. Format, compiler, Clippy,
+  architecture checks and doctests passed. Rust remains 1.98.1.
+- Final isolated WSL Linux copy `/tmp/devmeld-toml-final-2tCM8a`, same toolchain:
+  `cargo xtask check` passed **124 tests**, zero skips. An earlier copy also passed;
+  it was unavailable when attempting to refresh two files, so a new full copy
+  was made and checked. The failed refresh is not counted as test evidence.
+- Windows release build passed. A separate temporary context registering the
+  shop backend produced TOML configuration/receipt and readable Markdown.
+  The release executable subsequently reported zero changes and up-to-date
+  publication for that context. No source files were changed by publication.
+- One direct application dependency, `toml`, was added with its locked transitive
+  dependencies. Existing dependencies were not upgraded; domain crates remain
+  std-only. No toolchain installation, migration framework or handwritten codec.
+- Existing ignored shop JSON records and data were not converted, deleted or
+  adopted. Use the previous build for legacy contexts/pending recovery, or a
+  separate fresh context with this build. Generated demo files remain ignored.
+- `git diff --check` passed. No macOS, actual two-drive run, new Agent acceptance,
+  installation into PATH, commit or push was performed for this change.
+
+## Readable resource pages (2026-09-10, T021)
+
+Maintainer approved logical-address filenames instead of internal-ID filenames.
+`services/shop` now publishes as `<output>/resources/services/shop.md`.
+This supersedes the earlier T008 evidence that a logical move retained the page
+location: identity/source/associations still remain stable, but sync now relocates
+cards and updates generated links. External bookmarks are not redirected.
+
+- The bounded `page_paths` adapter computes one destination map for index and
+  access links. Ordinary names remain readable; percent escaping and device-name
+  handling are platform-independent. Case-folded ancestor/leaf spelling and
+  file/directory collisions fail before publication. Domain types, commands,
+  persisted record shapes and dependencies are unchanged by T021.
+- Vertical TDD: the real publication test first failed because the index still
+  linked ID-named pages, then passed. The nonportable-name test first failed on
+  a Windows invalid filename, then passed after escaping. The collision test
+  first received a platform-specific alias diagnostic rather than the required
+  logical-address collision message; the shared path check made it pass on both
+  tested platforms. Test-compilation mistakes are not counted as observed RED.
+- Five new tests cover readable paths/source/access links, Unicode/spaces,
+  percent literals, reserved names, trailing dots, appended extensions,
+  case/file-directory collisions, former owned ID-page replacement, external
+  edits and unowned destinations. The replacement test interrupts and recovers
+  at all three publication mutations plus the ownership-record boundary.
+  Existing move/group/inheritance/language/source/entry tests retain their
+  assertions with the new paths and relative links; no source is relocated.
+- Final native Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: **129 passed**,
+  with 4 cross-drive tests excluded from the ordinary run. Format, compiler,
+  Clippy, architecture checks and doctests passed. The four excluded tests were
+  then explicitly run with a temporary directory on local NTFS `D:` against `C:`:
+  **4 passed**, covering links, logical moves, shared entries and recovery.
+- Isolated WSL Linux `/tmp/devmeld-readable-pages-EYjw24`, Rust 1.98.1:
+  `cargo xtask check` passed. The first launch failed during shell argument
+  transport before compilation; the corrected launch created and checked a
+  fresh isolated copy in one invocation. A later attempt to obtain a shorter
+  test summary found that temporary copy unavailable; it is not additional test
+  evidence and does not replace the completed successful check.
+- Release rebuilt. The existing Shop TOML context was updated through a
+  previewed, confirmed sync: 5 named cards created, 5 unchanged owned ID cards
+  withdrawn, index updated. Configuration, ordinary entry, inspected source
+  files and existing stock database stayed byte-identical. All **23** local
+  Markdown links resolve; next preview/sync report **0 changed targets** and
+  `status` is up to date. Generated artifacts/data remain Git-ignored.
+- Both READMEs, the current contract/model/plan/quickstart and historical-contract
+  pointers reflect this layout. Empty directory containers may remain: no new
+  directory ownership, recursive cleanup, migration or compatibility alias.
+- `git diff --check` and staged-diff check passed with the repository's normal
+  line-ending configuration. Checklist remains 16/16; no extensions file or
+  post-implementation hook applies. No new dependency, installed CLI update,
+  macOS/Agent acceptance, commit or push. Existing unrelated/staged work retained.
+
+## T022 — Reading-oriented publication (2026-09-10)
+
+- The approved presentation change separates generated reading material from
+  configuration inspection. Cards keep a short ownership comment, meaningful
+  descriptions, source/access links and effective context values; they omit
+  placeholder summaries, repeated maintenance paragraphs, configuration links
+  and saved inheritance switches. Full maintenance guidance is in entries/index.
+- Publication consumes the domain's existing effective annotations: tags appear
+  once with ancestor contributors where applicable, local overrides remain
+  effective, and source-declared attributes remain distinct from context fields.
+  `resource show`/`group show` retain detailed local/effective/configuration views.
+  No domain rules, persisted formats, paths, dependencies or CLI syntax changed.
+- Observed RED: the new bilingual exact-card test failed against the old noisy
+  card. It passed after the renderer change. The second bilingual behavior test
+  verifies source/context separation, inherited origins, local overrides, shared
+  host preservation and detailed CLI inspection; no unobserved RED is claimed.
+  Existing golden/link assertions were updated only for superseded presentation.
+- Native Windows `RUSTUP_AUTO_INSTALL=0 cargo xtask check`: **131 passed**,
+  with 4 explicit cross-drive skips. Format, check, Clippy, architecture and
+  doctests passed. Running the ignored tests with a temporary local NTFS `D:`
+  directory against `C:` separately passed **all 4** (links, moves, shared entries
+  and recovery). Isolated WSL Linux `/tmp/devmeld-reading-view-70jPWJ` ran the
+  same complete check successfully: **131 passed**. No macOS run was performed.
+- Rebuilt release and refreshed Shop using previewed `sync --yes`: five cards,
+  index and ordinary entry updated at their existing paths. All **17** remaining
+  local Markdown links resolve. Configuration, authored files and existing stock
+  database stayed byte-identical. Repeated preview/sync report **0 changed targets**,
+  preserve the ownership receipt, and `status` reports up to date. Outputs remain
+  ignored. Earlier Shop HTTP/Agent results are not new evidence for this change.
+- Both READMEs, current spec/plan/contract/quickstart and historical contract
+  pointers document the reading view. Checklist remains 16/16; no extensions file
+  or post-implementation hook applies. No installed CLI update, commit or push;
+  pre-existing changes and staged example deletions remain intact.
+
+## T023 — Rich Shop context and executable README (2026-09-10)
+
+- Expanded only the example's inputs/instructions, not production behavior.
+  Both Shop READMEs now contain the complete 28-command registration, metadata,
+  inspection and publication sequence. Existing registrations skip the first
+  10 commands and use the same 18-command update/publication section. Commands
+  explain cwd, executable selection, separate entry registration and the
+  distinction between source kind and textual description.
+- All three groups have their own descriptions/tags/fields and explicit
+  propagation choices. Five resources have substantive descriptions, tags,
+  use_when and appropriate local fields. The example demonstrates inherited
+  scope/tags, resource-local attention overriding a group value, an unoverridden
+  knowledge attention and independent source attributes. No derived values are
+  copied into child configuration; overall group descriptions do not inherit.
+- Documentation verification used a disposable stdlib replay harness to extract
+  the actual fenced commands and invoke the CLI without a shell. Both languages
+  passed on clean native Windows fixtures and isolated WSL Linux
+  `/tmp/devmeld-shop-docs-final-T5or9v`. Each verified 3 groups, 5 resources,
+  effective metadata/origins, **17** resolving links, unchanged source bytes and
+  byte-identical repeated updates/sync. The initial harness incorrectly required
+  an explicit English language field; it was corrected to accept the existing
+  omitted-default representation. This was not a product defect or a claimed RED.
+- The existing local Shop was enriched through the same documented update
+  commands and confirmed sync, preserving IDs, source references, associations,
+  entry registration, seven source files and the existing SQLite database.
+  Repeating the full update section is a no-op; status is up to date. Configuration
+  changes are intentional; generated context and runtime data remain ignored.
+- Native targeted verification: group-annotation CLI test **1 passed**,
+  inherited-navigation CLI test **1 passed**, organization domain tests
+  **12 passed**. The documented Shop HTTP test command passed **5 tests** on
+  Windows and **5** in isolated Linux, using temporary data. README local links
+  and unstaged/staged diff checks passed. No fresh full xtask, cross-drive,
+  macOS, browser or Agent acceptance is claimed for this documentation/input work.
+- No source-code changes, new dependencies, installed CLI update, commit or push.
+  Checklist remains 16/16; no extension hooks apply. Existing unrelated changes
+  and staged example deletions are preserved.
+
+## T026 — Compact ownership receipts (2026-09-11)
+
+- The Maintainer authorized shrinking `owned.toml`, not merging it with
+  `context.toml`. Permanent whole-file claims now store SHA-256 and physical
+  identity, without body copies. Shared-entry claims retain exact small
+  insertions, never whole authored hosts. Full in-memory observations and
+  temporary journal/staging/backup data retain their preview/recovery roles.
+- Added RustCrypto `sha2` 0.11.0 in the application adapter (eight new lockfile
+  packages including its dependencies). No handwritten hash, new toolchain,
+  domain dependency or per-source hash registry. Known SHA-256 vectors and an
+  independent Python hashlib check verify digest encoding/results.
+- The preceding full-body TOML claim is read by hashing recorded bytes, never
+  current disk contents. Real saves emit compact claims without adopting edits
+  to untouched targets. Otherwise-unchanged sync exposes a receipt-only preview
+  and requires normal confirmation. Read/status/no-op save/recover, preview and
+  noninteractive refusal leave old bytes/timestamps unchanged. Repeated compact
+  sync is a no-op. V0 remains unchanged; older binaries reject the new shape.
+  Existing full-image TOML journals retain recovery; JSON remains unsupported.
+- Green baseline: 138 Windows tests. Observed RED:
+  `cargo test --locked --offline -p devmeld --test workflow ownership_receipts_keep_fingerprints_not_configuration_or_page_bodies`
+  failed because the receipt duplicated the description/configuration body.
+  It now passes with SHA-256/identity-only whole claims, retained entry insertion,
+  absent source/author-host text and no-op repeat. A SHA-256 output formatting
+  compile error was fixed using standard per-byte hexadecimal formatting; it was
+  not behavioral RED. The superseded TOML test's body-presence assertion now
+  requires a fingerprint and body absence. Other new cases passed on first run;
+  no additional RED is claimed.
+- Regression coverage includes malformed/unknown/mixed digest evidence,
+  same-length content edits, identical-content physical replacements, legacy
+  conversion without adoption, shared-host outside edits/detach, a 3 MiB whole
+  file with a receipt below 1 KiB, and receipt-only interruption before install,
+  after install and after commit. Recovery preserves exact bytes/identities;
+  stale receipt-only previews fail before writing. Existing full transaction,
+  path/alias and source-preservation cases remain in the suite.
+- `cargo xtask check`: PASS, **144 tests** on native Windows plus four explicit
+  cross-drive skips, and **144 tests** on isolated WSL Linux at
+  `/tmp/devmeld-receipts-apfhcn`, Rust 1.98.1. Domain boundaries, formatting,
+  all-target compiler checks and conservative Clippy pass. All **4** actual
+  C:/D: tests passed separately using
+  `D:\devmeld-receipts-20388118726345609d20bc5b706e6d92`, removed when empty.
+  macOS remains unverified; platform-specific test inventories differ.
+- Release build passed. Existing Shop was compacted only through normal CLI
+  preview and confirmed sync: **14,958 -> 3,935 bytes (73.7% smaller)**. Exactly
+  one target, `state/owned.toml`, changed. The other **23 files** retained their
+  content hashes and modification times, including config, source, SQLite data,
+  ordinary entry and all generated Markdown. All **11** whole-file fingerprints
+  independently match their files. No pending/staging artifacts remain; status
+  is up to date and a second confirmed sync preserves receipt bytes/timestamp.
+- Owning contract/plan/validation notes and both root README languages were
+  updated. Checklist remains 16/16; `.specify/extensions.yml` is absent, so no
+  post-hooks apply. No CLI installation, HTTP/Agent acceptance, commit or push.
+  Previous dirty changes and staged example deletions remain untouched.
+
+## T025 — Library-based readable Markdown (2026-09-11)
+
+- The Maintainer approved `pulldown-cmark-to-cmark` for generated Markdown.
+  Application dependencies now include writer 22.0.1 and parser/events 0.13.4
+  (parser default features disabled); Cargo added these and unicase 2.9.0 only.
+  Domain crates remain std-only. The publication adapter emits structured
+  headings, paragraphs, lists, links and code spans instead of handwritten
+  Markdown escaping/string assembly; existing URI/path and transaction rules remain.
+- Reading pages retain effective tags/fields but omit inheritance-origin labels.
+  CLI show retains detailed origins, declarations and saved choices. Field keys
+  and tags use code spans; ordinary prose including `test_app.py` remains readable.
+  The parser classifies syntax-like authored values for literal code presentation,
+  not Markdown/HTML interpretation. Bracketed link labels also use code spans.
+  Source/context attributes, central maintenance notices and local links remain.
+- Observed RED: the real CLI case
+  `reading_markdown_keeps_technical_keys_readable_without_inheritance_origins`
+  failed on `use\_when`; it now passes in both languages with unchanged source
+  and configuration bytes, preserved CLI provenance and no-op repeated sync.
+  Its first CLI-key assertion was corrected for the existing terminal escape
+  convention; terminal rendering was not part of this change. A separate link
+  round-trip case caught `x]` becoming a broken Markdown link and passed after
+  literal-label handling. Other round-trip cases passed on first execution;
+  no artificial RED is claimed for them.
+- Regression expectations were updated only for approved presentation changes:
+  code spans, removed reading origins and one trailing LF. Tests retain content,
+  source/annotation distinctions, path destinations, stale/conflict checks and
+  recovery coverage. Special-value checks include brackets, HTML, entities,
+  backticks, list/heading syntax, whitespace/control normalization and Unicode.
+- `cargo xtask check`: PASS on native Windows (**138 tests**, four explicit
+  cross-drive skips) and isolated WSL Linux (**138 tests**) at
+  `/tmp/devmeld-markdown-Y1KJis`. Domain boundaries, fmt, all-target checks and
+  Clippy passed. The **4** C:/D: cases passed separately after updating their old
+  metadata-format assertions; final scratch root was
+  `D:\devmeld-markdown-tests-9c848435de684cfbb3d1b836e6487001` (removed when empty).
+  Platform inventories differ; macOS remains unverified.
+- Rebuilt release successfully. Both Shop READMEs' **28 commands** replayed on
+  clean Windows fixtures under
+  `C:\Users\lrns1\AppData\Local\Temp\devmeld-markdown-readmes-0c802d4ba6fa42d89f1e1249dfac15d7`
+  and Linux fixtures under the isolated build's `shop-replay`. Both languages
+  verified 3 groups, 5 resources, **23** resolving links, effective values without
+  reading origins and byte-identical repeated updates/sync.
+- Existing Shop was refreshed only through preview and confirmed sync:
+  **9 generated files** changed (index, three group pages, five cards).
+  Configuration, ordinary entry and seven authored files plus SQLite data were
+  preserved. All 23 links resolve; repeated sync is byte-identical and status is
+  up to date. No source/record migration, version bump or CLI installation.
+- Checklist remains 16/16; `.specify/extensions.yml` is absent, so no hooks apply.
+  No HTTP/browser/Agent acceptance, commit or push. Previous dirty work and staged
+  example deletions are preserved. Final fmt and staged/unstaged diff checks pass.
+
+## T024 — Generated group documents (2026-09-10)
+
+- Approved amendment: publish `resources/<group>/<leaf>.md` for every group,
+  with its own description, effective tags/fields, direct-child navigation and
+  parent/index link. The root index presents top-level links/descriptions only.
+  Resource cards, original-source/access links, configuration and inheritance
+  semantics are unchanged. Commands remain maintenance interfaces, not required
+  Agent reading interfaces. Spec, contract, plan, data model, quickstart and both
+  root/Shop READMEs describe this layout.
+- Observed RED: `group_documents_expose_metadata_and_route_only_to_direct_children`
+  failed because sync did not create `resources/code/code.md`. It passed after
+  implementing combined group/card destination validation and hierarchical
+  rendering in the existing application publication adapter. No new dependency,
+  domain, persisted format or transaction mechanism was added.
+- Tests cover English/Chinese, implicit/empty/nested/escaped groups, direct-child
+  links, inherited origins, unchanged inputs/no-op sync, group/card collisions,
+  unowned destinations, external edits and source aliases. Group page
+  create/update/move/remove exercise every mutation and final commit boundary.
+  Superseded flat-index assertions now read the appropriate group documents.
+  A new recovery assertion initially expected the pre-commit error wording at
+  the committed boundary; it now checks the distinct existing committed error.
+- `cargo xtask check` passed on native Windows: **134 tests**, four explicit
+  cross-drive skips. All **4** skipped cases passed separately on actual C:/D:.
+  Isolated WSL Linux `/tmp/devmeld-group-pages-qlBLpu` passed the full check with
+  **134 tests**. Checks include domain dependencies, fmt, all-target check and
+  Clippy. Platform-specific test inventories differ; macOS remains unverified.
+- Both Shop README recipes (28 commands each) passed on fresh Windows and Linux
+  fixtures, verifying **23** resolving links, own/inherited/overridden metadata,
+  source preservation and byte-identical repeated updates/sync. The disposable
+  replay assertions were adjusted to compare escaped Markdown as rendered text;
+  this was a harness mismatch, not lost metadata. Final Linux replay used
+  `/tmp/devmeld-group-readmes-z0jMlS` after the earlier temporary build expired.
+- Rebuilt release and refreshed existing Shop via preview and normal confirmed
+  sync: **4** publication targets (index plus three group pages). Configuration,
+  entry, five existing resource cards, seven source files and SQLite stock data
+  stayed byte-identical. All 23 links resolve; repeated sync is a byte-identical
+  no-op and status is up to date. Generated outputs remain ignored.
+- No CLI installation, HTTP/browser/Agent acceptance, commit or push. Checklist
+  remains 16/16; no extension hooks apply. Prior changes and staged example
+  deletions are preserved.

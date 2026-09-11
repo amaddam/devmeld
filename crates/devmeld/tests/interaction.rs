@@ -196,14 +196,14 @@ fn status_and_yes_preserve_external_conflicts_and_recover_noop_does_not_prompt()
     fs::write(f.0.join("notes.md"), "source").unwrap();
     f.ok(&["resource", "add", "notes.md"]);
     f.ok(&["sync", "--yes"]);
-    let receipt = f.read(".devmeld/state/owned.json");
+    let receipt = f.read(".devmeld/state/owned.toml");
     // A document body is read independently. Status compares generated references,
     // not a historical source snapshot; it must state this limitation explicitly.
     fs::write(f.0.join("notes.md"), "updated authored source").unwrap();
     let status = f.ok(&["status"]);
     assert!(status.contains("Publication: up to date"));
     assert!(status.contains("not a historical source-freshness receipt"));
-    assert_eq!(f.read(".devmeld/state/owned.json"), receipt);
+    assert_eq!(f.read(".devmeld/state/owned.toml"), receipt);
     fs::write(f.0.join(".devmeld/output/index.md"), "external edit").unwrap();
     for args in [
         vec!["status"],
@@ -212,8 +212,8 @@ fn status_and_yes_preserve_external_conflicts_and_recover_noop_does_not_prompt()
     ] {
         assert!(!f.run(&args).status.success(), "{args:?}");
         assert_eq!(f.read(".devmeld/output/index.md"), b"external edit");
-        assert_eq!(f.read(".devmeld/state/owned.json"), receipt);
-        assert!(!f.0.join(".devmeld/state/pending.json").exists());
+        assert_eq!(f.read(".devmeld/state/owned.toml"), receipt);
+        assert!(!f.0.join(".devmeld/state/pending.toml").exists());
     }
     let recovery = f.ok(&["recover"]);
     assert!(recovery.contains("0 changed target(s)"));
@@ -229,7 +229,7 @@ fn optional_init_path_selects_only_that_location_and_rejects_double_selection() 
     assert!(!f.0.join("separate").exists());
     assert!(!f.0.join(".devmeld").exists());
     f.ok(&["init", "separate"]);
-    assert!(f.0.join("separate/.devmeld/context.json").is_file());
+    assert!(f.0.join("separate/.devmeld/context.toml").is_file());
     assert!(!f.0.join(".devmeld").exists());
     assert!(!f.0.join("separate/AGENTS.md").exists());
     assert!(!f.run(&["init", "separate"]).status.success());
@@ -299,8 +299,8 @@ fn status_compares_current_publication_without_writing_or_claiming_client_consum
     assert!(!f.0.join(".devmeld").exists());
     fs::write(f.0.join("notes.md"), "source").unwrap();
     f.ok(&["resource", "add", "notes.md", "--as", "knowledge/notes"]);
-    let before = f.read(".devmeld/context.json");
-    let receipt = f.read(".devmeld/state/owned.json");
+    let before = f.read(".devmeld/context.toml");
+    let receipt = f.read(".devmeld/state/owned.toml");
     let pending = f.ok(&["status"]);
     assert!(pending.contains("Publication: pending"), "{pending}");
     assert!(pending.contains("Configured entries: 0"), "{pending}");
@@ -308,8 +308,8 @@ fn status_compares_current_publication_without_writing_or_claiming_client_consum
         pending.contains("Client consumption: unverified"),
         "{pending}"
     );
-    assert_eq!(f.read(".devmeld/context.json"), before);
-    assert_eq!(f.read(".devmeld/state/owned.json"), receipt);
+    assert_eq!(f.read(".devmeld/context.toml"), before);
+    assert_eq!(f.read(".devmeld/state/owned.toml"), receipt);
     assert!(!f.0.join(".devmeld/output").exists());
     f.ok(&["sync", "--yes"]);
     let index = f.read(".devmeld/output/index.md");
@@ -370,7 +370,7 @@ fn scoped_save_needs_no_confirmation_and_dry_run_never_creates_storage() {
     ]);
     assert!(!f.0.join(".devmeld").exists());
     let output = f.ok(&["resource", "add", "notes.md", "--as", "knowledge/notes"]);
-    assert!(f.0.join(".devmeld/context.json").exists(), "{output}");
+    assert!(f.0.join(".devmeld/context.toml").exists(), "{output}");
     assert!(output.contains("Configuration saved"), "{output}");
     assert!(output.contains("publication"), "{output}");
     assert!(!output.contains("confirm"), "{output}");

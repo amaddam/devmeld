@@ -4,7 +4,7 @@
 .DS_Store
 Thumbs.db
 
-# Spec Kit's development-workflow Python scripts (not the DevMeld runtime)
+# Python workflow helpers and standalone demos (not the DevMeld runtime)
 __pycache__/
 *.py[cod]
 
@@ -19,6 +19,7 @@ __pycache__/
 *.tmp
 *.log
 
-# Reproducible example output, not authored fixture data
-/examples/team-context/.devmeld/
-/examples/sample-project/CONTEXT.md
+# Shop demo: runtime data and locally generated context are not source files
+/examples/shop/data/
+/examples/shop/.devmeld/
+/examples/shop/CONTEXT.md

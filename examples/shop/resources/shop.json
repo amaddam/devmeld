@@ -1,0 +1,17 @@
+{
+  "title": "Shop HTTP service",
+  "summary": "Local product inventory and purchase API. Start app.py before calling; registration is not a health check.",
+  "attributes": {
+    "endpoint": "http://127.0.0.1:8765",
+    "environment": "local-demo",
+    "data": "data/shop.sqlite (relative to examples/shop; generated on startup, Git-ignored)",
+    "runtime": "Existing Python 3 with sqlite3; standard library only"
+  },
+  "references": [
+    {"label": "HTTP contract and data lifecycle", "path": "../docs/http-api.md"},
+    {"label": "Application source", "path": "../app.py"},
+    {"label": "Browser page", "path": "../web/index.html"},
+    {"label": "Browser behavior", "path": "../web/app.js"},
+    {"label": "Behavior tests", "path": "../test_app.py"}
+  ]
+}

@@ -43,9 +43,15 @@ pub(crate) fn reference(base: &Path, root: &Path, path: &Path) -> Result<String>
     Ok(if reference.as_os_str().is_empty() {
         ".".into()
     } else {
-        reference
+        let text = reference
             .to_str()
-            .ok_or_else(|| crate::error("non-Unicode input path"))?
-            .into()
+            .ok_or_else(|| crate::error("non-Unicode input path"))?;
+        // Ordinary relative paths use a readable separator on Windows. Do not
+        // rewrite verbatim absolute paths: that can change filesystem semantics.
+        #[cfg(windows)]
+        if !reference.is_absolute() {
+            return Ok(text.replace('\\', "/"));
+        }
+        text.into()
     })
 }

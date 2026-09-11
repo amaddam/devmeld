@@ -1,5 +1,6 @@
 use crate::{Result, error};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -168,8 +169,8 @@ mod tests {
             "access": [], "defaults": {"inherit": true, "propagate": false},
             "publication": {"directory": ".devmeld/output", "entries": []}
         });
-        let bytes = crate::declarations::encode(&value).unwrap();
-        let path = f.0.join(".devmeld/context.json");
+        let bytes = crate::records::encode(&value).unwrap();
+        let path = f.0.join(".devmeld/context.toml");
         let mut setup = Plan::new(f.0.clone()).unwrap();
         setup.set(path.clone(), Some(bytes.clone())).unwrap();
         setup.apply().unwrap();
@@ -211,7 +212,7 @@ mod tests {
         prepare(&["config", "set", "defaults.propagate", "true"])
             .apply()
             .unwrap();
-        let changed: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let changed: serde_json::Value = toml::from_slice(&fs::read(&path).unwrap()).unwrap();
         assert_eq!(changed["groups"], value["groups"]);
         assert_eq!(changed["resources"], value["resources"]);
         assert!(prepare(&["sync"]).is_empty());
@@ -220,17 +221,143 @@ mod tests {
             .unwrap();
         assert!(show("resource", "team/db/notes").contains("environment: test (Origin: team/db)"));
         prepare(&["sync"]).apply().unwrap();
-        assert!(f.0.join(".devmeld/output/r-old.md").exists());
+        assert!(
+            f.0.join(".devmeld/output/resources/team/db/notes.md")
+                .exists()
+        );
         assert_eq!(fs::read(f.0.join("notes.md")).unwrap(), b"source");
+    }
+
+    #[test]
+    fn named_pages_replace_former_owned_id_pages_with_recoverable_sync() {
+        // Four publication mutations (including the group page) and the receipt.
+        // interruption boundary using the existing transaction, not a migration.
+        for stop in 0..=5 {
+            let f = former_id_page_fixture();
+            let prepare = |args: &[&str]| {
+                crate::test_support::prepare(
+                    &f.0,
+                    &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+                )
+                .unwrap()
+            };
+            let old = f.0.join(".devmeld/output/r-resource-1.md");
+            let new = f.0.join(".devmeld/output/resources/services/shop.md");
+            let group = f.0.join(".devmeld/output/resources/services/services.md");
+            let paths = [
+                old.clone(),
+                f.0.join(".devmeld/output/index.md"),
+                f.0.join(".devmeld/context.toml"),
+                f.0.join(".devmeld/state/owned.toml"),
+            ];
+            let before: Vec<_> = paths.iter().map(|p| fs::read(p).unwrap()).collect();
+            let plan = prepare(&["sync"]);
+            assert_eq!(plan.changes.len(), 4);
+            assert!(
+                plan.apply_until(Some(stop))
+                    .unwrap_err()
+                    .to_string()
+                    .contains("injected interruption")
+            );
+            prepare(&["recover"]).apply().unwrap();
+            assert!(!new.exists());
+            assert!(!group.exists());
+            for (path, bytes) in paths.iter().zip(before) {
+                assert_eq!(fs::read(path).unwrap(), bytes);
+            }
+            prepare(&["sync"]).apply().unwrap();
+            assert!(!old.exists());
+            assert!(new.exists());
+            assert!(
+                fs::read_to_string(f.0.join(".devmeld/output/index.md"))
+                    .unwrap()
+                    .contains("resources/services/services.md")
+            );
+            assert!(
+                fs::read_to_string(group)
+                    .unwrap()
+                    .contains("[services/shop](shop.md)")
+            );
+            assert_eq!(fs::read(f.0.join("source.md")).unwrap(), b"original source");
+            assert_eq!(
+                fs::read(f.0.join(".devmeld/output/keep.md")).unwrap(),
+                b"not owned"
+            );
+            assert!(prepare(&["sync"]).is_empty());
+        }
+    }
+
+    #[test]
+    fn named_page_upgrade_does_not_overwrite_external_edits_or_adopt_destinations() {
+        for edit_old in [true, false] {
+            let f = former_id_page_fixture();
+            let old = f.0.join(".devmeld/output/r-resource-1.md");
+            let new = f.0.join(".devmeld/output/resources/services/shop.md");
+            let conflict = if edit_old { &old } else { &new };
+            fs::create_dir_all(conflict.parent().unwrap()).unwrap();
+            fs::write(conflict, "external work").unwrap();
+            let paths = [
+                old,
+                new,
+                f.0.join(".devmeld/output/index.md"),
+                f.0.join(".devmeld/context.toml"),
+                f.0.join(".devmeld/state/owned.toml"),
+            ];
+            let before: Vec<_> = paths.iter().map(|path| fs::read(path).ok()).collect();
+            assert!(crate::test_support::prepare(&f.0, &["sync".into()]).is_err());
+            for (path, bytes) in paths.iter().zip(before) {
+                assert_eq!(fs::read(path).ok(), bytes);
+            }
+            assert!(!f.0.join(".devmeld/state/pending.toml").exists());
+        }
+    }
+
+    fn former_id_page_fixture() -> Fixture {
+        let f = Fixture::new();
+        fs::write(f.0.join("source.md"), "original source").unwrap();
+        crate::test_support::prepare(
+            &f.0,
+            &["resource", "add", "source.md", "--as", "services/shop"].map(String::from),
+        )
+        .unwrap()
+        .apply()
+        .unwrap();
+        // Create the former layout through the real managed writer so ownership
+        // and physical receipts are genuine; never fabricate or adopt a receipt.
+        let mut setup = Plan::new(f.0.clone()).unwrap();
+        setup
+            .set(
+                f.0.join(".devmeld/output/r-resource-1.md"),
+                Some(b"# services/shop\n".to_vec()),
+            )
+            .unwrap();
+        setup
+            .set(
+                f.0.join(".devmeld/output/index.md"),
+                Some(b"[services/shop](r-resource-1.md)\n".to_vec()),
+            )
+            .unwrap();
+        setup.apply().unwrap();
+        fs::write(f.0.join(".devmeld/output/keep.md"), "not owned").unwrap();
+        f
     }
 
     #[test]
     fn flat_v0_records_remain_readable_without_rewriting_identity_or_configuration() {
         let f = Fixture::new();
         fs::write(f.0.join("notes.md"), "original source").unwrap();
-        let bytes = br#"{"format_version":0,"resources":[{"id":"resource-1","document":"notes.md"}],"access":[],"publication":{"directory":".devmeld/output","entries":[]}}"#.to_vec();
-        let path = f.0.join(".devmeld/context.json");
-        // An owned pre-005 record, not adoption of an outside-edited configuration.
+        let bytes = br#"format_version = 0
+access = []
+[[resources]]
+id = "resource-1"
+document = "notes.md"
+[publication]
+directory = ".devmeld/output"
+entries = []
+"#
+        .to_vec();
+        let path = f.0.join(".devmeld/context.toml");
+        // A flat TOML record without optional organization fields, not adoption.
         let mut setup = Plan::new(f.0.clone()).unwrap();
         setup.set(path.clone(), Some(bytes.clone())).unwrap();
         setup.apply().unwrap();
@@ -238,7 +365,7 @@ mod tests {
         assert_eq!(fs::read(&path).unwrap(), bytes);
         preview.apply().unwrap();
         assert_eq!(fs::read(&path).unwrap(), bytes);
-        assert!(f.0.join(".devmeld/output/r-resource-1.md").exists());
+        assert!(f.0.join(".devmeld/output/resources/resource-1.md").exists());
         assert!(
             crate::test_support::prepare(&f.0, &["sync".into()])
                 .unwrap()
@@ -249,7 +376,7 @@ mod tests {
             .unwrap()
             .apply()
             .unwrap();
-        let config: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let config: serde_json::Value = toml::from_slice(&fs::read(&path).unwrap()).unwrap();
         assert_eq!(config["resources"][0]["id"], "resource-1");
         assert!(config["resources"][0].get("path").is_none());
         assert_eq!(config["resources"][1]["id"], "resource-2");
@@ -301,11 +428,11 @@ mod tests {
                 .unwrap();
             let paths = [
                 f.0.join(".devmeld/output/index.md"),
-                f.0.join(".devmeld/output/r-resource-1.md"),
+                f.0.join(".devmeld/output/resources/notes.md"),
                 f.0.join("ENTRY.md"),
                 other_entry,
-                f.0.join(".devmeld/context.json"),
-                f.0.join(".devmeld/state/owned.json"),
+                f.0.join(".devmeld/context.toml"),
+                f.0.join(".devmeld/state/owned.toml"),
             ];
             let before = paths
                 .iter()
@@ -330,7 +457,7 @@ mod tests {
                 before
             );
             assert!(!new_output.join("index.md").exists());
-            assert!(!new_output.join("r-resource-1.md").exists());
+            assert!(!new_output.join("resources/notes.md").exists());
             assert_eq!(
                 fs::read_to_string(f.0.join("source.md")).unwrap(),
                 "original knowledge"
@@ -358,11 +485,11 @@ mod tests {
                 .apply()
                 .unwrap();
             prepare(&["sync"]).apply().unwrap();
-            let config_path = f.0.join(".devmeld/context.json");
+            let config_path = f.0.join(".devmeld/context.toml");
             let english_config = fs::read(&config_path).unwrap();
             let files = [
                 ".devmeld/output/index.md",
-                ".devmeld/output/r-resource-1.md",
+                ".devmeld/output/resources/doc.md",
                 "project/CONTEXT.md",
             ];
             let english: Vec<_> = files
@@ -394,12 +521,12 @@ mod tests {
                 )
                 .is_err()
             );
-            let pending = fs::read(f.0.join(".devmeld/state/pending.json")).unwrap();
+            let pending = fs::read(f.0.join(".devmeld/state/pending.toml")).unwrap();
             let status =
                 crate::test_support::inspect_in(&f.0, Some(&f.0), &["status".into()]).unwrap_err();
             assert!(status.to_string().contains("blocked/unverified"));
             assert_eq!(
-                fs::read(f.0.join(".devmeld/state/pending.json")).unwrap(),
+                fs::read(f.0.join(".devmeld/state/pending.toml")).unwrap(),
                 pending
             );
             prepare(&["recover"]).apply().unwrap();
@@ -502,10 +629,167 @@ mod tests {
         let mut plan = Plan::new(f.0.clone()).unwrap();
         plan.set(f.0.join("large.md"), Some(bytes.clone())).unwrap();
         plan.apply().unwrap();
+        assert!(
+            fs::metadata(f.0.join(".devmeld/state/owned.toml"))
+                .unwrap()
+                .len()
+                < 1024
+        );
         let mut repeat = Plan::new(f.0.clone()).unwrap();
         repeat.set(f.0.join("large.md"), Some(bytes)).unwrap();
         assert!(repeat.is_empty());
     }
+
+    #[test]
+    fn fingerprints_use_sha256_and_reject_malformed_or_mixed_evidence() {
+        assert_eq!(
+            FileFingerprint::digest(b"hello world"),
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+        assert_eq!(
+            FileFingerprint::digest(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        for fields in [
+            "sha256 = 'abc'".into(),
+            format!("sha256 = '{}'", "g".repeat(64)),
+            format!("sha256 = '{}'", "A".repeat(64)),
+            format!("sha256 = '{}'\nbytes = 'old'", "a".repeat(64)),
+            format!("sha256 = '{}'\nunknown = true", "a".repeat(64)),
+            "bytes = 'old'\nunknown = true".into(),
+        ] {
+            assert!(
+                toml::from_str::<FileFingerprint>(&format!("identity = 'test'\n{fields}")).is_err(),
+                "{fields}"
+            );
+        }
+    }
+
+    #[test]
+    fn compact_and_full_body_claims_reject_edits_and_identical_replacements() {
+        for legacy in [false, true] {
+            for replace in [false, true] {
+                let f = Fixture::new();
+                let target = f.0.join("page.md");
+                let mut initial = Plan::new(f.0.clone()).unwrap();
+                initial
+                    .set(target.clone(), Some(b"original".to_vec()))
+                    .unwrap();
+                initial.apply().unwrap();
+                if legacy {
+                    crate::test_support::full_body_receipt(&f.0);
+                }
+                let receipt = fs::read(f.0.join(".devmeld/state/owned.toml")).unwrap();
+                if replace {
+                    fs::rename(&target, f.0.join("old.md")).unwrap();
+                    fs::write(&target, b"original").unwrap();
+                } else {
+                    fs::write(&target, b"modified").unwrap(); // same length, same physical file
+                }
+                let external = observe(&target).unwrap();
+                let mut plan = Plan::new(f.0.clone()).unwrap();
+                assert!(plan.set(target.clone(), Some(b"new".to_vec())).is_err());
+                assert_eq!(observe(&target).unwrap(), external);
+                assert_eq!(
+                    fs::read(f.0.join(".devmeld/state/owned.toml")).unwrap(),
+                    receipt
+                );
+                assert!(!f.0.join(".devmeld/state/pending.toml").exists());
+            }
+        }
+    }
+
+    #[test]
+    fn receipt_only_compaction_recovers_at_every_step_and_rechecks_preview() {
+        for stop in 0..=2 {
+            let f = Fixture::new();
+            let target = f.0.join("page.md");
+            let receipt_path = f.0.join(".devmeld/state/owned.toml");
+            let mut initial = Plan::new(f.0.clone()).unwrap();
+            initial
+                .set(target.clone(), Some(b"original".to_vec()))
+                .unwrap();
+            initial.apply().unwrap();
+            crate::test_support::full_body_receipt(&f.0);
+            let before = observe(&receipt_path).unwrap();
+            let original = observe(&target).unwrap();
+            let mut plan = Plan::new(f.0.clone()).unwrap();
+            plan.set(target.clone(), Some(b"original".to_vec()))
+                .unwrap();
+            plan.compact_receipt().unwrap();
+            assert!(!plan.is_empty());
+            let PlanPreview::Changes { targets, .. } = plan.preview() else {
+                panic!("expected maintenance preview")
+            };
+            assert_eq!(targets.len(), 1);
+            assert_eq!(targets[0].path, receipt_path);
+            assert_eq!(
+                targets[0].before,
+                before.as_ref().map(|o| o.bytes.as_slice())
+            );
+            assert!(plan.apply_until(Some(stop)).is_err());
+            let journal_bytes = fs::read(f.0.join(".devmeld/state/pending.toml")).unwrap();
+            let journal: Journal = toml::from_slice(&journal_bytes).unwrap();
+            assert_eq!(journal.steps.len(), 1);
+            assert_eq!(journal.steps[0].before, before);
+            let compact = journal.steps[0].after.clone();
+            Plan::recovery(f.0.clone()).unwrap().apply().unwrap();
+            assert_eq!(
+                observe(&receipt_path).unwrap(),
+                if stop < 2 { before } else { compact }
+            );
+            assert_eq!(observe(&target).unwrap(), original);
+            assert!(!f.0.join(".devmeld/state/pending.toml").exists());
+            let mut repeat = Plan::new(f.0.clone()).unwrap();
+            repeat
+                .set(target.clone(), Some(b"original".to_vec()))
+                .unwrap();
+            repeat.compact_receipt().unwrap();
+            repeat.apply().unwrap();
+            let mut noop = Plan::new(f.0.clone()).unwrap();
+            noop.compact_receipt().unwrap();
+            assert!(noop.is_empty());
+            // A receipt-only write still checks all captured target inputs.
+            crate::test_support::full_body_receipt(&f.0);
+            let mut stale = Plan::new(f.0.clone()).unwrap();
+            stale
+                .set(target.clone(), Some(b"original".to_vec()))
+                .unwrap();
+            stale.compact_receipt().unwrap();
+            let saved_receipt = observe(&receipt_path).unwrap();
+            fs::write(&target, b"external").unwrap();
+            assert!(
+                stale
+                    .apply()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("stale preview")
+            );
+            assert_eq!(observe(&receipt_path).unwrap(), saved_receipt);
+        }
+    }
+
+    #[test]
+    fn actual_saves_compact_untouched_claims_without_blessing_external_edits() {
+        let f = Fixture::new();
+        let a = f.0.join("a.md");
+        let b = f.0.join("b.md");
+        let mut initial = Plan::new(f.0.clone()).unwrap();
+        initial.set(a.clone(), Some(b"old a".to_vec())).unwrap();
+        initial.set(b.clone(), Some(b"old b".to_vec())).unwrap();
+        initial.apply().unwrap();
+        crate::test_support::full_body_receipt(&f.0);
+        fs::write(&b, b"external").unwrap();
+        let mut save = Plan::new(f.0.clone()).unwrap();
+        save.set(a, Some(b"new a".to_vec())).unwrap();
+        save.apply().unwrap();
+        let receipt = fs::read_to_string(f.0.join(".devmeld/state/owned.toml")).unwrap();
+        assert!(!receipt.contains("bytes ="));
+        let mut publish = Plan::new(f.0.clone()).unwrap();
+        assert!(publish.set(b.clone(), Some(b"new b".to_vec())).is_err());
+        assert_eq!(fs::read(b).unwrap(), b"external");
+    }
+
     #[test]
     fn recovery_can_itself_be_interrupted_and_retried() {
         for stop in 0..=3 {
@@ -519,9 +803,8 @@ mod tests {
             change.set(a.clone(), Some(b"new".to_vec())).unwrap();
             change.set(b.clone(), Some(b"created".to_vec())).unwrap();
             assert!(change.apply_until(Some(3)).is_err());
-            let journal_path = f.0.join(".devmeld/state/pending.json");
-            let journal: Journal =
-                serde_json::from_slice(&fs::read(&journal_path).unwrap()).unwrap();
+            let journal_path = f.0.join(".devmeld/state/pending.toml");
+            let journal: Journal = toml::from_slice(&fs::read(&journal_path).unwrap()).unwrap();
             assert!(recover_until(&journal, &journal_path, Some(stop)).is_err());
             Plan::recovery(f.0.clone()).unwrap().apply().unwrap();
             assert_eq!(fs::read(&a).unwrap(), b"old");
@@ -539,8 +822,8 @@ mod tests {
         let mut plan = Plan::new(f.0.clone()).unwrap();
         plan.set(target.clone(), Some(b"new".to_vec())).unwrap();
         assert!(plan.apply_until(Some(1)).is_err());
-        let pending = f.0.join(".devmeld/state/pending.json");
-        let journal: Journal = serde_json::from_slice(&fs::read(&pending).unwrap()).unwrap();
+        let pending = f.0.join(".devmeld/state/pending.toml");
+        let journal: Journal = toml::from_slice(&fs::read(&pending).unwrap()).unwrap();
         fs::write(&journal.commit_file, b"{partial").unwrap();
         Plan::recovery(f.0.clone()).unwrap().apply().unwrap();
         assert!(!target.exists());
@@ -587,8 +870,8 @@ mod tests {
                 .apply()
                 .unwrap();
             if stop < 3 {
-                assert!(!f.0.join(".devmeld/context.json").exists());
-                assert!(!f.0.join(".devmeld/state/owned.json").exists());
+                assert!(!f.0.join(".devmeld/context.toml").exists());
+                assert!(!f.0.join(".devmeld/state/owned.toml").exists());
                 crate::test_support::prepare(&f.0, &["init".into()])
                     .unwrap()
                     .apply()
@@ -599,6 +882,115 @@ mod tests {
                     .apply()
                     .unwrap();
                 assert!(f.0.join("AGENTS.md").exists());
+            }
+        }
+    }
+
+    #[test]
+    fn group_documents_create_update_move_remove_recover_at_every_boundary() {
+        for operation in ["create", "update", "move", "remove"] {
+            for stop in 0.. {
+                let f = Fixture::new();
+                let prepare = |args: &[&str]| {
+                    crate::test_support::prepare(
+                        &f.0,
+                        &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+                    )
+                    .unwrap()
+                };
+                fs::write(f.0.join("source.md"), "original source").unwrap();
+                prepare(&["group", "add", "code/http", "--description", "HTTP notes"])
+                    .apply()
+                    .unwrap();
+                if operation != "remove" {
+                    prepare(&["resource", "add", "source.md", "--as", "code/http/client"])
+                        .apply()
+                        .unwrap();
+                }
+                if operation != "create" {
+                    prepare(&["sync"]).apply().unwrap();
+                }
+                match operation {
+                    "update" => prepare(&[
+                        "group",
+                        "update",
+                        "code/http",
+                        "--description",
+                        "Updated HTTP notes",
+                    ])
+                    .apply()
+                    .unwrap(),
+                    "move" => prepare(&["group", "move", "code", "src"]).apply().unwrap(),
+                    "remove" => {
+                        prepare(&["group", "remove", "code/http"]).apply().unwrap();
+                        prepare(&["group", "remove", "code"]).apply().unwrap();
+                    }
+                    _ => (),
+                }
+                let config = observe(&f.0.join(".devmeld/context.toml")).unwrap();
+                let plan = prepare(&["sync"]);
+                let boundaries = plan.changes.len() + 2;
+                if stop > boundaries {
+                    break;
+                }
+                let before: Vec<_> = plan
+                    .changes
+                    .keys()
+                    .chain(std::iter::once(&f.0.join(".devmeld/state/owned.toml")))
+                    .map(|p| (p.clone(), observe(p).unwrap()))
+                    .collect();
+                let failure = plan.apply_until(Some(stop)).unwrap_err().to_string();
+                let expected = if stop == boundaries {
+                    "injected committed-operation interruption"
+                } else {
+                    "injected interruption"
+                };
+                assert!(
+                    failure.contains(expected),
+                    "{operation} at {stop}: {failure}"
+                );
+                prepare(&["recover"]).apply().unwrap();
+                assert_eq!(observe(&f.0.join(".devmeld/context.toml")).unwrap(), config);
+                if stop < boundaries {
+                    for (path, expected) in before {
+                        assert_eq!(
+                            observe(&path).unwrap(),
+                            expected,
+                            "{operation} at {stop}: {}",
+                            path.display()
+                        );
+                    }
+                    prepare(&["sync"]).apply().unwrap();
+                }
+                let old = f.0.join(".devmeld/output/resources/code/code.md");
+                let child = f.0.join(".devmeld/output/resources/code/http/http.md");
+                if matches!(operation, "move" | "remove") {
+                    assert!(!old.exists() && !child.exists());
+                } else {
+                    assert!(old.exists() && child.exists());
+                }
+                if operation == "move" {
+                    let new = f.0.join(".devmeld/output/resources/src/src.md");
+                    assert!(
+                        fs::read_to_string(new)
+                            .unwrap()
+                            .contains("[src/http](http/http.md)")
+                    );
+                    assert!(
+                        f.0.join(".devmeld/output/resources/src/http/http.md")
+                            .exists()
+                    );
+                    assert!(
+                        f.0.join(".devmeld/output/resources/src/http/client.md")
+                            .exists()
+                    );
+                    assert!(
+                        !f.0.join(".devmeld/output/resources/code/http/client.md")
+                            .exists()
+                    );
+                }
+                assert_eq!(fs::read(f.0.join("source.md")).unwrap(), b"original source");
+                assert!(prepare(&["sync"]).is_empty());
             }
         }
     }
@@ -632,7 +1024,7 @@ mod tests {
                         prepare(&["entry", "remove", "AGENTS.md"]).apply().unwrap();
                     }
                 }
-                let config = observe(&f.0.join(".devmeld/context.json")).unwrap();
+                let config = observe(&f.0.join(".devmeld/context.toml")).unwrap();
                 let plan = prepare(&["sync"]);
                 let boundaries = plan.changes.len() + 2; // ownership step + committed record
                 if stop > boundaries {
@@ -641,7 +1033,7 @@ mod tests {
                 let before: Vec<_> = plan
                     .changes
                     .keys()
-                    .chain(std::iter::once(&f.0.join(".devmeld/state/owned.json")))
+                    .chain(std::iter::once(&f.0.join(".devmeld/state/owned.toml")))
                     .map(|p| (p.clone(), observe(p).unwrap()))
                     .collect();
                 assert!(
@@ -649,7 +1041,7 @@ mod tests {
                     "{operation} at {stop}"
                 );
                 prepare(&["recover"]).apply().unwrap();
-                assert_eq!(observe(&f.0.join(".devmeld/context.json")).unwrap(), config);
+                assert_eq!(observe(&f.0.join(".devmeld/context.toml")).unwrap(), config);
                 if stop < boundaries {
                     for (path, expected) in before {
                         assert_eq!(
@@ -699,7 +1091,7 @@ mod tests {
                 .apply();
             assert_eq!(result.is_ok(), committed);
             assert_eq!(fs::read(target).unwrap(), bytes);
-            assert_eq!(f.0.join(".devmeld/state/pending.json").exists(), !committed);
+            assert_eq!(f.0.join(".devmeld/state/pending.toml").exists(), !committed);
         }
     }
 
@@ -719,7 +1111,7 @@ mod tests {
         .apply()
         .unwrap();
         let host = observe(&f.0.join("AGENTS.md")).unwrap();
-        let receipt = observe(&f.0.join(".devmeld/state/owned.json")).unwrap();
+        let receipt = observe(&f.0.join(".devmeld/state/owned.toml")).unwrap();
         let plan = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
         let error = plan.apply_until(Some(usize::MAX)).unwrap_err().to_string();
         assert!(
@@ -730,10 +1122,10 @@ mod tests {
         );
         assert_eq!(observe(&f.0.join("AGENTS.md")).unwrap(), host);
         assert_eq!(
-            observe(&f.0.join(".devmeld/state/owned.json")).unwrap(),
+            observe(&f.0.join(".devmeld/state/owned.toml")).unwrap(),
             receipt
         );
-        assert!(!f.0.join(".devmeld/state/pending.json").exists());
+        assert!(!f.0.join(".devmeld/state/pending.toml").exists());
         let remnants: Vec<_> = fs::read_dir(&f.0)
             .unwrap()
             .map(|e| e.unwrap().path())
@@ -785,8 +1177,8 @@ mod tests {
             let steps = plan.changes.len() + 1;
             assert_eq!(steps, 2);
             assert!(plan.apply_until(Some(steps)).is_err());
-            let pending = f.0.join(".devmeld/state/pending.json");
-            let journal: Journal = serde_json::from_slice(&fs::read(&pending).unwrap()).unwrap();
+            let pending = f.0.join(".devmeld/state/pending.toml");
+            let journal: Journal = toml::from_slice(&fs::read(&pending).unwrap()).unwrap();
             assert!(recover_until(&journal, &pending, Some(stop)).is_err());
             // A stopped restore can leave its verified before-image swap before rename.
             let step = journal.steps.iter().find(|s| s.path == host).unwrap();
@@ -815,8 +1207,8 @@ mod tests {
         .unwrap();
         let plan = crate::test_support::prepare(&f.0, &["sync".into()]).unwrap();
         assert!(plan.apply_until(Some(0)).is_err());
-        let pending = f.0.join(".devmeld/state/pending.json");
-        let journal: Journal = serde_json::from_slice(&fs::read(&pending).unwrap()).unwrap();
+        let pending = f.0.join(".devmeld/state/pending.toml");
+        let journal: Journal = toml::from_slice(&fs::read(&pending).unwrap()).unwrap();
         let step = journal
             .steps
             .iter()
@@ -882,6 +1274,75 @@ struct Observed {
     #[serde(with = "text_bytes")]
     bytes: Vec<u8>,
     identity: String,
+}
+
+// Permanent ownership needs change evidence, not a second copy of every file.
+// Full Observed images remain in preview/recovery, where their bytes are needed.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(try_from = "FingerprintRecord")]
+struct FileFingerprint {
+    sha256: String,
+    identity: String,
+    #[serde(skip)]
+    legacy_body: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+enum FingerprintRecord {
+    Digest { sha256: String, identity: String },
+    Full(Observed),
+}
+
+impl TryFrom<FingerprintRecord> for FileFingerprint {
+    type Error = &'static str;
+
+    fn try_from(record: FingerprintRecord) -> std::result::Result<Self, Self::Error> {
+        match record {
+            FingerprintRecord::Digest { sha256, identity } => {
+                if sha256.len() != 64
+                    || !sha256
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                {
+                    return Err("expected a lowercase 64-digit SHA-256 fingerprint");
+                }
+                Ok(Self {
+                    sha256,
+                    identity,
+                    legacy_body: false,
+                })
+            }
+            FingerprintRecord::Full(observed) => {
+                // Derive from the former receipt, never the current target:
+                // conversion must not bless an external edit or replacement.
+                let mut fingerprint = Self::from_observed(&observed);
+                fingerprint.legacy_body = true;
+                Ok(fingerprint)
+            }
+        }
+    }
+}
+
+impl FileFingerprint {
+    fn digest(bytes: &[u8]) -> String {
+        Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
+
+    fn from_observed(observed: &Observed) -> Self {
+        Self {
+            sha256: Self::digest(&observed.bytes),
+            identity: observed.identity.clone(),
+            legacy_body: false,
+        }
+    }
+
+    fn matches(&self, observed: &Observed) -> bool {
+        self.identity == observed.identity && self.sha256 == Self::digest(&observed.bytes)
+    }
 }
 
 // Managed files are UTF-8 text, not JSON arrays of byte numbers.
@@ -984,7 +1445,7 @@ fn unique_surfaces<'de, D: serde::Deserializer<'de>>(
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Claim {
     WholeFile {
-        observed: Observed,
+        observed: FileFingerprint,
     },
     InstructionEntry {
         #[serde(with = "text_bytes")]
@@ -1012,11 +1473,11 @@ struct Mutation {
 }
 
 fn current_format(bytes: &[u8], path: &Path) -> Result<()> {
-    let envelope: serde_json::Value =
-        serde_json::from_slice(bytes).map_err(|e| error(format!("{}: {e}", path.display())))?;
+    let envelope: toml::Value =
+        toml::from_slice(bytes).map_err(|e| error(format!("{}: {e}", path.display())))?;
     if envelope
         .get("format_version")
-        .and_then(serde_json::Value::as_u64)
+        .and_then(toml::Value::as_integer)
         != Some(0)
     {
         return Err(error(format!(
@@ -1088,20 +1549,22 @@ pub struct Plan {
     receipt: Receipt,
     sources: BTreeSet<PathBuf>,
     recovery: Option<Journal>,
+    receipt_refresh: Option<(PathBuf, Vec<u8>)>,
 }
 impl Plan {
     pub(crate) fn new(root: PathBuf) -> Result<Self> {
         let mut plan = Self::empty(root);
+        plan.reject_legacy_records()?;
         if plan
-            .capture(&plan.root.join(".devmeld/state/pending.json"))?
+            .capture(&plan.root.join(".devmeld/state/pending.toml"))?
             .is_some()
         {
             return Err(error("pending recovery; run recover before new operations"));
         }
-        let state = plan.root.join(".devmeld/state/owned.json");
+        let state = plan.root.join(".devmeld/state/owned.toml");
         if let Some(bytes) = plan.capture(&state)? {
             current_format(&bytes, &state)?;
-            plan.receipt = serde_json::from_slice(&bytes)?;
+            plan.receipt = toml::from_slice(&bytes)?;
             if !same_path(&plan.receipt.context_root, &plan.root) {
                 return Err(error(format!(
                     "ownership context does not match: {}",
@@ -1125,7 +1588,7 @@ impl Plan {
                     )));
                 }
                 if let Claim::InstructionEntry { insertion } = claim {
-                    if same_path(path, &plan.root.join(".devmeld/context.json")) {
+                    if same_path(path, &plan.root.join(".devmeld/context.toml")) {
                         return Err(error("configuration cannot have insertion ownership"));
                     }
                     crate::instructions::validate_evidence(insertion)
@@ -1145,14 +1608,16 @@ impl Plan {
             changes: BTreeMap::new(),
             sources: BTreeSet::new(),
             recovery: None,
+            receipt_refresh: None,
         }
     }
     pub(crate) fn recovery(root: PathBuf) -> Result<Self> {
         let mut plan = Self::empty(root);
-        let path = plan.root.join(".devmeld/state/pending.json");
+        plan.reject_legacy_records()?;
+        let path = plan.root.join(".devmeld/state/pending.toml");
         if let Some(bytes) = plan.capture(&path)? {
             current_format(&bytes, &path)?;
-            let journal: Journal = serde_json::from_slice(&bytes)?;
+            let journal: Journal = toml::from_slice(&bytes)?;
             if !same_path(&journal.context_root, &plan.root) {
                 return Err(error(format!(
                     "recovery context does not match: {}",
@@ -1168,6 +1633,25 @@ impl Plan {
     pub(crate) fn root(&self) -> &Path {
         &self.root
     }
+
+    fn reject_legacy_records(&mut self) -> Result<()> {
+        // Capture absence as well: a JSON writer appearing after preview must
+        // invalidate application instead of creating two competing record sets.
+        for relative in [
+            ".devmeld/context.json",
+            ".devmeld/state/owned.json",
+            ".devmeld/state/pending.json",
+        ] {
+            let path = self.root.join(relative);
+            if self.capture(&path)?.is_some() {
+                return Err(error(format!(
+                    "legacy JSON context: {}; records left intact. This build uses TOML; use the previous build for existing records and pending recovery, or initialize a separate context. Renaming files is not a migration",
+                    path.display()
+                )));
+            }
+        }
+        Ok(())
+    }
     /// The selected storage boundary, shown before any requested changes.
     pub fn context_root(&self) -> &Path {
         &self.root
@@ -1179,12 +1663,14 @@ impl Plan {
         self.receipt.surfaces.keys()
     }
     pub(crate) fn require_owned_config(&self) -> Result<()> {
-        let path = self.root.join(".devmeld/context.json");
+        let path = self.root.join(".devmeld/context.toml");
         match (
             self.receipt.surfaces.get(&path),
             self.basis.get(&path).and_then(Option::as_ref),
         ) {
-            (Some(Claim::WholeFile { observed }), Some(current)) if observed == current => Ok(()),
+            (Some(Claim::WholeFile { observed }), Some(current)) if observed.matches(current) => {
+                Ok(())
+            }
             _ => Err(error(format!(
                 "missing or mismatched configuration ownership: {}; records left intact",
                 path.display()
@@ -1211,8 +1697,8 @@ impl Plan {
         let mut paths: BTreeSet<_> = desired
             .chain(self.receipt.surfaces.keys().cloned())
             .collect();
-        paths.insert(self.root.join(".devmeld/context.json"));
-        paths.insert(self.root.join(".devmeld/state/owned.json"));
+        paths.insert(self.root.join(".devmeld/context.toml"));
+        paths.insert(self.root.join(".devmeld/state/owned.toml"));
         // The cooperative lock is an identity-only exclusion, not a content input:
         // Windows forbids reopening its bytes while our own exclusive lock is held.
         let lock_path = self.root.join(".devmeld/state/lock");
@@ -1254,7 +1740,7 @@ impl Plan {
     }
     pub(crate) fn source(&mut self, path: &Path) -> Result<Vec<u8>> {
         if overlaps(path, &self.root.join(".devmeld/state"))
-            || same_path(path, &self.root.join(".devmeld/context.json"))
+            || same_path(path, &self.root.join(".devmeld/context.toml"))
         {
             return Err(error("source overlaps reserved maintenance data"));
         }
@@ -1263,8 +1749,8 @@ impl Plan {
             .capture(path)?
             .ok_or_else(|| error(format!("missing source: {}", path.display())))?;
         for reserved in [
-            self.root.join(".devmeld/context.json"),
-            self.root.join(".devmeld/state/owned.json"),
+            self.root.join(".devmeld/context.toml"),
+            self.root.join(".devmeld/state/owned.toml"),
         ] {
             if let Some(record) = observe(&reserved)? {
                 if self
@@ -1280,8 +1766,8 @@ impl Plan {
         Ok(bytes)
     }
     pub(crate) fn capture(&mut self, path: &Path) -> Result<Option<Vec<u8>>> {
-        let internal_record = path == self.root.join(".devmeld/state/owned.json")
-            || path == self.root.join(".devmeld/state/pending.json");
+        let internal_record = path == self.root.join(".devmeld/state/owned.toml")
+            || path == self.root.join(".devmeld/state/pending.toml");
         let observed = observe_bounded(
             path,
             if internal_record {
@@ -1334,7 +1820,11 @@ impl Plan {
             before.as_deref(),
             after.as_deref(),
             owned.is_some(),
-            owned == current,
+            match (owned, current) {
+                (Some(recorded), Some(current)) => recorded.matches(current),
+                (None, None) => true,
+                _ => false,
+            },
             overlaps,
         )
         .map_err(|e| error(format!("{e}: {}", path.display())))?;
@@ -1364,6 +1854,10 @@ impl Plan {
                 .filter_map(|m| m.after.as_ref())
                 .map(Vec::len)
                 .sum::<usize>()
+            + self
+                .receipt_refresh
+                .as_ref()
+                .map_or(0, |(_, bytes)| bytes.len())
             > PLAN_LIMIT
         {
             return Err(error("operation exceeds 128 MiB"));
@@ -1438,7 +1932,25 @@ impl Plan {
         }
     }
     pub fn is_empty(&self) -> bool {
-        self.changes.is_empty() && self.recovery.is_none()
+        self.changes.is_empty() && self.recovery.is_none() && self.receipt_refresh.is_none()
+    }
+
+    pub(crate) fn compact_receipt(&mut self) -> Result<()> {
+        // A real mutation already writes the compact receipt as its final step.
+        // Otherwise explicit sync exposes this one-time maintenance write in preview.
+        if self.changes.is_empty()
+            && self
+                .receipt
+                .surfaces
+                .values()
+                .any(|claim| matches!(claim, Claim::WholeFile { observed } if observed.legacy_body))
+        {
+            self.receipt_refresh = Some((
+                self.root.join(".devmeld/state/owned.toml"),
+                super::records::encode(&self.receipt)?,
+            ));
+        }
+        self.check_size()
     }
     /// Read-only change data. Applying consumes the original plan and rechecks its captured basis.
     pub fn preview(&self) -> PlanPreview<'_> {
@@ -1458,7 +1970,7 @@ impl Plan {
         PlanPreview::Changes {
             configuration: self
                 .changes
-                .contains_key(&self.root.join(".devmeld/context.json")),
+                .contains_key(&self.root.join(".devmeld/context.toml")),
             targets: self
                 .changes
                 .iter()
@@ -1490,6 +2002,18 @@ impl Plan {
                         entry,
                     }
                 })
+                .chain(self.receipt_refresh.iter().map(|(path, bytes)| {
+                    TargetChange {
+                        path,
+                        before: self
+                            .basis
+                            .get(path)
+                            .and_then(Option::as_ref)
+                            .map(|o| o.bytes.as_slice()),
+                        after: Some(bytes.as_slice()),
+                        entry: None,
+                    }
+                }))
                 .collect(),
         }
     }
@@ -1510,7 +2034,7 @@ impl Plan {
         Ok(())
     }
     pub fn apply(self) -> Result<()> {
-        let pending = self.root.join(".devmeld/state/pending.json");
+        let pending = self.root.join(".devmeld/state/pending.toml");
         self.apply_until(None).map_err(|cause| {
             if pending.exists() {
                 error(format!(
@@ -1552,7 +2076,7 @@ impl Plan {
         lock.try_lock()
             .map_err(|e| error(format!("context is locked by another writer: {e}")))?;
         self.recheck()?;
-        let journal_path = state_dir.join("pending.json");
+        let journal_path = state_dir.join("pending.toml");
         if let Some(journal) = self.recovery.take() {
             recover(&journal, &journal_path)?;
             return Ok(());
@@ -1594,8 +2118,9 @@ impl Plan {
                 OwnershipEffect::WholeFile => {
                     let observed = step
                         .after
-                        .clone()
+                        .as_ref()
                         .ok_or_else(|| error("whole-file claim requires a present target"))?;
+                    let observed = FileFingerprint::from_observed(observed);
                     self.receipt
                         .surfaces
                         .insert(path.clone(), Claim::WholeFile { observed });
@@ -1614,8 +2139,8 @@ impl Plan {
             }
             journal.steps.push(step);
         }
-        let receipt_path = state_dir.join("owned.json");
-        let receipt_bytes = super::declarations::encode(&self.receipt)?;
+        let receipt_path = state_dir.join("owned.toml");
+        let receipt_bytes = super::records::encode(&self.receipt)?;
         let receipt_step = stage_step(
             &receipt_path,
             self.basis.get(&receipt_path).cloned().flatten(),
@@ -1624,7 +2149,7 @@ impl Plan {
             journal.steps.len(),
         )?;
         journal.steps.push(receipt_step);
-        let journal_bytes = super::declarations::encode(&journal)?;
+        let journal_bytes = super::records::encode(&journal)?;
         if journal_bytes.len() > PLAN_LIMIT {
             return Err(error(
                 "recovery journal exceeds 128 MiB; no target changes applied",
@@ -1662,7 +2187,7 @@ impl Plan {
         write_owned_record(
             &journal.commit_file,
             &journal.commit_identity,
-            &super::declarations::encode(&journal)?,
+            &super::records::encode(&journal)?,
         )?;
         fs::rename(&journal.commit_file, &journal_path)?;
         if stop_after == Some(journal.steps.len() + 1) {

@@ -1,9 +1,12 @@
 # 从团队资料到 Agent 可读上下文：输入与产物样例
 
 - 状态：首批使用形态已进入 [003 实现](../specs/003-durable-context/plan.md)；本文保留为说明样张。
-- 依据：[Product](product.md)。这里的文件名、JSON 字段与交付范围是设计提案，不是已发布契约。
+- 依据：[Product](product.md)。本文保留早期 JSON 设计推演，不是当前使用手册。
+  2026-09-10 起受管配置与维护记录改为 TOML；当前格式见
+  [005 契约](../specs/005-context-cli/contracts/cli.md#current-persisted-representation-2026-09-10)，
+  当前命令见 [README](../README.zh-CN.md)。原始 JSON 资源描述与 Schema 不变。
 - 所有业务资料、地址和路径均为虚构样例。代码块是输入与预期输出的样张，不是生成器运行结果。
-- 本文中的样张不是执行结果；实际可运行样例见 [examples](../examples/README.md)，具体字段以 003 契约为准（资源页使用 `r-<id>.md`）。
+- 本文中的样张不是执行结果；实际可运行样例见 [examples](../examples/README.md)。当前格式以 [005 契约](../specs/005-context-cli/contracts/cli.md) 为准，资源页使用 `resources/<逻辑地址>.md`；下文保留早期设计样张。
 
 ## 1. 先看到使用效果
 
